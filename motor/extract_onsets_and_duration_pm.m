@@ -30,21 +30,21 @@ for n = 1:length(names)
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Catch') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
                 durations{n} = MeanAcrossConds;
         case 'Ext'
-                RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))';
+                %RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
                 durations{n} = MeanAcrossConds;
 %                  pmod(2).name{1} = 'Ext';
 %                  pmod(2).param{1} = (RT - mean(RT)) / std(RT);
 %                  pmod(2).poly{1} = 1;
         case 'Int2'
-                RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))';
+                %RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
                 durations{n} = MeanAcrossConds;
 %                  pmod(3).name{1} = 'Int2';
 %                  pmod(3).param{1} = (RT - mean(RT)) / std(RT);
 %                  pmod(3).poly{1} = 1;
         case 'Int3'
-                RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))';
+                %RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
                 durations{n} = MeanAcrossConds;
 %                  pmod(4).name{1} = 'Int3';
