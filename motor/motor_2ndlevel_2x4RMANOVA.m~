@@ -23,7 +23,6 @@ spm('defaults', 'FMRI');
 
 FDThresh = 0.4;
 ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_Main';
-% ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_BRCtrl';
 PITBIDSDir = '/project/3024006.01/bids';
 POMBIDSDir = '/project/3022026.01/bids';
 if Offstate
@@ -107,7 +106,7 @@ CorrMat = zeros(16);
     
 for n = 1:numel(Sub)
     SPMmat = load(fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', 'SPM.mat'));
-    LastReg = find(contains(SPMmat.SPM.xX.name, 'Sn(1) Int3*bf(1)'));
+    LastReg = find(contains(SPMmat.SPM.xX.name, 'Sn(1) ButtonPress*bf(2)'));
     CovMat = cov(SPMmat.SPM.xX.X(:,1:LastReg));
     CorrMat = CorrMat + corrcov(CovMat);
     
