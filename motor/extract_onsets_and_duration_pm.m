@@ -63,7 +63,7 @@ if sum(Incorrect) >0
     index = length(names) + 1;
     names{index} = 'Incorrect';
     onsets{index}    = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,9}, 'Incorrect')))' - TR/2;
-    durations{index} = 0;
+    durations{index} = MeanAcrossConds;
 end
 
 FalseAlarms = sum(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,9}, 'False Alarm')));
@@ -71,7 +71,7 @@ if sum(FalseAlarms) >0
     index = length(names) + 1;
     names{index} = 'FalseAlarm';
     onsets{index}    = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Catch') .* strcmp(Trials{1,9}, 'False Alarm')))' - TR/2;
-    durations{index} = 0;
+    durations{index} = MeanAcrossConds;
 end
 
 % Save the results to disk for SPM
