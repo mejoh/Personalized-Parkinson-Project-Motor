@@ -22,7 +22,7 @@ fclose(fID);
 names	  = {'Catch' 'Ext' 'Int2' 'Int3'};% 'ButtonPress'};					% Regressors of the SPM model (Int2 & Int3 can be combined with a SPM contrast)
 onsets	  = cell(size(names));
 durations = cell(size(names));
-pmod      = struct('name',{''}, 'param', {}, 'poly', {});   % Parametric modulation: Task regressors are modulated by mean centered RTs
+%pmod      = struct('name',{''}, 'param', {}, 'poly', {});   % Parametric modulation: Task regressors are modulated by mean centered RTs
 MeanAcrossConds = mean(Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* ismember(Trials{1,5}, {'Ext', 'Int2', 'Int3'}) .* strcmp(Trials{1,9}, 'Hit'))));
 for n = 1:length(names)
     switch names{n}
@@ -33,23 +33,23 @@ for n = 1:length(names)
                 RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
                 durations{n} = MeanAcrossConds;
-                 pmod(2).name{1} = 'Ext';
-                 pmod(2).param{1} = (RT - mean(RT)) / std(RT);
-                 pmod(2).poly{1} = 1;
+%                  pmod(2).name{1} = 'Ext';
+%                  pmod(2).param{1} = (RT - mean(RT)) / std(RT);
+%                  pmod(2).poly{1} = 1;
         case 'Int2'
                 RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
                 durations{n} = MeanAcrossConds;
-                 pmod(3).name{1} = 'Int2';
-                 pmod(3).param{1} = (RT - mean(RT)) / std(RT);
-                 pmod(3).poly{1} = 1;
+%                  pmod(3).name{1} = 'Int2';
+%                  pmod(3).param{1} = (RT - mean(RT)) / std(RT);
+%                  pmod(3).poly{1} = 1;
         case 'Int3'
                 RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
                 durations{n} = MeanAcrossConds;
-                 pmod(4).name{1} = 'Int3';
-                 pmod(4).param{1} = (RT - mean(RT)) / std(RT);
-                 pmod(4).poly{1} = 1;
+%                  pmod(4).name{1} = 'Int3';
+%                  pmod(4).param{1} = (RT - mean(RT)) / std(RT);
+%                  pmod(4).poly{1} = 1;
 %         case 'ButtonPress'
 %                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,9}, 'Hit') .* ~strcmp(Trials{1,5}, 'Catch')))' - TR/2;
 %                 durations{n} = 0;   % Does not makes sense to have PMOD here
@@ -76,4 +76,4 @@ end
 
 % Save the results to disk for SPM
 disp(['Saving stimulus / response events in: ' MatFile])
-save(MatFile, 'names', 'onsets', 'durations', 'pmod')
+save(MatFile, 'names', 'onsets', 'durations')%, 'pmod')
