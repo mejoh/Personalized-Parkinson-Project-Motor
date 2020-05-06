@@ -23,34 +23,30 @@ names	  = {'Catch' 'Ext' 'Int2' 'Int3'};% 'ButtonPress'};					% Regressors of th
 onsets	  = cell(size(names));
 durations = cell(size(names));
 pmod      = struct('name',{''}, 'param', {}, 'poly', {});   % Parametric modulation: Task regressors are modulated by mean centered RTs
-%MeanAcrossConds = mean(Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* ismember(Trials{1,5}, {'Ext', 'Int2', 'Int3'}) .* strcmp(Trials{1,9}, 'Hit'))));
+MeanAcrossConds = mean(Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* ismember(Trials{1,5}, {'Ext', 'Int2', 'Int3'}) .* strcmp(Trials{1,9}, 'Hit'))));
 for n = 1:length(names)
     switch names{n}
         case 'Catch'
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Catch') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
-                durations{n} = 0; 
-                %durations{n} = MeanAcrossConds;
+                durations{n} = MeanAcrossConds;
         case 'Ext'
                 RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
-                durations{n} = 0;
-                %durations{n} = MeanAcrossConds;
+                durations{n} = MeanAcrossConds;
                  pmod(2).name{1} = 'Ext';
                  pmod(2).param{1} = (RT - mean(RT)) / std(RT);
                  pmod(2).poly{1} = 1;
         case 'Int2'
                 RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
-                durations{n} = 0;
-                %durations{n} = MeanAcrossConds;
+                durations{n} = MeanAcrossConds;
                  pmod(3).name{1} = 'Int2';
                  pmod(3).param{1} = (RT - mean(RT)) / std(RT);
                  pmod(3).poly{1} = 1;
         case 'Int3'
                 RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))';
                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))' - TR/2;
-                durations{n} = 0;
-                %durations{n} = MeanAcrossConds;
+                durations{n} = MeanAcrossConds;
                  pmod(4).name{1} = 'Int3';
                  pmod(4).param{1} = (RT - mean(RT)) / std(RT);
                  pmod(4).poly{1} = 1;
@@ -64,26 +60,18 @@ end
 
 Incorrect = sum(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,9}, 'Incorrect')));
 if sum(Incorrect) >0
-    %RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,9}, 'Incorrect')))';
     index = length(names) + 1;
     names{index} = 'Incorrect';
     onsets{index}    = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,9}, 'Incorrect')))' - TR/2;
     durations{index} = 0;
-    %pmod(index).name{1} = 'Incorrect';
-    %pmod(index).param{1} = (RT - mean(RT)) / std(RT);
-    %pmod(index).poly{1} = 1;
 end
 
 FalseAlarms = sum(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,9}, 'False Alarm')));
 if sum(FalseAlarms) >0
-    %RT = Trials{1,6}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,5}, 'Catch') .* strcmp(Trials{1,9}, 'False Alarm')))';
     index = length(names) + 1;
     names{index} = 'FalseAlarm';
     onsets{index}    = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Catch') .* strcmp(Trials{1,9}, 'False Alarm')))' - TR/2;
     durations{index} = 0;
-    %pmod(index).name{1} = 'FalseAlarm';
-    %pmod(index).param{1} = (RT - mean(RT)) / std(RT);
-    %pmod(index).poly{1} = 1;
 end
 
 % Save the results to disk for SPM
