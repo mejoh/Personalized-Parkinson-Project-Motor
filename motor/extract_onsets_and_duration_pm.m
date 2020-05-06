@@ -4,6 +4,8 @@ function MatFile = extract_onsets_and_duration_pm(EventsTsvFile, MatFile, TR)
 % Note that onsets are shifted back 1/TR to account for slice time
 % correction
 
+% TEST
+
 %%% Testing
 %EventsTsvFile = '/project/3024006.01/bids/sub-PIT1MR5637672/func/sub-PIT1MR5637672_task-motor_events.tsv';
 %MatFile = spm_file(EventsTsvFile, 'path', '/project/3024006.01/users/marjoh/test/extract_onsets_and_duration', 'ext', 'mat');
