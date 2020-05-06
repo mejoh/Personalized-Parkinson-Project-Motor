@@ -19,7 +19,6 @@ end
 % fMRI model specification: Multiple conditions - cfg_files
 % fMRI model specification: Multiple regressors - cfg_files
 
-addpath('/home/sysneu/marjoh/scripts/POM_PIT');
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 

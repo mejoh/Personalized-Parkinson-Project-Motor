@@ -1,6 +1,6 @@
 function MatFile = extract_onsets_and_duration_pm(EventsTsvFile, MatFile, TR)
 
-% Extracts names, onsets, durations, and pmod
+% Extracts names, onsets, durations, and pmod (optional)
 % Note that onsets are shifted back 1/TR to account for slice time
 % correction
 
