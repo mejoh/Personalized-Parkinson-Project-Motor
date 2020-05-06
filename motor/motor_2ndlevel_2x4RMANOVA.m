@@ -22,11 +22,6 @@ spm('defaults', 'FMRI');
 %% Directories
 
 FDThresh = 0.4;
-%ANALYSESDir = '/project/3022026.01/analyses/motor/StdPMOD_Dur0_ReAROMA__Cos_8aCoCo';
-ANALYSESDir = '/project/3022026.01/analyses/motor/StdPMOD_Dur0_ReAROMA_BPreg_Cos_8aCoCo';
-%ANALYSESDir = '/project/3022026.01/analyses/motor/NoStdPMOD_Dur0_ReAROMA_Cos_8aCoCo';
-% ANALYSESDir = '/project/3022026.01/analyses/motor/NoStdPMOD_Dur0_ReAROMA_BPreg_Cos_8aCoCo';
-% ANALYSESDir = '/project/3022026.01/analyses/motor/StdPMOD_Dur0_ReAROMA_Cos_8aCoCo_TestNewEvents';
 ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_Main';
 PITBIDSDir = '/project/3024006.01/bids';
 POMBIDSDir = '/project/3022026.01/bids';
