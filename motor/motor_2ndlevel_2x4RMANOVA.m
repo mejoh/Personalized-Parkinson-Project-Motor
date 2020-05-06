@@ -1,8 +1,6 @@
 % Move contrast images from PIT and POM to a single location within the POM
 % project folder and label them according to group.
 
-% ADDING LINE HERE
-
 function motor_2ndlevel_2x4RMANOVA(Swap,Offstate)
 %% Swap
 
