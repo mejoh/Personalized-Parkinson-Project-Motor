@@ -35,23 +35,8 @@ fprintf('Processing data in project: %s\n', Project)
 Root = strcat('/project/', Project);
 BIDSDir  = fullfile(Root, 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/PMOD_Dur0');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/NoPMOD_Dur0');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/PMOD_DurAvg_GS');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/NoPMOD_DurAvg');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/PMOD_DurAvg_ReAROMA');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/PMOD_DurAvg_NoTimeDer');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/NoPMOD_Dur0_ReAROMA_BPreg');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/PMOD_Dur0_ReAROMA');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/PMOD_Dur0_ReAROMA_BPreg');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/StdPMOD_Dur0_ReAROMA_Cos_8aCoCo');
-% ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/StdPMOD_Dur0_ReAROMA_Cos_8aCoCo_TestNewEvents');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/StdPMOD_Dur0_ReAROMA_BPreg_Cos_8aCoCo');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/NoStdPMOD_Dur0_ReAROMA_BPreg_Cos_8aCoCo');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/NoStdPMOD_Dur0_ReAROMA_Cos_8aCoCo');
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/NoStdPMOD_DurAvg_ReAROMA_Cos_8aCoCo');
 ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/fMRI_EventRelated_Main');  %<< DurAvg, ReAROMA, no time der, no PMOD, no BPreg
+%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/fMRI_EventRelated_BPCtrl');  %<< DurAvg, ReAROMA, BPreg, no time der, no PMOD
 BIDS     = spm_BIDS(BIDSDir);
 Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor');
 fprintf('Found %i subjects with task=motor\n', numel(Sub))
@@ -98,14 +83,6 @@ for n = 1:numel(Sub)
 		Sel(n) = false;
 	end
 end
-
-% Skip subjects without AROMA reclassification
-%for n = 1:numel(Sub)
-%    if ~exist(fullfile(SPMder, ['sub-' Sub{n}], 'motor', 'AROMA_reclass'),'dir')
-%		fprintf('Skipping sub-%s without AROMA reclassification\n', Sub{n})
-%		Sel(n) = false;
-%    end
-%end
 
 % Skip already processed jobs
 if ~Force
@@ -202,8 +179,3 @@ function NrPulses = getnrpulses(EventsJsonFile)
 Json = fileread(EventsJsonFile);
 DecodedJson = jsondecode(Json);
 NrPulses = DecodedJson.NumRecordedPulses;
-
-% fID = fopen(EventsJsonFile, 'r');
-% Events = textscan(fID, '%*f%*f%*d%s%*s%*f%*s%*s%*s%*s%*s%*s', 'HeaderLines', 1, 'Delimiter', '\t', 'TreatAsEmpty', 'n/a');
-% fclose(fID);
-% NrPulses = numel(Events{1}(strcmp(Events{1}, 'Pulse')));
