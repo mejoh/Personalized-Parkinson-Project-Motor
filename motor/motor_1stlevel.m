@@ -1,7 +1,5 @@
 function Inputs = motor_1stlevel(Force, ParkinsonOpMaat, Subset)
 
-% Add comment here
-
 % No arguments: Runs 1st-level for PIT participants who have not been processed
 % Force: Reruns 1st-levels
 % POM: Leave empty to process PIT, fill to process POM
