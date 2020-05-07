@@ -139,7 +139,7 @@ for c = 1:numel(ConList)
             OutputConFile = fullfile(ConDir, ['Hc_' Sub{n} '_' ConList{c} '.nii']);
         end
         copyfile(InputConFile, OutputConFile)
-        if strcmp(RespondingHand(n), 'Right') && Swap
+        if strcmp(RespondingHand(n), 'Left') && Swap
             fprintf('LR-swapping: %s\n', OutputConFile)
 			Hdr		  = spm_vol(OutputConFile);
 			Vol		  = spm_read_vols(Hdr);
