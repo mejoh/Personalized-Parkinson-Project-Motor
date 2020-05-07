@@ -154,8 +154,6 @@ for c = 1:numel(ConList)
 end
 
 %% Assemble inputs
-FD_hc = zeros(size(Sub));
-FD_pd = zeros(size(Sub));
 Inputs = cell(11,1);
 if Offstate
     Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff x ExtInt2Int3Catch')};
@@ -193,30 +191,6 @@ else
     FD_pd = FD(find(ismember(Group, 'PD-ON')));
 end
 Inputs{10,1} = [FD_hc FD_hc FD_hc FD_hc FD_pd FD_pd FD_pd FD_pd]';
-
-%RespondingHand_hc = RespondingHand(find(ismember(Group, 'Healthy')));
-%if Offstate
-%    RespondingHand_pd = RespondingHand(find(ismember(Group, 'PD-OFF')));
-%else
-%    RespondingHand_pd = RespondingHand(find(ismember(Group, 'PD-ON')));
-%end
-%for n = 1:numel(RespondingHand_hc)
-%    if strcmp(RespondingHand_hc(n), 'right')
-%        RespondingHand_hc(n) = 1;
-%    else
-%        RespondingHand_hc(n) = 0;
-%    end
-%end
-%for n = 1:numel(RespondingHand_pd)
-%    if strcmp(RespondingHand_pd(n), 'right')
-%        RespondingHand_pd(n) = 1;
-%    else
-%        RespondingHand_pd(n) = 0;
-%    end
-%end
-%RespondingHand_hc2 = str2double(RespondingHand_hc);
-%RespondingHand_pd2 = str2double(RespondingHand_pd);
-%Inputs{11,1} = [RespondingHand_hc2 RespondingHand_hc2 RespondingHand_hc2 RespondingHand_hc2 RespondingHand_pd2 RespondingHand_pd2 RespondingHand_pd2 RespondingHand_pd2]';
 
 %% Run
 
