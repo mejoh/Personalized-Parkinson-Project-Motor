@@ -103,7 +103,7 @@ FD = FD(SubSel);
 
 %% Examine correlation structure between relevant regressors
 
-CorrMat = zeros(16);
+CorrMat = zeros(4);
     
 for n = 1:numel(Sub)
     SPMmat = load(fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', 'SPM.mat'));
