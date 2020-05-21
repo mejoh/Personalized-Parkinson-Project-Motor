@@ -26,6 +26,36 @@ BIDS     = spm_BIDS(BIDSDir);
 Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run);
 NSub     = numel(Sub);
 
+fprintf('Project = %s\n', project)
+fprintf('%i subjects have run %s data. Checking for missing files...\n', NSub, Run)
+
+% Exclude participants with missing log files
+Sel = true(size(Sub));
+for n = 1:numel(Sub)
+    
+    if strcmp(project, '3024006.01')
+        SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
+        MotorBehavDir = dir(SearchPath);
+        MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
+    elseif strcmp(project, '3022026.01')
+        MotorBehavDir = fullfile(Root, 'DataTask');
+    end
+    
+    CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '_logfile\.txt$']);
+	DefaultLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '-MotorTaskEv_.*\.log$']);
+    if size(CustomLog,1) ~= 1 || size(DefaultLog,1) ~= 1
+		fprintf('Skipping sub-%s with %i custom log and %i default log', Sub{n}, size(CustomLog,1), size(DefaultLog,1))
+		Sel(n) = false;
+    end
+    
+end
+Sub = Sub(Sel);
+NSub = numel(Sub);
+
+fprintf('%i subjects been excluded\n', NSub - length(Sel))
+fprintf('%i remaining subjects have custom and default log files for run %s data\n', NSub, Run)
+
+
 CustomLogs = cell(NSub,1);
 DefaultLogs = cell(NSub,1);
 OutputFiles = cell(NSub,1);
@@ -46,7 +76,7 @@ for n = 1:NSub
     
     CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '_logfile\.txt$']);
 	DefaultLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '-MotorTaskEv_.*\.log$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run '_bold_events.tsv']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run '_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
     
     if contains(DefaultLogs{n}, 'left')
