@@ -15,3 +15,4 @@ motor/interpol/interpol/interpol.m
 motor/interpol/interpol/interpol_convert_IDF_TXT.m
 motor/interpol/interpol/interpol_defaults.m
 motor/interpol/interpol/interpol_interpolate.m
+*.m~

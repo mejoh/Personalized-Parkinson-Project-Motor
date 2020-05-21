@@ -1,4 +1,4 @@
-function WriteEventsTsv3(project)
+function WriteEventsTsv(project)
 %% Write bids-compatible events.tsv file from motor task log files
 %%% Reference for OutputFile
 
@@ -32,11 +32,16 @@ JsonOutputFiles = cell(NSub,1);
 Group = cell(NSub,1);
 RespondingHand = cell(NSub,1);
 NPulses = cell(NSub,1);
+ExtCorrResp = cell(NSub,1);
 for n = 1:NSub
     
-    SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
-    MotorBehavDir = dir(SearchPath);
-    MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
+    if strcmp(project, '3024006.01')
+        SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
+        MotorBehavDir = dir(SearchPath);
+        MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
+    elseif strcmp(project, '3022026.01')
+        MotorBehavDir = fullfile(Root, 'DataTask');
+    end
     
     CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask.*_logfile\.txt$']);
 	DefaultLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask.*-MotorTaskEv_.*\.log$']);
@@ -50,11 +55,11 @@ for n = 1:NSub
     end
         
     if strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
-        Group{n} = 'PD-OFF';
+        Group{n} = 'PDoff';
     elseif strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
         Group{n} = 'Healthy';
     else
-        Group{n} = 'PD-ON';
+        Group{n} = 'PDon';
     end
     
 end
@@ -86,6 +91,8 @@ for a = 1:NSub
     fclose(fileID);
     NTrials = numel(Trials{1});                         % Number of trials
     
+    ExtCorrResp{a} = length(Trials{1,1}(logical(strcmp(Trials{1,2}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))) / 60;
+    
     fixation.onsets = Trials{3} * TimeScaleCust - T0;       % Onsets
     cue.onsets = Trials{4} * TimeScaleCust - T0;
     response.onsets = Trials{5} * TimeScaleCust - T0;
@@ -116,7 +123,11 @@ for a = 1:NSub
     rest.durations = {'20', '20'};
     
     %% Write json file
-    Json = struct('Group', Group{a}, 'RespondingHand', RespondingHand{a}, 'NumRecordedPulses', NPulses{a});
+    Json = struct('Group', Group{a}, 'RespondingHand', RespondingHand{a}, 'NPulses', NPulses{a}, 'ExtCorrResp', ExtCorrResp{a});
+    Json.Group = struct('Value', Group{a}, 'LongName', 'Group', 'Description', 'Denotes the grouping of a participant', 'Levels', struct('PDoff', 'Unmedicated patient', 'PDon', 'Medicated patient', 'Healthy', 'Healthy control'));
+    Json.RespondingHand = struct('Value', RespondingHand{a}, 'LongName', 'Responding hand', 'Description', 'Hand used for pressing response button', 'Levels', struct('Left', 'Left hand', 'Right', 'Right hand'));
+    Json.NPulses = struct('Value', NPulses{a}, 'LongName', 'Number of pulses', 'Description', 'Number of pulse triggers recording during fMRI image acquisition');
+    Json.ExtCorrResp = struct('Value', ExtCorrResp{a}, 'LongName', 'External correct responses', 'Description', 'Ratio of correct responses relative to the total number of trials registered for the external condition. Value < 0.25 Indicates pattern of random responses');
     Json.onset = struct('LongName', 'Event onset', 'Description', 'Denotes onset of a specific event relative to acquisition of first scanner pulse (T0)', 'Units', 'seconds');
     Json.duration = struct('LongName', 'Event duration', 'Description', 'Denotes duration of a specific event', 'Units', 'seconds');
     Json.trial_no = struct('LongName', 'Trial number', 'Description', 'Denotes trial number (1 through 132) of a specific event');
@@ -126,7 +137,7 @@ for a = 1:NSub
     Json.button_pressed = struct('LongName', 'Button pressed', 'Description', 'Button pressed in response to a specific cue', 'Levels', struct('Zero', 'No response detected (Miss)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
     Json.button_expected = struct('LongName', 'Button expected', 'Description', 'Correct button press(es) for a specific cue', 'Levels', struct('Zero', 'No response (only applicable for catch-trials)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
     Json.correct_response = struct('LongName', 'Corectness of response', 'Description', 'Denotes whether a response was correct or not', 'Levels', struct('Hit', 'Correct response (button_pressed matches button_expected)', 'Incorrect', 'Incorrect response (button_pressed does not match button_expected)', 'Miss', 'No response detected when a response was required', 'FalseAlarm', 'Response detected when the correct response was to withold a response'));
-    Json.block = struct('LongName', 'Block', 'Description', 'Denotes block of a specific event');
+    Json.block = struct('LongName', 'Block', 'Description', 'Denotes block of a specific event', 'Level', struct('1', 'Block no. 1', '2', 'Block no. 2', '3', 'Block no. 3'));
     saveJSONfile(Json, JsonOutputFiles{a});
     
     %% Separate trials into separate 'Fixation', 'Cue', and 'Response' events, follows reference above

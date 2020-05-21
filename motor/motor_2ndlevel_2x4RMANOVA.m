@@ -103,18 +103,18 @@ FD = FD(SubSel);
 
 %% Examine correlation structure between relevant regressors
 
-CorrMat = zeros(4);
-    
-for n = 1:numel(Sub)
-    SPMmat = load(fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', 'SPM.mat'));
-    LastReg = find(contains(SPMmat.SPM.xX.name, 'Sn(1) Int3*bf(1)'));
-    CovMat = cov(SPMmat.SPM.xX.X(:,1:LastReg));
-    CorrMat = CorrMat + corrcov(CovMat);
-    
-end
-
-AvgCorrMat = CorrMat / numel(Sub);
-heatmap(AvgCorrMat)
+% CorrMat = zeros(4);
+%     
+% for n = 1:numel(Sub)
+%     SPMmat = load(fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', 'SPM.mat'));
+%     LastReg = find(contains(SPMmat.SPM.xX.name, 'Sn(1) Int3*bf(1)'));
+%     CovMat = cov(SPMmat.SPM.xX.X(:,1:LastReg));
+%     CorrMat = CorrMat + corrcov(CovMat);
+%     
+% end
+% 
+% AvgCorrMat = CorrMat / numel(Sub);
+% heatmap(AvgCorrMat)
 
 %% Copy and left-to-right swap
 
@@ -186,9 +186,9 @@ Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchPd.name}');
 
 FD_hc = FD(find(ismember(Group, 'Healthy')));
 if Offstate
-    FD_pd = FD(find(ismember(Group, 'PD-OFF')));
+    FD_pd = FD(find(ismember(Group, 'PDoff')));
 else
-    FD_pd = FD(find(ismember(Group, 'PD-ON')));
+    FD_pd = FD(find(ismember(Group, 'PDon')));
 end
 Inputs{10,1} = [FD_hc FD_hc FD_hc FD_hc FD_pd FD_pd FD_pd FD_pd]';
 
