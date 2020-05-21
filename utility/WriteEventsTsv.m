@@ -18,11 +18,12 @@ function WriteEventsTsv(project)
 %%%
 
 %% Collect existing log files and define output .tsv file
+Run = '1';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
 BIDS     = spm_BIDS(BIDSDir);
-Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor');
+Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run);
 NSub     = numel(Sub);
 
 CustomLogs = cell(NSub,1);
@@ -43,9 +44,9 @@ for n = 1:NSub
         MotorBehavDir = fullfile(Root, 'DataTask');
     end
     
-    CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask.*_logfile\.txt$']);
-	DefaultLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask.*-MotorTaskEv_.*\.log$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_events.tsv']);
+    CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '_logfile\.txt$']);
+	DefaultLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '-MotorTaskEv_.*\.log$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run '_bold_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
     
     if contains(DefaultLogs{n}, 'left')
@@ -137,7 +138,7 @@ for a = 1:NSub
     Json.button_pressed = struct('LongName', 'Button pressed', 'Description', 'Button pressed in response to a specific cue', 'Levels', struct('Zero', 'No response detected (Miss)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
     Json.button_expected = struct('LongName', 'Button expected', 'Description', 'Correct button press(es) for a specific cue', 'Levels', struct('Zero', 'No response (only applicable for catch-trials)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
     Json.correct_response = struct('LongName', 'Corectness of response', 'Description', 'Denotes whether a response was correct or not', 'Levels', struct('Hit', 'Correct response (button_pressed matches button_expected)', 'Incorrect', 'Incorrect response (button_pressed does not match button_expected)', 'Miss', 'No response detected when a response was required', 'FalseAlarm', 'Response detected when the correct response was to withold a response'));
-    Json.block = struct('LongName', 'Block', 'Description', 'Denotes block of a specific event', 'Level', struct('1', 'Block no. 1', '2', 'Block no. 2', '3', 'Block no. 3'));
+    Json.block = struct('LongName', 'Block', 'Description', 'Denotes block of a specific event', 'Level', struct('One', 'Block no. 1', 'Two', 'Block no. 2', 'Three', 'Block no. 3'));
     saveJSONfile(Json, JsonOutputFiles{a});
     
     %% Separate trials into separate 'Fixation', 'Cue', and 'Response' events, follows reference above
