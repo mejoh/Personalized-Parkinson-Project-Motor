@@ -18,20 +18,21 @@ function WriteEventsTsv(project)
 %%%
 
 %% Collect existing log files and define output .tsv file
-Run = '1';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
 BIDS     = spm_BIDS(BIDSDir);
-Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run);
-NSub     = numel(Sub);
 
+Run = {'1', '2', '3', '4', '5', '6'};
+for r = 1:length(Run)
+Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
+NSub     = numel(Sub);
 fprintf('Project = %s\n', project)
-fprintf('%i subjects have run %s data. Checking for missing files...\n', NSub, Run)
+fprintf('%i subjects have run %s data. Checking for missing files...\n', NSub, Run{r})
 
 % Exclude participants with missing log files
 Sel = true(size(Sub));
-for n = 1:numel(Sub)
+  for n = 1:numel(Sub)
     
     if strcmp(project, '3024006.01')
         SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
@@ -41,21 +42,20 @@ for n = 1:numel(Sub)
         MotorBehavDir = fullfile(Root, 'DataTask');
     end
     
-    CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '_logfile\.txt$']);
-	DefaultLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '-MotorTaskEv_.*\.log$']);
+    CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
+	DefaultLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
     if size(CustomLog,1) ~= 1 || size(DefaultLog,1) ~= 1
 		fprintf('Skipping sub-%s with %i custom log and %i default log', Sub{n}, size(CustomLog,1), size(DefaultLog,1))
 		Sel(n) = false;
     end
     
-end
+  end
 Sub = Sub(Sel);
 NSub = numel(Sub);
+fprintf('%i subjects excluded\n', NSub - length(Sel))
+fprintf('%i remaining subjects have custom and default log files for run %s data\n', NSub, Run{r})
 
-fprintf('%i subjects been excluded\n', NSub - length(Sel))
-fprintf('%i remaining subjects have custom and default log files for run %s data\n', NSub, Run)
-
-
+% Preallocate
 CustomLogs = cell(NSub,1);
 DefaultLogs = cell(NSub,1);
 OutputFiles = cell(NSub,1);
@@ -64,7 +64,9 @@ Group = cell(NSub,1);
 RespondingHand = cell(NSub,1);
 NPulses = cell(NSub,1);
 ExtCorrResp = cell(NSub,1);
-for n = 1:NSub
+
+% Collect log files, also determine handedness and group.
+  for n = 1:NSub
     
     if strcmp(project, '3024006.01')
         SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
@@ -74,9 +76,9 @@ for n = 1:NSub
         MotorBehavDir = fullfile(Root, 'DataTask');
     end
     
-    CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '_logfile\.txt$']);
-	DefaultLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run '-MotorTaskEv_.*\.log$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run '_events.tsv']);
+    CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
+	DefaultLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
     
     if contains(DefaultLogs{n}, 'left')
@@ -93,15 +95,17 @@ for n = 1:NSub
         Group{n} = 'PDon';
     end
     
-end
+  end
 
-for n = 1:NSub
+% Delete pre-existing files
+  for n = 1:NSub
     if exist(OutputFiles{n}, 'file')
         delete(OutputFiles{n})
         delete(JsonOutputFiles{n})
     end
-end
+  end
 
+% Set time scale and formatting for events.tsv
 TimeScaleCust = 1e-3;							% Time unit in custom log is 1/1000 sec
 TimeScaleDef = 1e-4;                            % Time unit in default log is 1/10000 sec
 TR = 1;                                     % Repetition time
@@ -110,7 +114,7 @@ Events = {'fixation' 'cue' 'response'};     % Stimulus events
 NEvents = numel(Events);
 
 %% Extract acquisition time of first image
-for a = 1:NSub
+  for a = 1:NSub
     
     %% Read custom log file and extract trial data
     fileID = fopen(CustomLogs{a}, 'r');
@@ -122,6 +126,7 @@ for a = 1:NSub
     fclose(fileID);
     NTrials = numel(Trials{1});                         % Number of trials
     
+    % Calculate ratio of correct external responses to total number of trials
     ExtCorrResp{a} = length(Trials{1,1}(logical(strcmp(Trials{1,2}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))) / 60;
     
     fixation.onsets = Trials{3} * TimeScaleCust - T0;       % Onsets
@@ -172,7 +177,6 @@ for a = 1:NSub
     saveJSONfile(Json, JsonOutputFiles{a});
     
     %% Separate trials into separate 'Fixation', 'Cue', and 'Response' events, follows reference above
-    
     onset = cell(NTrials*NEvents,1);                   % Preallocate
     duration = cell(NTrials*NEvents,1);
     trial_no = cell(NTrials*NEvents,1);
@@ -352,6 +356,8 @@ for a = 1:NSub
     
     
     writetable(T, OutputFiles{a}, 'Delimiter', '\t', 'FileType', 'text')
+    
+  end
 
 end
 
