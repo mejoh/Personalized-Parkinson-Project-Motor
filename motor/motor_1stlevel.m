@@ -51,7 +51,7 @@ Sel = true(size(Sub));
 for n = 1:numel(Sub)
     
     TaskDir = fullfile(BIDSDir, ['sub-' Sub{n}], 'func');
-    EventsTsvFile = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_events.tsv']);
+    EventsTsvFile = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-1_events.tsv']);
 	
     if size(EventsTsvFile,1) ~= 1
 		fprintf('Skipping sub-%s with %i events.tsv files:\n', Sub{n}, size(EventsTsvFile,1))
@@ -117,8 +117,8 @@ for n = 1:NrSub
     SPMDir          = fullfile(ANALYSESDir, ['sub-' Sub{n}]);
     SPMStatDir      = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level');
     TaskDir         = fullfile(BIDSDir, ['sub-' Sub{n}], 'func');
-    EventsTsvFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_events.tsv']);
-    EventsJsonFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_events.json']);
+    EventsTsvFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-1_events.tsv']);
+    EventsJsonFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-1_events.json']);
 	InMat           = spm_file(EventsTsvFile, 'path',SPMDir, 'ext','.mat');
 
 	% Start with a clean stats output directory

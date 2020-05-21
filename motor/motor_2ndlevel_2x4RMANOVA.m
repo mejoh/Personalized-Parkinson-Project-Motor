@@ -55,9 +55,9 @@ ConfFiles = cell(size(Sub));
 
 for n = 1:numel(Sub)
     if strncmp('PIT',Sub{n},3)
-        JsonFiles{n} = spm_select('FPList', fullfile(PITBIDSDir, ['sub-', Sub{n}], 'func'), '.*task-motor_events\.json$');
+        JsonFiles{n} = spm_select('FPList', fullfile(PITBIDSDir, ['sub-', Sub{n}], 'func'), '.*task-motor_acq-MB6_run-1_events\.json$');
     else
-        JsonFiles{n} = spm_select('FPList', fullfile(POMBIDSDir, ['sub-', Sub{n}], 'func'), '.*task-motor_events\.json$');
+        JsonFiles{n} = spm_select('FPList', fullfile(POMBIDSDir, ['sub-', Sub{n}], 'func'), '.*task-motor_acq-MB6_run-1_events\.json$');
     end
     ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, ['sub-' Sub{n}]), '^.*task-motor.*desc-confounds_regressors2.mat$');
 end
