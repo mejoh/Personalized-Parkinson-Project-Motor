@@ -52,7 +52,7 @@ Sel = true(size(Sub));
   end
 Sub = Sub(Sel);
 NSub = numel(Sub);
-fprintf('%i subjects excluded\n', NSub - length(Sel))
+fprintf('%i subjects excluded\n', length(Sel) - NSub)
 fprintf('%i remaining subjects have custom and default log files for run %s data\n', NSub, Run{r})
 
 % Preallocate
