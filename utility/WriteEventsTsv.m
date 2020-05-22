@@ -23,7 +23,7 @@ RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
 BIDS     = spm_BIDS(BIDSDir);
 
-Run = {'1', '2', '3', '4', '5', '6'};
+Run = {'1', '2'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
 for r = 1:length(Run)
 Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
 NSub     = numel(Sub);

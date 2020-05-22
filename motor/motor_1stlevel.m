@@ -40,18 +40,39 @@ BIDS     = spm_BIDS(BIDSDir);
 Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor');
 fprintf('Found %i subjects with task=motor\n', numel(Sub))
 
-% Skip ambiguous multiple runs/series cases (for now)
-for AmbigSub = spm_BIDS(BIDS, 'subjects', 'run','2', 'task','motor')
-	fprintf('Skipping sub-%s with ambiguous run-2 data\n', char(AmbigSub))
-	Sub(strcmp(char(AmbigSub), Sub)) = [];
+% Account for subjects with multiple runs (maximum of 3 runs, check whether this is appropriate beforehand)
+Run = num2str(ones(numel(Sub),1));
+for MultRunSub = spm_BIDS(BIDS, 'subjects', 'run','2', 'task','motor')
+    if ~isempty(MultRunSub)
+        fprintf('Altering run-number for sub-%s with run-2 data\n', char(MultRunSub))
+        index = strcmp(Sub,MultRunSub);
+        Run(index,1) = '2';
+    else
+        fprintf('No subjects with run-2 data\n')
+    end
 end
+for MultRunSub = spm_BIDS(BIDS, 'subjects', 'run','3', 'task','motor')
+    if ~isempty(MultRunSub)
+        fprintf('Altering run-number for sub-%s with run-3 data\n', char(MultRunSub))
+        index = strcmp(Sub,MultRunSub);
+        Run(index,1) = '3';
+    else
+        fprintf('No subjects with run-3 data\n')
+    end
+end
+
+% % Skip ambiguous multiple runs/series cases (for now)
+% for AmbigSub = spm_BIDS(BIDS, 'subjects', 'run','2', 'task','motor')
+% 	fprintf('Skipping sub-%s with ambiguous run-2 data\n', char(AmbigSub))
+% 	Sub(strcmp(char(AmbigSub), Sub)) = [];
+% end
 
 % Skip subs with missing events.tsv file
 Sel = true(size(Sub));
 for n = 1:numel(Sub)
     
     TaskDir = fullfile(BIDSDir, ['sub-' Sub{n}], 'func');
-    EventsTsvFile = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-1_events.tsv']);
+    EventsTsvFile = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_events.tsv']);
 	
     if size(EventsTsvFile,1) ~= 1
 		fprintf('Skipping sub-%s with %i events.tsv files:\n', Sub{n}, size(EventsTsvFile,1))
@@ -70,13 +91,13 @@ for n = 1:numel(Sub)
 		Sel(n) = false;
     end
 	
-	SourceNii = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '.*task-motor.*_space-MNI152NLin6Asym_desc-preproc_bold.nii$']);
+	SourceNii = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_space-MNI152NLin6Asym_desc-preproc_bold.nii$']);
 	if size(SourceNii,1)~=1
 		fprintf('Skipping sub-%s with no fmriprep images\n', Sub{n})
 		Sel(n) = false;
     end
     
-    ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '.*task-motor.*_desc-confounds_regressors2.tsv$']);
+    ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors2.tsv$']);
 	if size(ConfFile,1)~=1
 		fprintf('Skipping sub-%s with no (customized) fmriprep confounds\n', Sub{n})
 		Sel(n) = false;
@@ -93,6 +114,7 @@ if ~Force
 	end
 end
 Sub = Sub(Sel);
+Run = Run(Sel);
 
 Files   = spm_BIDS(BIDS, 'data', 'sub', Sub, 'task', 'motor', 'type', 'bold');
 Meta	= spm_BIDS(BIDS, 'metadata', 'sub', Sub, 'task', 'motor', 'type', 'bold');
@@ -108,6 +130,7 @@ if ~isempty(Subset)
         NrSub = Subset;
     end
 end
+
 fprintf('Analyzing %i subjects\n', NrSub)
 for n = 1:NrSub
 
@@ -117,8 +140,8 @@ for n = 1:NrSub
     SPMDir          = fullfile(ANALYSESDir, ['sub-' Sub{n}]);
     SPMStatDir      = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level');
     TaskDir         = fullfile(BIDSDir, ['sub-' Sub{n}], 'func');
-    EventsTsvFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-1_events.tsv']);
-    EventsJsonFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-1_events.json']);
+    EventsTsvFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_events.tsv']);
+    EventsJsonFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_events.json']);
 	InMat           = spm_file(EventsTsvFile, 'path',SPMDir, 'ext','.mat');
 
 	% Start with a clean stats output directory
@@ -177,4 +200,4 @@ function NrPulses = getnrpulses(EventsJsonFile)
 
 Json = fileread(EventsJsonFile);
 DecodedJson = jsondecode(Json);
-NrPulses = DecodedJson.NumRecordedPulses;
+NrPulses = DecodedJson.NPulses.Value;
