@@ -21,7 +21,7 @@ spm('defaults', 'FMRI');
 
 %% Directories
 
-FDThresh = 0.4;
+FDThresh = 0.3;
 ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_Main';
 % ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_BRCtrl';
 PITBIDSDir = '/project/3024006.01/bids';
@@ -37,6 +37,7 @@ fprintf('Number of subjects processed: %i\n', numel(Sub))
 
 SubSel = false(size(Sub));
 
+% Exclude participants without 1st-level analyses
 for n = 1:numel(Sub)
     if spm_select('List', fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level'), '^con.*\.nii$')
         fprintf('Including sub-%s with previous SPM output\n', Sub{n})
@@ -46,7 +47,31 @@ for n = 1:numel(Sub)
     end
 end
 
+% Take the last run for each participant if you're analzying POM data
+Run = num2str(ones(numel(Sub),1));
+if ~Offstate
+    for MultRunSub = spm_BIDS(POMBIDSDir, 'subjects', 'run','2', 'task','motor')
+        if ~isempty(MultRunSub)
+            fprintf('Altering run-number for sub-%s with run-2 data\n', char(MultRunSub))
+            index = strcmp(Sub,MultRunSub);
+            Run(index,1) = '2';
+        else
+            fprintf('No subjects with run-2 data\n')
+        end
+    end
+    for MultRunSub = spm_BIDS(POMBIDSDir, 'subjects', 'run','3', 'task','motor')
+        if ~isempty(MultRunSub)
+            fprintf('Altering run-number for sub-%s with run-3 data\n', char(MultRunSub))
+            index = strcmp(Sub,MultRunSub);
+            Run(index,1) = '3';
+        else
+            fprintf('No subjects with run-3 data\n')
+        end
+    end
+end
+
 Sub = Sub(SubSel);
+Run = Run(SubSel);
 
 %% Collect events.json and confound files
 
@@ -55,11 +80,11 @@ ConfFiles = cell(size(Sub));
 
 for n = 1:numel(Sub)
     if strncmp('PIT',Sub{n},3)
-        JsonFiles{n} = spm_select('FPList', fullfile(PITBIDSDir, ['sub-', Sub{n}], 'func'), '.*task-motor_acq-MB6_run-1_events\.json$');
+        JsonFiles{n} = spm_select('FPList', fullfile(PITBIDSDir, ['sub-', Sub{n}], 'func'), ['.*task-motor_acq-MB6_run-' Run(n) '_events\.json$']);
     else
-        JsonFiles{n} = spm_select('FPList', fullfile(POMBIDSDir, ['sub-', Sub{n}], 'func'), '.*task-motor_acq-MB6_run-1_events\.json$');
+        JsonFiles{n} = spm_select('FPList', fullfile(POMBIDSDir, ['sub-', Sub{n}], 'func'), ['.*task-motor_acq-MB6_run-' Run(n) '_events\.json$']);
     end
-    ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, ['sub-' Sub{n}]), '^.*task-motor.*desc-confounds_regressors2.mat$');
+    ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, ['sub-' Sub{n}]), ['^.*task-motor_acq-MB6_run-' Run(n) '.*desc-confounds_regressors2.mat$']);
 end
 
 %% Group and handedness
@@ -70,8 +95,8 @@ RespondingHand = strings(size(Sub));
 for n = 1:numel(Sub)
     Json = fileread(JsonFiles{n});
     DecodedJson = jsondecode(Json);
-    Group(n) = DecodedJson.Group;
-    RespondingHand(n) = DecodedJson.RespondingHand;
+    Group(n) = DecodedJson.Group.Value;
+    RespondingHand(n) = DecodedJson.RespondingHand.Value;
 end
 
 %% Framewise displacement
