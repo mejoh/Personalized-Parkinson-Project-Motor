@@ -45,7 +45,7 @@ Sel = true(size(Sub));
     CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
 	DefaultLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
     if size(CustomLog,1) ~= 1 || size(DefaultLog,1) ~= 1
-		fprintf('Skipping sub-%s with %i custom log and %i default log', Sub{n}, size(CustomLog,1), size(DefaultLog,1))
+		fprintf('Skipping sub-%s with %i custom log and %i default log\n', Sub{n}, size(CustomLog,1), size(DefaultLog,1))
 		Sel(n) = false;
     end
     
