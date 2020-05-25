@@ -98,6 +98,7 @@ for n = 1:numel(Sub)
     end
     
     ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors2.tsv$']);
+    %ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors2.tsv$']);
 	if size(ConfFile,1)~=1
 		fprintf('Skipping sub-%s with no (customized) fmriprep confounds\n', Sub{n})
 		Sel(n) = false;
@@ -135,7 +136,8 @@ fprintf('Analyzing %i subjects\n', NrSub)
 for n = 1:NrSub
 
 	% Collect files
-	ConfFile        = strrep(strrep(Files{n}, BIDSDir, FMRIPrep), '_bold.nii.gz', '_desc-confounds_regressors2.tsv');
+    ConfFile        = strrep(strrep(Files{n}, BIDSDir, FMRIPrep), '_bold.nii.gz', '_desc-confounds_regressors.tsv');
+	%ConfFile        = strrep(strrep(Files{n}, BIDSDir, FMRIPrep), '_bold.nii.gz', '_desc-confounds_regressors2.tsv');
     SourceNii	    = strrep(strrep(Files{n}, BIDSDir, FMRIPrep), '_bold.nii.gz', '_space-MNI152NLin6Asym_desc-preproc_bold.nii');
     SPMDir          = fullfile(ANALYSESDir, ['sub-' Sub{n}]);
     SPMStatDir      = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level');
