@@ -97,7 +97,7 @@ for n = 1:numel(Sub)
 		Sel(n) = false;
     end
     
-    ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors2.tsv$']);
+    ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors.tsv$']);
     %ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors2.tsv$']);
 	if size(ConfFile,1)~=1
 		fprintf('Skipping sub-%s with no (customized) fmriprep confounds\n', Sub{n})
