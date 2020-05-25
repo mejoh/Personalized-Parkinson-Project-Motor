@@ -13,12 +13,12 @@ thr         = 0.05;         % Arbitrary threshold for excluding motion component
 Root        = strcat('/project/', Project);
 BIDSdir     = fullfile(Root, 'bids');
 FMRIPREPdir = fullfile(BIDSdir, 'derivatives/fmriprep');
-ANALYSESDir = strcat('/project/', POM, '/analyses/motor/PMOD_DurAvg');
+ANALYSESDir = strcat('/project/', POM, '/analyses/motor/fMRI_EventRelated_Main');
 BIDS        = spm_BIDS(BIDSdir);
 Sub         = spm_BIDS(BIDS, 'subjects', 'task', 'motor');
-%Sub = {Sub{1} Sub{2}};
 
-SubSel      = false(numel(Sub));
+SubSel      = false(numel(Sub),1);
+% Exclude missing SPM.mat files
 for n = 1:numel(Sub)
     if exist(fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', 'SPM.mat'), 'file')
         SubSel(n) = true;
@@ -30,6 +30,8 @@ Sub         = Sub(SubSel);
 Files       = spm_BIDS(BIDS, 'data', 'sub', Sub, 'task', 'motor', 'type', 'bold');
 NrSub       = numel(Sub);
 
+% Create second confounds file
+% Rename aroma components below threshold. Use renamed for re-analysis
 for n = 1:NrSub
 
     SPMfile = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', 'SPM.mat');
