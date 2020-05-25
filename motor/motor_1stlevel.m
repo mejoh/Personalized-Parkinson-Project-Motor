@@ -126,7 +126,7 @@ JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
 NrSub	= numel(Sub);
 if ~isempty(Subset)
     if Subset > NrSub
-        fprintf('Subset > Total nr participants. Processing total nr participants instead')
+        fprintf('Subset > Total nr participants. Processing total nr participants instead\n')
     else
         NrSub = Subset;
     end
