@@ -11,7 +11,7 @@ matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(1).variance = 1;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(1).gmsca = 0;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(1).ancova = 0;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).name = 'Condition';
-matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).levels = 3;
+matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).levels = 4;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).dept = 1;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).variance = 1;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).gmsca = 0;
@@ -43,6 +43,15 @@ matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(8).scans = '<UNDEFINED>';
 matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(9).levels = [3
                                                                     3];
 matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(9).scans = '<UNDEFINED>';
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(10).levels = [1
+                                                                    4];
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(10).scans = '<UNDEFINED>';
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(11).levels = [2
+                                                                    4];
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(11).scans = '<UNDEFINED>';
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(12).levels = [3
+                                                                    4];
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(12).scans = '<UNDEFINED>';
 matlabbatch{1}.spm.stats.factorial_design.des.fd.contrasts = 1;
 matlabbatch{1}.spm.stats.factorial_design.cov.c = '<UNDEFINED>';
 matlabbatch{1}.spm.stats.factorial_design.cov.cname = 'mean(FD)';
@@ -58,12 +67,31 @@ matlabbatch{1}.spm.stats.factorial_design.globalm.glonorm = 1;
 matlabbatch{2}.spm.stats.fmri_est.spmmat(1) = cfg_dep('Factorial design specification: SPM.mat File', substruct('.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
 matlabbatch{2}.spm.stats.fmri_est.write_residuals = 0;
 matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
-matlabbatch{3}.spm.tools.tfce_estimate.spmmat(1) = cfg_dep('Model estimation: SPM.mat File', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
-matlabbatch{3}.spm.tools.tfce_estimate.mask = '';
-matlabbatch{3}.spm.tools.tfce_estimate.conspec.titlestr = '';
-matlabbatch{3}.spm.tools.tfce_estimate.conspec.contrasts = [2 3 4];
-matlabbatch{3}.spm.tools.tfce_estimate.conspec.n_perm = 5000;
-matlabbatch{3}.spm.tools.tfce_estimate.nuisance_method = 2;
-matlabbatch{3}.spm.tools.tfce_estimate.tbss = 0;
-matlabbatch{3}.spm.tools.tfce_estimate.E_weight = 0.5;
-matlabbatch{3}.spm.tools.tfce_estimate.singlethreaded = 0;
+matlabbatch{3}.spm.stats.con.spmmat(1) = cfg_dep('Model estimation: SPM.mat File', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
+matlabbatch{3}.spm.stats.con.consess{1}.fcon.name = 'Effects of interest';
+matlabbatch{3}.spm.stats.con.consess{1}.fcon.weights = [1 0 0 0 0 0 0 0 0 0 0 0
+                                                        0 1 0 0 0 0 0 0 0 0 0 0
+                                                        0 0 1 0 0 0 0 0 0 0 0 0
+                                                        0 0 0 1 0 0 0 0 0 0 0 0
+                                                        0 0 0 0 1 0 0 0 0 0 0 0
+                                                        0 0 0 0 0 1 0 0 0 0 0 0
+                                                        0 0 0 0 0 0 1 0 0 0 0 0
+                                                        0 0 0 0 0 0 0 1 0 0 0 0
+                                                        0 0 0 0 0 0 0 0 1 0 0 0
+                                                        0 0 0 0 0 0 0 0 0 1 0 0
+                                                        0 0 0 0 0 0 0 0 0 0 1 0
+                                                        0 0 0 0 0 0 0 0 0 0 0 1];
+matlabbatch{3}.spm.stats.con.consess{1}.fcon.sessrep = 'none';
+% matlabbatch{3}.spm.stats.con.consess{2}.tcon.name = 'HCvPDoff: Ext > 0';
+% matlabbatch{3}.spm.stats.con.consess{2}.tcon.weights = [1 0 0 0 1 0 0 0];
+% matlabbatch{3}.spm.stats.con.consess{2}.tcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.delete = 0;
+% matlabbatch{4}.spm.tools.tfce_estimate.spmmat(1) = cfg_dep('Model estimation: SPM.mat File', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
+% matlabbatch{4}.spm.tools.tfce_estimate.mask = '';
+% matlabbatch{4}.spm.tools.tfce_estimate.conspec.titlestr = '';
+% matlabbatch{4}.spm.tools.tfce_estimate.conspec.contrasts = [2 3 4];
+% matlabbatch{4}.spm.tools.tfce_estimate.conspec.n_perm = 5000;
+% matlabbatch{4}.spm.tools.tfce_estimate.nuisance_method = 2;
+% matlabbatch{4}.spm.tools.tfce_estimate.tbss = 0;
+% matlabbatch{4}.spm.tools.tfce_estimate.E_weight = 0.5;
+% matlabbatch{4}.spm.tools.tfce_estimate.singlethreaded = 0;
