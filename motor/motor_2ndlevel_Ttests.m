@@ -16,181 +16,188 @@ end
 
 %% Paths
 
-CWD = pwd;
+addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 spm('defaults', 'FMRI');
-addpath('/home/common/matlab/fieldtrip/qsub');
 
 %% Directories
 
-PITRoot        = '/project/3024006.01';            % PIT: directories
-PITBIDSDir     = fullfile(PITRoot, 'bids');
-PITStatsDir    = fullfile(PITBIDSDir, '/derivatives/motor/spm');
-PITTaskDir     = fullfile(PITBIDSDir, 'task_data/motor');
-PITSub         = spm_BIDS(PITBIDSDir, 'subjects', 'ses','mri01', 'task','motor');
-fprintf('PIT: Found %i subjects with ses=mri01 and task=motor\n', numel(PITSub))
-POMRoot        = '/project/3022026.01';            % POM: directories
-POMBIDSDir     = fullfile(POMRoot, 'bids2');
-POMStatsDir    = fullfile(POMBIDSDir, 'derivatives/spm');
-POMTaskDir     = fullfile(POMRoot, 'DataTask');
-%POMSub         = spm_BIDS(POMBIDSDir, 'subjects', 'ses','mri01', 'task','motor');
-fprintf('POM: Found %i subjects with ses=mri01 and task=motor\n', numel(POMSub))
-CommonStatsDir = fullfile(POMBIDSDir, 'derivatives/spm/common');
-FDThres        = 0.5;
+FDThresh = 0.3;
+ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_Main';
+% ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_BRCtrl';
+PITBIDSDir = '/project/3024006.01/bids';
+POMBIDSDir = '/project/3022026.01/bids';
+if Offstate
+    Sub = spm_BIDS(PITBIDSDir, 'subjects', 'task', 'motor');
+else
+    SubPIT = spm_BIDS(PITBIDSDir, 'subjects', 'task', 'motor');
+    SubPOM = spm_BIDS(POMBIDSDir, 'subjects', 'task', 'motor');
+    Sub = [SubPIT SubPOM];
+end
+fprintf('Number of subjects processed: %i\n', numel(Sub))
 
 %% Selection
 
-PITSel = false(size(PITSub));       % PIT: include existing 1st-level
-for n = 1:numel(PITSub)
-	if spm_select('List', fullfile(PITStatsDir, ['sub-' PITSub{n}], 'motor/stats'), '^con.*\.nii$')
-		fprintf('Including sub-%s with previous SPM output\n', PITSub{n})
-		PITSel(n) = true;
-	end
-end
-PITSub = PITSub(PITSel);
+SubSel = false(size(Sub));
 
-POMSel = false(size(POMSub));       % POM: include existing 1st-level
-for n = 1:numel(POMSub)
-	if spm_select('List', fullfile(POMStatsDir, ['sub-' POMSub{n}], 'motor/stats'), '^con.*\.nii$')
-		fprintf('Including sub-%s with previous SPM output\n', POMSub{n})
-		POMSel(n) = true;
-	end
+% Exclude participants without 1st-level analyses
+for n = 1:numel(Sub)
+    if spm_select('List', fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level'), '^con.*\.nii$')
+        fprintf('Including sub-%s with previous SPM output\n', Sub{n})
+        SubSel(n) = true;
+    else
+        fprintf('Excluding sub-%s without previous SPM output\n', Sub{n})
+    end
 end
-POMSub = POMSub(POMSel);
+
+% Take the last run for each participant if you're analzying POM data
+Run = num2str(ones(numel(Sub),1));
+if ~Offstate
+    for MultRunSub = spm_BIDS(POMBIDSDir, 'subjects', 'run','2', 'task','motor')
+        if ~isempty(MultRunSub)
+            fprintf('Altering run-number for sub-%s with run-2 data\n', char(MultRunSub))
+            index = strcmp(Sub,MultRunSub);
+            Run(index,1) = '2';
+        else
+            fprintf('No subjects with run-2 data\n')
+        end
+    end
+    for MultRunSub = spm_BIDS(POMBIDSDir, 'subjects', 'run','3', 'task','motor')
+        if ~isempty(MultRunSub)
+            fprintf('Altering run-number for sub-%s with run-3 data\n', char(MultRunSub))
+            index = strcmp(Sub,MultRunSub);
+            Run(index,1) = '3';
+        else
+            fprintf('No subjects with run-3 data\n')
+        end
+    end
+end
+
+Sub = Sub(SubSel);
+Run = Run(SubSel);
+
+%% Collect events.json and confound files
+
+JsonFiles = cell(size(Sub));
+ConfFiles = cell(size(Sub));
+
+for n = 1:numel(Sub)
+    if strncmp('PIT',Sub{n},3)
+        JsonFiles{n} = spm_select('FPList', fullfile(PITBIDSDir, ['sub-', Sub{n}], 'func'), ['.*task-motor_acq-MB6_run-' Run(n) '_events\.json$']);
+    else
+        JsonFiles{n} = spm_select('FPList', fullfile(POMBIDSDir, ['sub-', Sub{n}], 'func'), ['.*task-motor_acq-MB6_run-' Run(n) '_events\.json$']);
+    end
+    ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, ['sub-' Sub{n}]), ['^.*task-motor_acq-MB6_run-' Run(n) '.*desc-confounds_regressors2.mat$']);
+end
+
+%% Group and handedness
+
+Group = strings(size(Sub));
+RespondingHand = strings(size(Sub));
+
+for n = 1:numel(Sub)
+    Json = fileread(JsonFiles{n});
+    DecodedJson = jsondecode(Json);
+    Group(n) = DecodedJson.Group.Value;
+    RespondingHand(n) = DecodedJson.RespondingHand.Value;
+end
+
+%% Framewise displacement
+
+FD = zeros(size(Sub));
+for n = 1:numel(Sub)
+    Confounds = spm_load(ConfFiles{n});
+    FrameDisp = Confounds.R(:,strcmp(Confounds.names, 'framewise_displacement'));
+    FrameDisp(isnan(FrameDisp)) = 0;
+    FD(n) = mean(FrameDisp);
+end
+
+%% Exclusion
+
+SubSel = false(size(Sub));
+
+for n = 1:numel(Sub)
+    if FD(n) < FDThresh
+        SubSel(n) = true;
+    else
+        sprintf('Excluding %s (%s) due to %f mean framewise displacement (Threshold = %f)', Sub{n}, Group(n), FD(n), FDThresh)
+    end
+end
+
+Sub = Sub(SubSel);
+Group = Group(SubSel);
+RespondingHand = RespondingHand(SubSel);
+FD = FD(SubSel);
 
 %% Copy and flip
 
-% ConList = {'con_0001'         'con_0002'          'con_0003'          'con_0004'          'con_0005'          'con_0006'          'con_0007'          'con_0008'          'con_0009'          'con_0010'          'con_0011'          'con_0012'          'con_0013'                  'con_0014'};
-% Names   = {'Ext>0'            'Ext<0'             'Int>0'             'Int<0'             'Int2>0'            'Int2<0'            'Int3>0'            'Int3<0'            'Ext>Int'           'Ext<Int'           'Int2>Int3'         'Int2<Int3'         'Catch>Ext|Int'             'Catch<Ext|Int'};
-ConList = {'con_0009'          'con_0010'         'con_0012'};
-Names   = {'Ext>Int'           'Ext<Int'          'Int2<Int3'};
-
+% ConList = {'con_0006' 'con_0007' 'con_0009'};
+ConList = {'con_0001' 'con_0002' 'con_0003'};
 NrCon = numel(ConList);
 
-NrSub    = numel(PITSub);
-PITGroup = NaN(size(PITSub));
-PITFD	 = NaN(size(PITSub));
-PITSel   = true(size(PITSub));
-for i = 1:NrCon         % For every contrast...
-    CommonConDir = fullfile(CommonStatsDir, ConList{i});
-    if ~exist(CommonConDir, 'dir')          % Start with fresh directory
-        mkdir(CommonConDir);
+InputFiles = cell(numel(Sub), numel(ConList));
+for c = 1:numel(ConList)
+    
+    ConDir = fullfile(ANALYSESDir, 'Group', ConList{c});
+    if ~exist(ConDir, 'dir')
+        mkdir(ConDir);
     else
-        delete(fullfile(CommonConDir, '*.*')); 
+        delete(fullfile(ConDir, '*.*'));
     end
-    for n = 1:NrSub         % Copy 1st-level results of each participant to common directory
-        SubStatsDir     = fullfile(PITStatsDir, ['sub-' PITSub{n}], 'motor', 'stats');
-        SubSPMDir       = fullfile(PITStatsDir, ['sub-' PITSub{n}], 'motor');
-        DWIDir = fullfile(PITBIDSDir, ['sub-' PITSub{n}], 'ses-mri01', 'dwi');
-        PresLog  = spm_select('FPList', PITTaskDir, [PITSub{n} '_(t|T)ask1-MotorTaskEv_.*\.log$']);
-        InputConFile    = fullfile(SubStatsDir, [ConList{i} '.nii']);
-        if exist(DWIDir, 'dir')     % If DWI directory exists, then healthy control
-            PITGroup(n) = 1;
-            OutputConFile   = fullfile(CommonConDir, ['Hc_sub-' PITSub{n} '_' ConList{i} '.nii']);
+    
+    for n = 1:numel(Sub)
+        InputConFile = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', [ConList{c} '.nii']);
+        if strcmp(Group(n), 'PDoff')
+            OutputConFile = fullfile(ConDir, ['PDoff_' Sub{n} '_' ConList{c} '.nii']);
+        elseif strcmp(Group(n), 'PDon')
+            OutputConFile = fullfile(ConDir, ['PDon_' Sub{n} '_' ConList{c} '.nii']);
         else
-            PITGroup(n) = 2;
-            OutputConFile   = fullfile(CommonConDir, ['Off_sub-' PITSub{n} '_' ConList{i} '.nii']);
+            OutputConFile = fullfile(ConDir, ['Hc_' Sub{n} '_' ConList{c} '.nii']);
         end
-        copyfile(InputConFile, OutputConFile);
-        fprintf('Copied sub-%s to common stats directory\n', PITSub{n});
-        if contains(PresLog,'left') && Swap         % Flip left-responders horizontally
-			fprintf('LR-swapping: %s\n', OutputConFile)
+        copyfile(InputConFile, OutputConFile)
+        if strcmp(RespondingHand(n), 'Left') && Swap
+            fprintf('LR-swapping: %s\n', OutputConFile)
 			Hdr		  = spm_vol(OutputConFile);
 			Vol		  = spm_read_vols(Hdr);
 			Hdr.fname = spm_file(OutputConFile, 'suffix', 'LRswap');
 			spm_write_vol(Hdr, flipdim(Vol,1));		% LR is the first dimension in MNI space
             delete(OutputConFile);
+            InputFiles{n,c} = Hdr.fname;
+        else
+            InputFiles{n,c} = OutputConFile;
         end
-		PITConf  = spm_load(fullfile(SubSPMDir, ['sub-' PITSub{n} '_ses-mri01_task-motor_run-1_echo-1_desc-confounds_regressors.mat']));
-		PITFD(n) = mean(PITConf.R(2:end, strcmp(PITConf.names, 'framewise_displacement')));
-        
-        if i==1                                     % TODO: Exclusion based on mean(FD). Not yet implemented, for either PIT or POM
-			Reason = sprintf('\t\t\t');
-            if PITFD(n) > FDThres
-				PITSel(n) = false;
-				Reason = sprintf('\tmean(FD) = %f', PITFD(n));
-            end
-            if PITSel(n)
-				fprintf('Included: %s\n', PITSub{n})
-			else
-				fprintf('Excluded: %s\t%s\n', PITSub{n}, Reason)
-            end
-        end
-        
-    end
-end
-
-NrSub = numel(POMSub);
-POMFD = NaN(size(POMSub));
-POMSel   = true(size(POMSub));
-for i = 1:NrCon
-    CommonConDir = fullfile(CommonStatsDir, ConList{i});
-    for n = 1:NrSub
-        SubStatsDir     = fullfile(POMStatsDir, ['sub-' POMSub{n}], 'motor', 'stats');
-        SubSPMDir       = fullfile(POMStatsDir, ['sub-' POMSub{n}], 'motor');
-        PresLog         = spm_select('FPList', POMTaskDir, [POMSub{n} '_(t|T)ask1-MotorTaskEv_.*\.log$']);
-        InputConFile    = fullfile(SubStatsDir, [ConList{i} '.nii']);
-        OutputConFile   = fullfile(CommonConDir, ['On_sub-' POMSub{n} '_' ConList{i} '.nii']);
-        copyfile(InputConFile, OutputConFile);
-        fprintf('Copied sub-%s to common stats directory\n', POMSub{n});
-        if contains(PresLog,'left') && Swap         
-			fprintf('LR-swapping: %s\n', OutputConFile)
-			Hdr		  = spm_vol(OutputConFile);
-			Vol		  = spm_read_vols(Hdr);
-			Hdr.fname = spm_file(OutputConFile, 'suffix', 'LRswap');
-			spm_write_vol(Hdr, flipdim(Vol,1));	
-            delete(OutputConFile);
-        end
-		POMConf  = spm_load(fullfile(SubSPMDir, ['sub-' POMSub{n} '_ses-mri01_task-motor_run-1_echo-1_desc-confounds_regressors.mat']));
-		POMFD(n) = mean(POMConf.R(2:end, strcmp(POMConf.names, 'framewise_displacement')));
-        
-        if i==1
-			Reason = sprintf('\t\t\t');
-            if POMFD(n) > FDThres
-				POMSel(n) = false;
-				Reason = sprintf('\tmean(FD) = %f', POMFD(n));
-            end
-            if POMSel(n)
-				fprintf('Included: %s\n', POMSub{n})
-			else
-				fprintf('Excluded: %s\t%s\n', POMSub{n}, Reason)
-            end
-        end
-        
     end
 end
 
 %% Assemble inputs
 
-JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
-
 inputs = cell(4, 1);
+JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
+ConNames   = {'Ext' 'Int2' 'Int3'};
 
 for n = 1:NrCon
-    ConDir = fullfile(CommonStatsDir, ConList{n});
+    ConDir = fullfile(ANALYSESDir, 'Group', ConList{n});
     if Offstate
-        inputs{1,1} = {fullfile(CommonStatsDir, 'Ttests_HcVsOff', Names{n})};
+        inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOff', ConNames{n})};
         HcIms = dir(fullfile(ConDir, 'Hc*'));
         inputs{2,1} = fullfile(ConDir, {HcIms.name}');
-        PdIms = dir(fullfile(ConDir, 'Off*'));
+        PdIms = dir(fullfile(ConDir, 'PDoff*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
-        FD = [PITFD(PITGroup == 1) PITFD(PITGroup == 2)];
+        FD = [FD(strcmp(Group, 'Healthy')) FD(strcmp(Group, 'PDoff'))];
     else
-        inputs{1,1} = {fullfile(CommonStatsDir, 'Ttests_HcVsOn', Names{n})};
+        inputs{1,1} = {fullfile(CommonStatsDir, 'Ttests_HcVsOn', ConNames{n})};
         HcIms = dir(fullfile(ConDir, 'Hc*'));
         inputs{2,1} = fullfile(ConDir, {HcIms.name}');
-        PdIms = dir(fullfile(ConDir, 'On*'));
+        PdIms = dir(fullfile(ConDir, 'PDon*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
-        FD = [PITFD(PITGroup == 1) POMFD];
+        FD = [FD(strcmp(Group, 'Healthy')) FD(strcmp(Group, 'PDon'))];
     end
     inputs{4,1} = FD';
     
     delete(fullfile(char(inputs{1}), '*.*'))
-%     spm_jobman('run', JobFile, inputs{:});
+    spm_jobman('run', JobFile, inputs{:});
     qsubcellfun('spm_jobman', repmat({'run'},[1 NrCon]), repmat(JobFile,[1 NrCon]), inputs{:}, 'memreq',5*1024^3, 'timreq',8*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000')
 end
-
-cd(CWD);
 
 end
 
