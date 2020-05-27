@@ -29,7 +29,9 @@ POMBIDSDir = '/project/3022026.01/bids';
 if Offstate
     Sub = spm_BIDS(PITBIDSDir, 'subjects', 'task', 'motor');
 else
-    Sub = spm_BIDS(POMBIDSDir, 'subjects', 'task', 'motor');
+    SubPIT = spm_BIDS(PITBIDSDir, 'subjects', 'task', 'motor');
+    SubPOM = spm_BIDS(POMBIDSDir, 'subjects', 'task', 'motor');
+    Sub = [SubPIT SubPOM];
 end
 fprintf('Number of subjects processed: %i\n', numel(Sub))
 
