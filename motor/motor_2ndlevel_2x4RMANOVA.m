@@ -213,9 +213,9 @@ Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchPd.name}');
 
 FD_hc = FD(strcmp(Group, 'Healthy'));
 if Offstate
-    FD_pd = FD(ismember(Group, 'PDoff'));
+    FD_pd = FD(strcmp(Group, 'PDoff'));
 else
-    FD_pd = FD(ismember(Group, 'PDon'));
+    FD_pd = FD(strcmp(Group, 'PDon'));
 end
 Inputs{10,1} = [FD_hc FD_hc FD_hc FD_hc FD_pd FD_pd FD_pd FD_pd]';
 
