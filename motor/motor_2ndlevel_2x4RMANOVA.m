@@ -158,9 +158,9 @@ for c = 1:numel(ConList)
     
     for n = 1:numel(Sub)
         InputConFile = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', [ConList{c} '.nii']);
-        if ~strcmp(Group(n), 'Healthy') && Offstate
+        if strcmp(Group(n), 'PDoff')
             OutputConFile = fullfile(ConDir, ['Off_' Sub{n} '_' ConList{c} '.nii']);
-        elseif ~strcmp(Group(n), 'Healthy') && ~Offstate
+        elseif strcmp(Group(n), 'PDon')
             OutputConFile = fullfile(ConDir, ['On_' Sub{n} '_' ConList{c} '.nii']);
         else
             OutputConFile = fullfile(ConDir, ['Hc_' Sub{n} '_' ConList{c} '.nii']);
@@ -211,11 +211,11 @@ Inputs{7,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, {Int3Pd.name}');
 CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, Pd));
 Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchPd.name}');
 
-FD_hc = FD(find(ismember(Group, 'Healthy')));
+FD_hc = FD(strcmp(Group, 'Healthy'));
 if Offstate
-    FD_pd = FD(find(ismember(Group, 'PDoff')));
+    FD_pd = FD(ismember(Group, 'PDoff'));
 else
-    FD_pd = FD(find(ismember(Group, 'PDon')));
+    FD_pd = FD(ismember(Group, 'PDon'));
 end
 Inputs{10,1} = [FD_hc FD_hc FD_hc FD_hc FD_pd FD_pd FD_pd FD_pd]';
 
