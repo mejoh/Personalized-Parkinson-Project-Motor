@@ -159,9 +159,9 @@ for c = 1:numel(ConList)
     for n = 1:numel(Sub)
         InputConFile = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', [ConList{c} '.nii']);
         if strcmp(Group(n), 'PDoff')
-            OutputConFile = fullfile(ConDir, ['Off_' Sub{n} '_' ConList{c} '.nii']);
+            OutputConFile = fullfile(ConDir, ['PDoff_' Sub{n} '_' ConList{c} '.nii']);
         elseif strcmp(Group(n), 'PDon')
-            OutputConFile = fullfile(ConDir, ['On_' Sub{n} '_' ConList{c} '.nii']);
+            OutputConFile = fullfile(ConDir, ['PDon_' Sub{n} '_' ConList{c} '.nii']);
         else
             OutputConFile = fullfile(ConDir, ['Hc_' Sub{n} '_' ConList{c} '.nii']);
         end
