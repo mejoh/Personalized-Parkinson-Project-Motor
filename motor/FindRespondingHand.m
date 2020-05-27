@@ -41,10 +41,10 @@ end
 Sel = true(size(Sub));
 for n = 1:numel(Sub)
     
-    TaskDir = fullfile(BIDSDir, ['sub-' Sub{n}], 'func');
+    TaskDir = fullfile(POMBIDSDir, ['sub-' Sub{n}], 'func');
     EventsJSONFile = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_events.json']);
 	
-    if size(EventsTsvFile,1) ~= 1
+    if size(EventsJSONFile,1) ~= 1
 		fprintf('Skipping sub-%s with %i events.json files:\n', Sub{n}, size(EventsJSONFile,1))
 		disp(EventsJSONFile)
 		Sel(n) = false;
