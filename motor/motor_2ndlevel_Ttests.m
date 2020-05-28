@@ -2,6 +2,7 @@
 % project folder and label them according to group.
 
 function motor_2ndlevel_Ttests(Swap,Offstate)
+
 %% Swap
 
 if nargin<1 || isempty(Swap)
@@ -35,6 +36,9 @@ else
     Sub = [SubPIT SubPOM];
 end
 fprintf('Number of subjects processed: %i\n', numel(Sub))
+
+CurrentDir = pwd;
+cd(ANALYSESDir);
 
 %% Selection
 
@@ -132,7 +136,7 @@ FD = FD(SubSel);
 %% Copy and flip
 
 % ConList = {'con_0006' 'con_0007' 'con_0009'};
-ConList = {'con_0001' 'con_0002' 'con_0003'};
+ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0006' 'con_0007' 'con_0009'};
 NrCon = numel(ConList);
 
 InputFiles = cell(numel(Sub), numel(ConList));
@@ -171,9 +175,9 @@ end
 
 %% Assemble inputs
 
-inputs = cell(4, 1);
+inputs = cell(5, 1);
 JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
-ConNames   = {'Ext' 'Int2' 'Int3'};
+ConNames   = {'Ext' 'Int2' 'Int3' 'Ext>Int' 'Int>Ext' 'Int3>Int2'};
 
 for n = 1:NrCon
     ConDir = fullfile(ANALYSESDir, 'Group', ConList{n});
@@ -183,21 +187,30 @@ for n = 1:NrCon
         inputs{2,1} = fullfile(ConDir, {HcIms.name}');
         PdIms = dir(fullfile(ConDir, 'PDoff*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
+        inputs{5,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOff', ConNames{n}, 'mask.nii,1')};
         FD = [FD(strcmp(Group, 'Healthy')) FD(strcmp(Group, 'PDoff'))];
     else
-        inputs{1,1} = {fullfile(CommonStatsDir, 'Ttests_HcVsOn', ConNames{n})};
+        inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOn', ConNames{n})};
         HcIms = dir(fullfile(ConDir, 'Hc*'));
         inputs{2,1} = fullfile(ConDir, {HcIms.name}');
         PdIms = dir(fullfile(ConDir, 'PDon*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
+        inputs{5,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOn', ConNames{n}, 'mask.nii,1')};
         FD = [FD(strcmp(Group, 'Healthy')) FD(strcmp(Group, 'PDon'))];
     end
-    inputs{4,1} = FD';
-    
+    inputs{4,1} = (FD - mean(FD) / std(FD))';       %Normalize FD
     delete(fullfile(char(inputs{1}), '*.*'))
-    spm_jobman('run', JobFile, inputs{:});
-    qsubcellfun('spm_jobman', repmat({'run'},[1 NrCon]), repmat(JobFile,[1 NrCon]), inputs{:}, 'memreq',5*1024^3, 'timreq',8*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000')
+    %     spm_jobman('run', JobFile, inputs{:});
+    jobs{n} =  qsubfeval('spm_jobman','run',JobFile, inputs{:},'memreq',5*1024^3,'timreq',8*60*60);
 end
+
+task.jobs = jobs;
+task.submittime = datestr(clock);
+task.mfile = mfilename;
+task.mfiletext = fileread([task.mfile '.m']);
+save([ANALYSESDir 'jobs___' task.mfile  '___' datestr(clock) '.mat'],'task');
+
+cd(CurrentDir)
 
 end
 
