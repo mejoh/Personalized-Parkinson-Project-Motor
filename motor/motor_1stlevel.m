@@ -40,6 +40,9 @@ BIDS     = spm_BIDS(BIDSDir);
 Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor');
 fprintf('Found %i subjects with task=motor\n', numel(Sub))
 
+CurrentDir = pwd;
+cd(ANALYSESDir);
+
 % Account for subjects with multiple runs (maximum of 3 runs, check whether this is appropriate beforehand)
 Run = num2str(ones(numel(Sub),1));
 for MultRunSub = spm_BIDS(BIDS, 'subjects', 'run','2', 'task','motor')
@@ -178,17 +181,17 @@ for n = 1:NrSub
     Covar		 = non_gm_covariates_fmriprep(ConfFile, InMat, NrPulses);
     
     Inputs{6}{n} = {Covar};
-	
+    
 end
 
-% for n = 1:NrSub
-%     spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
-% end
+for n = 1:NrSub
+    spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
+end
 
 if NrSub==1
 	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
 else
- 	qsubcellfun('spm_jobman', repmat({'run'},[1 NrSub]), repmat(JobFile,[1 NrSub]), Inputs{:}, 'memreq',4*1024^3, 'timreq',3*60*60);%, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
+  	qsubcellfun('spm_jobman', repmat({'run'},[1 NrSub]), repmat(JobFile,[1 NrSub]), Inputs{:}, 'memreq',4*1024^3, 'timreq',3*60*60);%, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
 end
 
 % Clean up copied functional images
