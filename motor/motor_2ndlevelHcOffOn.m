@@ -132,12 +132,12 @@ for c = 1:numel(ConList)
     
     for n = 1:numel(Sub)
         InputConFile = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', [ConList{c} '.nii']);
-        if strcmp(Group(n), 'PDoff')
-            OutputConFile = fullfile(ConDir, ['PDoff_' Sub{n} '_' ConList{c} '.nii']);
-        elseif strcmp(Group(n), 'PDon')
-            OutputConFile = fullfile(ConDir, ['PDon_' Sub{n} '_' ConList{c} '.nii']);
+        if strcmp(Group(n), 'PD_PIT')
+            OutputConFile = fullfile(ConDir, ['PD_PIT_' Sub{n} '_' ConList{c} '.nii']);
+        elseif strcmp(Group(n), 'PD_POM')
+            OutputConFile = fullfile(ConDir, ['PD_POM_' Sub{n} '_' ConList{c} '.nii']);
         else
-            OutputConFile = fullfile(ConDir, ['Hc_' Sub{n} '_' ConList{c} '.nii']);
+            OutputConFile = fullfile(ConDir, ['HC_PIT_' Sub{n} '_' ConList{c} '.nii']);
         end
         copyfile(InputConFile, OutputConFile)
         if strcmp(RespondingHand(n), 'Left') && Swap
@@ -159,37 +159,37 @@ end
 Inputs = cell(14, 1);
 Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOffOn x ExtInt2Int3Catch')};
 
-ExtHc = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, 'Hc*'));
+ExtHc = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, 'HC_PIT*'));
 Inputs{2,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, {ExtHc.name}');
-Int2Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, 'Hc*'));
+Int2Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, 'HC_PIT*'));
 Inputs{5,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, {Int2Hc.name}');
-Int3Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, 'Hc*'));
+Int3Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, 'HC_PIT*'));
 Inputs{8,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, {Int3Hc.name}');
-CatchHc = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, 'Hc*'));
+CatchHc = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, 'HC_PIT*'));
 Inputs{11,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchHc.name}');
 
-ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, 'PDoff*'));
+ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, 'PD_PIT*'));
 Inputs{3,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, {ExtPd.name}');
-Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, 'PDoff*'));
+Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, 'PD_PIT*'));
 Inputs{6,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, {Int2Pd.name}');
-Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, 'PDoff*'));
+Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, 'PD_PIT*'));
 Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, {Int3Pd.name}');
-CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, 'PDoff*'));
+CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, 'PD_PIT*'));
 Inputs{12,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchPd.name}');
 
-ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, 'PDon*'));
+ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, 'PD_POM*'));
 Inputs{4,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, {ExtPd.name}');
-Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, 'PDon*'));
+Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, 'PD_POM*'));
 Inputs{7,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, {Int2Pd.name}');
-Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, 'PDon*'));
+Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, 'PD_POM*'));
 Inputs{10,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, {Int3Pd.name}');
-CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, 'PDon*'));
+CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, 'PD_POM*'));
 Inputs{13,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchPd.name}');
 
-FD_hc = FD(strcmp(Group, 'Healthy'));
-FD_PDoff = FD(strcmp(Group, 'PDoff'));
-FD_PDon = FD(strcmp(Group, 'PDon'));
-Inputs{14,1} = [FD_hc FD_hc FD_hc FD_hc FD_PDoff FD_PDoff FD_PDoff FD_PDoff FD_PDon FD_PDon FD_PDon FD_PDon]';
+FD_HC_PIT = FD(strcmp(Group, 'HC_PIT'));
+FD_PD_PIT = FD(strcmp(Group, 'PD_PIT'));
+FD_PD_POM = FD(strcmp(Group, 'PD_POM'));
+Inputs{14,1} = [FD_HC_PIT FD_HC_PIT FD_HC_PIT FD_HC_PIT FD_PD_PIT FD_PD_PIT FD_PD_PIT FD_PD_PIT FD_PD_POM FD_PD_POM FD_PD_POM FD_PD_POM]';
 
 %% Run
 

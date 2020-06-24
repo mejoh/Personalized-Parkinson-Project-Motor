@@ -151,12 +151,12 @@ for c = 1:numel(ConList)
     
     for n = 1:numel(Sub)
         InputConFile = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level', [ConList{c} '.nii']);
-        if strcmp(Group(n), 'PDoff')
-            OutputConFile = fullfile(ConDir, ['PDoff_' Sub{n} '_' ConList{c} '.nii']);
-        elseif strcmp(Group(n), 'PDon')
-            OutputConFile = fullfile(ConDir, ['PDon_' Sub{n} '_' ConList{c} '.nii']);
+        if strcmp(Group(n), 'PD_PIT')
+            OutputConFile = fullfile(ConDir, ['PD_PIT_' Sub{n} '_' ConList{c} '.nii']);
+        elseif strcmp(Group(n), 'PD_POM')
+            OutputConFile = fullfile(ConDir, ['PD_POM_' Sub{n} '_' ConList{c} '.nii']);
         else
-            OutputConFile = fullfile(ConDir, ['Hc_' Sub{n} '_' ConList{c} '.nii']);
+            OutputConFile = fullfile(ConDir, ['HC_PIT_' Sub{n} '_' ConList{c} '.nii']);
         end
         copyfile(InputConFile, OutputConFile)
         if strcmp(RespondingHand(n), 'Left') && Swap
@@ -183,20 +183,20 @@ for n = 1:NrCon
     ConDir = fullfile(ANALYSESDir, 'Group', ConList{n});
     if Offstate
         inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOff', ConNames{n})};
-        HcIms = dir(fullfile(ConDir, 'Hc*'));
+        HcIms = dir(fullfile(ConDir, 'HC_PIT*'));
         inputs{2,1} = fullfile(ConDir, {HcIms.name}');
-        PdIms = dir(fullfile(ConDir, 'PDoff*'));
+        PdIms = dir(fullfile(ConDir, 'PD_PIT*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
         inputs{5,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOff', ConNames{n}, 'mask.nii,1')};
-        FD = [FD(strcmp(Group, 'Healthy')) FD(strcmp(Group, 'PDoff'))];
+        FD = [FD(strcmp(Group, 'HC_PIT')) FD(strcmp(Group, 'PD_PIT'))];
     else
         inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOn', ConNames{n})};
-        HcIms = dir(fullfile(ConDir, 'Hc*'));
+        HcIms = dir(fullfile(ConDir, 'HC_PIT*'));
         inputs{2,1} = fullfile(ConDir, {HcIms.name}');
-        PdIms = dir(fullfile(ConDir, 'PDon*'));
+        PdIms = dir(fullfile(ConDir, 'PD_POM*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
         inputs{5,1} = {fullfile(ANALYSESDir, 'Group', 'Ttests_HcVsOn', ConNames{n}, 'mask.nii,1')};
-        FD = [FD(strcmp(Group, 'Healthy')) FD(strcmp(Group, 'PDon'))];
+        FD = [FD(strcmp(Group, 'HC_PIT')) FD(strcmp(Group, 'PD_POM'))];
     end
     inputs{4,1} = (FD - mean(FD) / std(FD))';       %Normalize FD
     delete(fullfile(char(inputs{1}), '*.*'))
