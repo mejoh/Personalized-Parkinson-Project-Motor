@@ -20,22 +20,22 @@ end
 
 %Make input table
 %for resting state scans (Note that I find both rest1 and %rest2 files)
-% cDirInfo = dir(fullfile(pfProject, "3022026.01", "DataEMG", "*task*.vmrk")); %Look in DataEMG for all .vmrk files with rest in them
-% allFiles = string(join([{cDirInfo.folder}', {cDirInfo.name}'], filesep));
-% allSubs = extractBetween(allFiles, strcat("DataEMG", filesep), "task");
-% inputTable = splitvars(table([allSubs, allFiles]), 'Var1');
+cDirInfo = dir(fullfile(pfProject, "3022026.01", "analyses", "motor", "emg", "test", "data", "*task*.vmrk")); %Look in DataEMG for all .vmrk files with rest in them
+allFiles = string(join([{cDirInfo.folder}', {cDirInfo.name}'], filesep));
+allSubs = extractBetween(allFiles, strcat("data", filesep), "_task");
+inputTable = splitvars(table([allSubs, allFiles]), 'Var1');
 
 %For reward scans (COMMENT OUT IF YOU DON'T WORK ON REWARD)
-subTable = getSubjects("PD_on_study");
-inputTable = rowfun(@(cSub) getRewardInputTable(cSub, pfProject), subTable(:, "SubjectNumber"), 'NumOutputs', 2);
+% subTable = getSubjects("PD_on_study");
+% inputTable = rowfun(@(cSub) getRewardInputTable(cSub, pfProject), subTable(:, "SubjectNumber"), 'NumOutputs', 2);
 
 %Settings
-settings.TR         = 2.24;                                                                %double with TR time in seconds
+settings.TR         = 1;                                                                %double with TR time in seconds
 settings.RawFolder  = fullfile(pfProject, "3022026.01", "raw");                             %We count the number of images in the raw folder
-settings.ScanFolder = fullfile("ses-mri01", "*cmrr_3.5iso_me5_TR2240", "*.IMA");        %To search the raw images, we need a path within a subject folder to the raw images of the currect scan. Note the * at the scanname (instead of numbers) and the file extension (all IMA files).
-settings.NewFolder  = fullfile(pfProject, "3022026.01", "analyses", "tessa", "Test", "correction_markerfiles");                 %Output folder for the new files
-settings.EEGfolder  = fullfile(pfProject, "3022026.01", "DataEMG");                         %Raw folder containing the .eeg and .vhdr files
-settings.NumberOfEchos = 5;                                                      % Number of Echos if you do not have a multi echo sequence, use 1. 
+settings.ScanFolder = fullfile("ses-mri01", "*MB6_fMRI_2.0iso_TR1000TE34", "*.IMA");        %To search the raw images, we need a path within a subject folder to the raw images of the currect scan. Note the * at the scanname (instead of numbers) and the file extension (all IMA files).
+settings.NewFolder  = fullfile(pfProject, "3022026.01", "analyses", "motor", "emg", "test", "corrected");                 %Output folder for the new files
+settings.EEGfolder  = fullfile(pfProject, "3022026.01", "analyses", "motor", "emg", "test", "data");                         %Raw folder containing the .eeg and .vhdr files
+settings.NumberOfEchos = 1;                                                      % Number of Echos if you do not have a multi echo sequence, use 1. 
 
 %% Execute & save log
 logFile.LogTable = rowfun(@(cSub, oldFile) ChangeMarkersEMG(cSub, oldFile, settings), inputTable, ...
