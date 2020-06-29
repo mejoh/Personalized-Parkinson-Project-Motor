@@ -160,7 +160,7 @@ NEvents = numel(Events);
     
     %% Write json file
     Json = struct('Group', Group{a}, 'RespondingHand', RespondingHand{a}, 'NPulses', NPulses{a}, 'ExtCorrResp', ExtCorrResp{a});
-    Json.task_description = struct('LongName', 'Description of the motor task', 'Description', 'BlahBlahBlah');
+    Json.task_description = struct('LongName', 'Short description of the motor task', 'Description', 'Fixate on the cross presented in the middle of the screen. Four circles will be presented, each corresponding to a specific finger on the responding hand. Filled circles indicate correct responses. If only one circle is filled, press the corresponding response button. If multiple circles are filled, choose one and press the corresponding response button. Respond as quickly and accurately as possible.');
     Json.Group = struct('Value', Group{a}, 'LongName', 'Group', 'Description', 'Denotes the grouping of a participant', 'Levels', struct('PD_PIT', 'Patients from the Parkinson In Toom study', 'PD_POM', 'Patients from the Parkinson Op Maat study', 'HC_PIT', 'Healthy controls from the Parkinson In Toom study'));
     Json.RespondingHand = struct('Value', RespondingHand{a}, 'LongName', 'Responding hand', 'Description', 'Hand used for pressing response button. For patients, this also denotes the most affected side', 'Levels', struct('Left', 'Left hand', 'Right', 'Right hand'));
     Json.NPulses = struct('Value', NPulses{a}, 'LongName', 'Number of pulses', 'Description', 'Pulses recorded while Presentation is running the task. Scanning is manually stopped once the task is finished. As a result, images will usually contain more volumes than the number of pulses that are recorded by Presentation.');
