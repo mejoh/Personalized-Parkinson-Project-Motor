@@ -25,13 +25,13 @@ BIDS     = spm_BIDS(BIDSDir);
 
 Run = {'1', '2'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
 for r = 1:length(Run)
-Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
-NSub     = numel(Sub);
-fprintf('Project = %s\n', project)
-fprintf('%i subjects have run %s data. Checking for missing files...\n', NSub, Run{r})
+  Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
+  NSub     = numel(Sub);
+  fprintf('Project = %s\n', project)
+  fprintf('%i subjects have run %s data. Checking for missing files...\n', NSub, Run{r})
 
-% Exclude participants with missing log files
-Sel = true(size(Sub));
+  % Exclude participants with missing log files
+  Sel = true(size(Sub));
   for n = 1:numel(Sub)
     
     if strcmp(project, '3024006.01')
