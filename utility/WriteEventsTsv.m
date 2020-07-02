@@ -77,7 +77,7 @@ ExtCorrResp = cell(NSub,1);
     end
     
     CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
-	DefaultLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
+	DefaultLogs{n}   = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
     OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
     
@@ -88,11 +88,11 @@ ExtCorrResp = cell(NSub,1);
     end
         
     if strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
-        Group{n} = 'PDoff';
+        Group{n} = 'PD_PIT';
     elseif strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
-        Group{n} = 'Healthy';
+        Group{n} = 'PD_HC';
     else
-        Group{n} = 'PDon';
+        Group{n} = 'PD_POM';
     end
     
   end
