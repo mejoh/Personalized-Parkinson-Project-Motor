@@ -22,7 +22,7 @@ for n = 1:numel(Sub)
         MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     end
     
-    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
+    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
     if size(PracLog,1) ~= 1
 		Sel(n) = false;
     end
@@ -48,13 +48,17 @@ for n = 1:NSub
         MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     end
     
-    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-practice1_events.tsv']);
+    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-practice_run-2_events.tsv']);
   
 end
 
 % Delete pre-existing files
 for n = 1:NSub
+    if ~exist(fileparts(OutputFiles{n}), 'dir')
+        mkdir(fileparts(OutputFiles{n}))
+    end
+    
     if exist(OutputFiles{n}, 'file')
         delete(OutputFiles{n})
     end
@@ -69,7 +73,7 @@ NEvents = numel(Events);
 
 %% Extract acquisition time of first image
 for a = 1:NSub
-    
+
     %% Read custom log file and extract trial data
     fileID = fopen(PracLog{a}, 'r');
     Header = textscan(fileID, '%*s%*s%*s%f%*s%f%*s%*s%*s', 1, 'Delimiter','\t', 'ReturnOnError',false);
@@ -78,10 +82,12 @@ for a = 1:NSub
     NTrials = numel(Trials{1});                         % Number of trials
     
     fixation.onsets = Trials{3} * TimeScaleCust;       % Onsets
-    T0 = fixation.onsets(1);
-    fixation.onsets = fixation.onsets - T0;
-    cue.onsets = Trials{4} * TimeScaleCust - T0;
-    response.onsets = Trials{5} * TimeScaleCust - T0;
+    if isempty(fixation.onsets)             % Pass logfiles that are empty
+        continue
+    end
+    fixation.onsets = fixation.onsets;
+    cue.onsets = Trials{4} * TimeScaleCust;
+    response.onsets = Trials{5} * TimeScaleCust;
     
     fixation.durations = (Trials{4} - Trials{3}) * TimeScaleCust;       % Durations
     cue.durations = (Trials{5} - Trials{4}) * TimeScaleCust;
