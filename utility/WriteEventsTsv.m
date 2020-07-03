@@ -1,4 +1,3 @@
-function WriteEventsTsv(project)
 %% Write bids-compatible events.tsv file from motor task log files
 %%% Reference for OutputFile
 
@@ -18,6 +17,7 @@ function WriteEventsTsv(project)
 %%%
 
 %% Collect existing log files and define output .tsv file
+project = '3022026.01';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
@@ -39,7 +39,7 @@ for r = 1:length(Run)
         MotorBehavDir = dir(SearchPath);
         MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
     elseif strcmp(project, '3022026.01')
-        MotorBehavDir = fullfile(Root, 'DataTask');
+        MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     end
     
     CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
@@ -73,12 +73,12 @@ ExtCorrResp = cell(NSub,1);
         MotorBehavDir = dir(SearchPath);
         MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
     elseif strcmp(project, '3022026.01')
-        MotorBehavDir = fullfile(Root, 'DataTask');
+        MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     end
     
     CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
 	DefaultLogs{n}   = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'func', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
     
     if contains(DefaultLogs{n}, 'left')
@@ -99,6 +99,10 @@ ExtCorrResp = cell(NSub,1);
 
 % Delete pre-existing files
   for n = 1:NSub
+    if ~exist(fileparts(OutputFiles{n}), 'dir')
+        mkdir(fileparts(OutputFiles{n}))
+    end  
+      
     if exist(OutputFiles{n}, 'file')
         delete(OutputFiles{n})
         delete(JsonOutputFiles{n})
@@ -359,8 +363,6 @@ NEvents = numel(Events);
     writetable(T, OutputFiles{a}, 'Delimiter', '\t', 'FileType', 'text')
     
   end
-
-end
 
 end
 
