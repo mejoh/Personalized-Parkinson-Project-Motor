@@ -14,15 +14,9 @@ fprintf('Project = %s\n', project)
 Sel = true(size(Sub));
 for n = 1:numel(Sub)
     
-    if strcmp(project, '3024006.01')
-        SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
-        MotorBehavDir = dir(SearchPath);
-        MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
-    elseif strcmp(project, '3022026.01')
-        MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
-    end
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     
-    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
+    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
     if size(PracLog,1) ~= 1
 		Sel(n) = false;
     end
@@ -40,16 +34,10 @@ OutputFiles = cell(NSub,1);
 % Collect log files, also determine handedness and group.
 for n = 1:NSub
     
-    if strcmp(project, '3024006.01')
-        SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
-        MotorBehavDir = dir(SearchPath);
-        MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
-    elseif strcmp(project, '3022026.01')
-        MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
-    end
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     
-    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-practice_run-2_events.tsv']);
+    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-practice_run-1_events.tsv']);
   
 end
 
@@ -202,6 +190,20 @@ for a = 1:NSub
     button_pressed = button_pressed(idx);
     button_expected = button_expected(idx);
     correct_response = correct_response(idx);
+    
+    % Remove Catch Hit Resposnes with n/a onset. Probably not compatible
+    % with BIDS
+    EventsToKeep = ~strcmp(onset, 'n/a');
+    
+    onset = onset(EventsToKeep);         % Filter out n/a onset events
+    duration = duration(EventsToKeep);
+    trial_number = trial_number(EventsToKeep);
+    event_type = event_type(EventsToKeep);
+    trial_type = trial_type(EventsToKeep);
+    response_time = response_time(EventsToKeep);
+    button_pressed = button_pressed(EventsToKeep);
+    button_expected = button_expected(EventsToKeep);
+    correct_response = correct_response(EventsToKeep);
 
     %% Write table
     T = table(onset, duration, trial_number, event_type, trial_type, response_time, button_pressed, button_expected, correct_response);

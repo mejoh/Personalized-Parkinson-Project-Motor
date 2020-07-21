@@ -34,13 +34,7 @@ for r = 1:length(Run)
   Sel = true(size(Sub));
   for n = 1:numel(Sub)
     
-    if strcmp(project, '3024006.01')
-        SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
-        MotorBehavDir = dir(SearchPath);
-        MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
-    elseif strcmp(project, '3022026.01')
-        MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
-    end
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     
     CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
 	DefaultLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
@@ -68,15 +62,7 @@ ExtCorrResp = cell(NSub,1);
 % Collect log files, also determine handedness and group.
   for n = 1:NSub
     
-    if strcmp(project, '3024006.01')
-        SearchPath = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  '*motor_behav');
-        MotorBehavDir = dir(SearchPath);
-        MotorBehavDir = fullfile(MotorBehavDir.folder, MotorBehavDir.name);
-    elseif strcmp(project, '3022026.01')
-        MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
-    end
-    
-    CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
 	DefaultLogs{n}   = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
     OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
@@ -87,10 +73,10 @@ ExtCorrResp = cell(NSub,1);
         RespondingHand{n} = 'Right';
     end
         
-    if strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
+    if strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
         Group{n} = 'PD_PIT';
-    elseif strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
-        Group{n} = 'PD_HC';
+    elseif strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
+        Group{n} = 'HC_PIT';
     else
         Group{n} = 'PD_POM';
     end
@@ -175,8 +161,9 @@ NEvents = numel(Events);
     Json.event_type = struct('LongName', 'Event type', 'Description', 'Denotes the type of a specific event', 'Levels', struct('Instructions', 'Instructions presented at the start of the task', 'ShortRest', '4 second presentation of a fixation cross', 'LongRest', '20 second presentation of a fixation cross', 'fixation', 'Denotes presentation of a fixation crosses between trials', 'cue', 'Denotes presentation of a cue', 'response', 'Denotes detection of a response'));
     Json.trial_type = struct('LongName', 'Trial type', 'Description', 'Trial types denote conditions in task', 'Levels', struct('Ext', 'External, one choice', 'Int2', 'Internal, two choices', 'Int3', 'Internal, three choices'));
     Json.response_time = struct('LongName', 'Response time', 'Description', 'Denotes reaction time (i.e. Response onset - Cue onset) for a specific trial', 'Units', 'seconds');
+%     Json.button_pressed = struct('LongName', 'Button pressed', 'Description', 'Button pressed in response to a specific cue', 'Levels', struct('Zero', 'No response detected (Miss)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
     Json.button_pressed = struct('LongName', 'Button pressed', 'Description', 'Button pressed in response to a specific cue', 'Levels', struct('Zero', 'No response detected (Miss)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
-    Json.button_expected = struct('LongName', 'Button expected', 'Description', 'Correct button press(es) for a specific cue', 'Levels', struct('Zero', 'No response (only applicable for catch-trials)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
+    Json.button_expected = struct('LongName', 'Button expected', 'Description', 'Correct button press(es) for a specific cue', 'Levels', struct('One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
     Json.correct_response = struct('LongName', 'Accuracy of response', 'Description', 'Denotes whether a response was correct or not', 'Levels', struct('Hit', 'Correct response (button_pressed matches button_expected)', 'Incorrect', 'Incorrect response (button_pressed does not match button_expected)', 'Miss', 'No response detected when a response was required', 'FalseAlarm', 'Response detected when the correct response was to withhold a response'));
     Json.block = struct('LongName', 'Block', 'Description', 'Denotes block of a specific event', 'Level', struct('One', 'Block no. 1', 'Two', 'Block no. 2', 'Three', 'Block no. 3'));
     saveJSONfile(Json, JsonOutputFiles{a});
@@ -355,6 +342,22 @@ NEvents = numel(Events);
     button_expected = button_expected(idx);
     correct_response = correct_response(idx);
     block = block(idx);
+    
+    % Remove Catch Hit Resposnes with n/a onset. Probably not compatible
+    % with BIDS
+    EventsToKeep = ~strcmp(onset, 'n/a');
+    
+    onset = onset(EventsToKeep);         % Filter out n/a onset events
+    duration = duration(EventsToKeep);
+    trial_number = trial_number(EventsToKeep);
+    event_type = event_type(EventsToKeep);
+    trial_type = trial_type(EventsToKeep);
+    response_time = response_time(EventsToKeep);
+    button_pressed = button_pressed(EventsToKeep);
+    button_expected = button_expected(EventsToKeep);
+    correct_response = correct_response(EventsToKeep);
+    block = block(EventsToKeep);
+    
 
     %% Write table
     T = table(onset, duration, trial_number, event_type, trial_type, response_time, button_pressed, button_expected, correct_response, block);
