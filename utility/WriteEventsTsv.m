@@ -17,7 +17,7 @@
 %%%
 
 %% Collect existing log files and define output .tsv file
-project = '3022026.01';
+project = '3024006.01';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
@@ -74,9 +74,9 @@ ExtCorrResp = cell(NSub,1);
     end
         
     if strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
-        Group{n} = 'PD_PIT';
-    elseif strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
         Group{n} = 'HC_PIT';
+    elseif strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, ['sub-' Sub{n}], 'dwi'), 'dir')
+        Group{n} = 'PD_PIT';
     else
         Group{n} = 'PD_POM';
     end
