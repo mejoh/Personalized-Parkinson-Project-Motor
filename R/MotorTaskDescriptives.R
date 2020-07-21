@@ -1,26 +1,33 @@
-source('P:/3024006.01/users/marjoh/scripts/R/pit_motor-behav/MotorTaskDatabase.R')
-Data_long <- MotorTaskDatabase()
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/MotorTaskDatabase.R')
+project <- '3024006.01'
+Data_long <- MotorTaskDatabase(project)
+Data_long <- Data_long[complete.cases(Data_long), ]
 Data_wide <- Data_long %>%
              pivot_wider(names_from = Condition,
-                         values_from = c(Reaction.Time, Percentage.Correct))
+                         values_from = c(Response.Time, Percentage.Correct))
 
 ### Plots ###
 #############
-# Percentage correct ~ Reaction time facetted by group and condition
-a <- ggplot(Data_long, aes(Reaction.Time, Percentage.Correct))
+
+# Violin
+
+
+
+# Percentage correct ~ Response time facetted by group and condition
+a <- ggplot(Data_long, aes(Response.Time, Percentage.Correct))
 a + geom_point(size = 4, alpha = 1/3) + 
     facet_grid(Condition~Group) + 
     geom_smooth(method = 'lm', se = FALSE, col = 'red', lwd = 1)
 
-# Boxplot of Reaction.Time/Percentage.Correct ~ Condition labelled by Group
-c <- ggplot(Data_long, aes(Condition, Reaction.Time, color = Group))
+# Boxplot of Response.Time/Percentage.Correct ~ Condition labelled by Group
+c <- ggplot(Data_long, aes(Condition, Response.Time, color = Group))
 c + geom_boxplot()
 
 c <- ggplot(Data_long, aes(Condition, Percentage.Correct, color = Group))
 c + geom_boxplot()
 
-# Density plot of Reaction.Time/Percentage.Correct labelled by group
-d <- ggplot(Data_long, aes(Reaction.Time, color = Condition, fill = Condition))
+# Density plot of Response.Time/Percentage.Correct labelled by group
+d <- ggplot(Data_long, aes(Response.Time, color = Condition, fill = Condition))
 d + geom_density(alpha = 1/2, lwd = 1) +
     facet_grid(.~Group)
 
