@@ -1,5 +1,6 @@
-# X <- MotorTaskDatabase()
+# X <- MotorTaskDatabase('project')
 # X is a Subjects x Variables tibble with behavioural data
+# 'project' is a string denoting POM or PIT directories
 
 MotorTaskDatabase <- function(project){
 
