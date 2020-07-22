@@ -16,7 +16,7 @@ for n = 1:numel(Sub)
     
     MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     
-    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
+    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
     if size(PracLog,1) ~= 1
 		Sel(n) = false;
     end
@@ -36,8 +36,8 @@ for n = 1:NSub
     
     MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
     
-    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-practice_run-1_events.tsv']);
+    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-practice_run-2_events.tsv']);
   
 end
 
