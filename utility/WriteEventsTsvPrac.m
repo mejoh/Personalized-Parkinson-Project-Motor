@@ -2,6 +2,7 @@
 
 %% Collect existing log files and define output .tsv file
 project = '3022026.01';
+visit = 'ses-Visit1';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
@@ -14,7 +15,7 @@ fprintf('Project = %s\n', project)
 Sel = true(size(Sub));
 for n = 1:numel(Sub)
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
     
     PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
     if size(PracLog,1) ~= 1
@@ -34,10 +35,10 @@ OutputFiles = cell(NSub,1);
 % Collect log files, also determine handedness and group.
 for n = 1:NSub
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
     
     PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-practice_run-2_events.tsv']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-practice_run-2_events.tsv']);
   
 end
 

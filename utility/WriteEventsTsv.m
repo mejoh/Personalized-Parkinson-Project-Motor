@@ -17,7 +17,8 @@
 %%%
 
 %% Collect existing log files and define output .tsv file
-project = '3024006.01';
+project = '3022026.01';
+visit = 'ses-Visit1';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
@@ -34,7 +35,7 @@ for r = 1:length(Run)
   Sel = true(size(Sub));
   for n = 1:numel(Sub)
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
     
     CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
 	DefaultLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
@@ -62,9 +63,10 @@ ExtCorrResp = cell(NSub,1);
 % Collect log files, also determine handedness and group.
   for n = 1:NSub
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], 'ses-mri01',  'beh');CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
+    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit, 'beh');
+    CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
 	DefaultLogs{n}   = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
     
     if contains(DefaultLogs{n}, 'left')
