@@ -2,7 +2,7 @@
 
 %% Collect existing log files and define output .tsv file
 project = '3022026.01';
-visit = 'ses-Visit1';
+visit = 'ses-Visit3';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
@@ -38,7 +38,7 @@ for n = 1:NSub
     MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
     
     PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-practice_run-2_events.tsv']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-practice_run-2_events.tsv']);
   
 end
 

@@ -18,7 +18,7 @@
 
 %% Collect existing log files and define output .tsv file
 project = '3022026.01';
-visit = 'ses-Visit1';
+visit = 'ses-Visit3';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
