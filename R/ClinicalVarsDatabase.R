@@ -4,6 +4,7 @@ library(jsonlite)
 library(readtext)
 library(assertthat)
 library(stringr)
+library(lubridate)
 
 # Function to import a certain set of data matching with pattern
 ImportSubData <- function(dSub, pattern){
@@ -30,7 +31,7 @@ ImportSubData <- function(dSub, pattern){
         for(i in 1:length(fSubsetFiles)){
                 json <- readtext(fSubsetFiles[i], text_field = 'texts')
                 json <- parse_json(json$text)
-                Data <- bind_cols(Data[1,], as_tibble(json$crf)[1,])
+                Data <- bind_cols(Data[1,], as_tibble(json$crf)[1,])    # < Indexing to remove rows, gets rid of list answers!!!
         }
         Data
 }
@@ -71,6 +72,7 @@ for(n in 1:nSubs){
         VarNames <- c(VarNames, nam)    # < Optimization possible, very large array
 }
 UniqueVarNames <- unique(VarNames)
+rm(VarNames)
 if(grepl('Castor.HomeQuestionnaires1', pattern, fixed = TRUE)){
         UniqueVarNames <- paste('HomeQ1',UniqueVarNames,sep = '.')
 }else if(grepl('Castor.Visit1', pattern, fixed = TRUE)){
@@ -93,8 +95,8 @@ for(n in 1:nSubs){
         dat <- ImportSubData(dSubs[n], pattern)
         SubVarNames <- colnames(dat)
         for(i in 1:length(SubVarNames)){
-                colidx <- grep(paste('^',SubVarNames[i],'$', sep = ''), UniqueVarNames)
-                df[n,colidx] <- dat[,i]
+                colidx <- str_which(UniqueVarNames, SubVarNames[i])
+                df[n,colidx] <- unlist(dat[i])  # < Some variables are lists, like dat[77], these will not be adequately represented!!! 
         }
 }
 
@@ -102,3 +104,8 @@ for(n in 1:nSubs){
 df[df=='NA'] <- NA    # Not available for certain subjects (castor dependencies)
 df[df=='?'] <- NA     # Not available for certain subjects (castor dependencies)
 df[df==''] <- NA      # Not filled in
+df[df=='##USER_MISSING_95##'] <- NA
+df[df=='##USER_MISSING_96##'] <- NA
+df[df=='##USER_MISSING_97##'] <- NA
+df[df=='##USER_MISSING_98##'] <- NA
+df[df=='##USER_MISSING_99##'] <- NA
