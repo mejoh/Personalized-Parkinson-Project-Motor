@@ -7,8 +7,15 @@ library(stringr)
 library(lubridate)
 
 # Function to import a certain set of data matching with pattern
+# Finds subject's Castor json files
+# Subsets by pattern
+# Removes faulty files (defined manually)
+# Parses json files
+# Creates data frame
+# Outputs data frame
 ImportSubData <- function(dSub, pattern){
         
+        # Find subject's files and subset by pattern
         fAllFiles <- dir(dSub, full.names = TRUE)
         fSubsetFiles <- fAllFiles[grep(pattern, fAllFiles)]
         
@@ -25,14 +32,18 @@ ImportSubData <- function(dSub, pattern){
                 }
         }
         
+        # Initialize data frame, insert pseudonym
         Data <- tibble(pseudonym = '')
         Data[1] <- basename(dSub)
         
+        # Parse subsetted json files and bind to data frame
         for(i in 1:length(fSubsetFiles)){
                 json <- readtext(fSubsetFiles[i], text_field = 'texts')
                 json <- parse_json(json$text)
                 Data <- bind_cols(Data[1,], as_tibble(json$crf)[1,])    # < Indexing to remove rows, gets rid of list answers!!!
         }
+        
+        # Return subject's data frame
         Data
 }
 
