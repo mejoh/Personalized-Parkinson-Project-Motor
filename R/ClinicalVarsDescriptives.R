@@ -6,10 +6,10 @@ df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
 
 # Sort data frame
 df2_v1 <- df_v1 %>%
-        arrange(pseudonym)
+        arrange(pseudonym, timepoint)
 
 df2_v2 <- df_v2 %>%
-        arrange(pseudonym)
+        arrange(pseudonym, timepoint)
 
 # Merge data frames
 
@@ -23,11 +23,12 @@ df2 <- df2 %>%
         mutate(Up3OfAssesTime = sub(';.*', '', Up3OfAssesTime)) %>%
         mutate(Up3OfAssesTime = dmy(Up3OfAssesTime))
 
-# Calculate time of diagnosis for visit1
+## Calculate time of diagnosis for visit1 ##
+# Visit 1 is the only one with diagnosis date information!
 # Year, month, and day are not available for all participants
 # Make an estimation for those with missing data
-# Missing data comes in two forms: Missing day only, or missing both month and day
-# We therefore define 3 data frames, one for full data and 2 for the two forms of missing data
+# Missing data comes in three forms: Missing day only, missing both month and day, or missing all (>Visit1)
+# We therefore define 4 data frames, one for full data and 3 for the three forms of missing data
 YearOnly <- df2 %>%
         select(pseudonym, timepoint, DiagParkYear, DiagParkMonth, DiagParkDay, Up3OfAssesTime) %>%
         filter(!is.na(DiagParkYear)) %>%
@@ -61,11 +62,12 @@ YearMissing$DiagParkYear <- as.numeric(YearMissing$DiagParkYear)
 YearMissing$DiagParkMonth <- as.numeric(YearMissing$DiagParkMonth)
 YearMissing$DiagParkDay <- as.numeric(YearMissing$DiagParkDay)
 
-# Bind together the three tibbles defined above
+# Bind together the tibbles defined above
 # Sort by pseudonym and timepoint, just like original data frame (very important!)
 EstDiagnosisDates <- bind_rows(YearOnly, YearMonthOnly, YearMonthDay, YearMissing) %>%
         arrange(pseudonym, timepoint)
 
+## Calculate disease durations ##
 # Calculate an exact or estimated disease duration in years for visit 1
 EstDiagnosisDates <- EstDiagnosisDates %>% 
         mutate(EstDiagDate = ymd(paste(DiagParkYear,DiagParkMonth,DiagParkDay))) %>%
@@ -78,7 +80,7 @@ for(n in 1:nrow(EstDiagnosisDates)){
         }
 }
 
-# Calculate time to follow-up
+## Calculate time to follow-up ##
 EstDiagnosisDates <- EstDiagnosisDates %>%
         mutate(TimeToFUYears = 0)
 for(n in 1:nrow(EstDiagnosisDates)){
@@ -86,12 +88,16 @@ for(n in 1:nrow(EstDiagnosisDates)){
                 EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-1]) / 365
         }
 }
-BelowZeroFU <- EstDiagnosisDates$TimeToFUYears[EstDiagnosisDates$TimeToFUYears < 0]
-msg <- paste(length(BelowZeroFU), ' participants have negative time to follow-up, check so that visit 1 data is available. Otherwise a data entry mistake may have been made.', sep = '')
-warning(msg)
 
 # Add disease duration to main data frame
-df2 <- bind_cols(df2, tibble(EstDisDurYears = EstDiagnosisDates$EstDisDurYears))
+df2 <- bind_cols(df2, tibble(EstDisDurYears = EstDiagnosisDates$EstDisDurYears, TimeToFUYears = EstDiagnosisDates$TimeToFUYears))
+
+# Filter out participants with negative values for TimeToFUYears
+BelowZeroFU <- df2$TimeToFUYears[df2$TimeToFUYears < 0]
+msg <- paste(length(BelowZeroFU), ' participants have negative time to follow-up, check so that visit 1 data is available. Otherwise a data entry mistake may have been made. These participants will now be filtered out...', sep = '')
+warning(msg)
+df2 <- df2 %>%
+        filter(TimeToFUYears >= 0)
 
 #####
 
@@ -153,12 +159,33 @@ df2$timepoint <- as.factor(df2$timepoint)                         # Timepoint
 #        filter(RestTremAmpSum >= 1)
 #####
 
+##### Calculate disease progression and indicate which participants have FU data #####
+
+df2 <- df2 %>%
+        mutate(BradySum.1YearProg = 0,
+               RestTremAmpSum.1YearProg = 0,
+               MultipleSessions = 0)
+
+for(n in 1:nrow(df2)){
+        if(df2$timepoint[n] == 'V2'){
+                df2$BradySum.1YearProg[n] <- df2$BradySum[n] - df2$BradySum[n-1]
+                df2$RestTremAmpSum.1YearProg[n] <- df2$BradySum[n] - df2$BradySum[n-1]
+                df2$MultipleSessions[(n-1):n] = 1
+        }
+}
+df2$MultipleSessions <- as.factor(df2$MultipleSessions)
+levels(df2$MultipleSessions) <- c('No','Yes')
+#####
+
+source("M:/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
+library(ggplot2)
+library(cowplot)
+
+
 ##### Plots, Visit1 ####
 
 df2_v1 <- df2 %>%
         filter(timepoint == 'V1')
-
-library(ggplot2)
 
 ## BRADYKINESIA ##
 # Scatterplot (Bradykinesia/Tremor subscore ~ Disease duration)
@@ -352,20 +379,101 @@ side <- df2_v1 %>%
         table()
 side
 
-# Summary stats
-#df2_summary <- df2 %>%
-#        dplyr::summarise(n = n(), 
-#                         brady_mean = mean(BradySum), brady_sd = sd(BradySum),
-#                         disdur_mean = mean(EstDisDurYears), disdur_sd = sd(EstDisDurYears)) %>%
-#        dplyr::mutate(brady_se = brady_sd/sqrt(n), brady_ci = 2*brady_se,
-#                      disdur_se = disdur_sd/sqrt(n), disdur_ci = 2*disdur_se)
+
 
 
 #####
 
 ##### Plots, Visit2
 
+## Count of Visit2 sessions vs Visit1 sessions ##
+g_visits1 <- ggplot(df2, aes(timepoint, fill = timepoint, colour = timepoint)) +
+        geom_bar() +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Sessions') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_visits1
+
+## Time to follow-up ##
+g_timetofu1 <- df2 %>%
+        filter(timepoint == 'V2') %>%
+        ggplot(aes(x = '', y = TimeToFUYears)) +
+        geom_boxplot() +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Time to follow-up (years)') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_timetofu1
+
+## 1 year progression ##
+
+# Summary stats
+df2_summary <- df2 %>%
+        dplyr::group_by(timepoint) %>%
+        dplyr::summarise(n = n(), 
+                         brady_mean = mean(BradySum, na.rm = TRUE), brady_sd = sd(BradySum, na.rm = TRUE),
+                         disdur_mean = mean(EstDisDurYears, na.rm = TRUE), disdur_sd = sd(EstDisDurYears, na.rm = TRUE)) %>%
+        dplyr::mutate(brady_se = brady_sd/sqrt(n), brady_ci = 2*brady_se,
+                      disdur_se = disdur_sd/sqrt(n), disdur_ci = 2*disdur_se)
+
+g_bradyprog1vio <- ggplot(df2, aes(x = timepoint, y = BradySum, fill = timepoint)) +
+        geom_flat_violin(aes(fill = timepoint),position = position_nudge(x = .1, y = 0), adjust = 1, trim = FALSE, alpha = .5, colour = 'black', size = 1)+
+        geom_point(aes(x = as.numeric(timepoint)-.15, y = BradySum, colour = timepoint),position = position_jitter(width = .05), size = 4, shape = 20, alpha = .7)+
+        geom_boxplot(aes(x = timepoint, y = BradySum, fill = timepoint),outlier.shape = NA, alpha = .5, width = .1, colour = "black", size = 1)+
+        geom_line(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = brady_mean, group = timepoint, colour = timepoint), linetype = 3, lwd = 2)+
+        geom_point(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = brady_mean, group = timepoint, colour = timepoint), shape = 18, size = 2) +
+        geom_errorbar(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = brady_mean, group = timepoint, colour = timepoint, ymin = brady_mean-brady_se, ymax = brady_mean+brady_se), width = .05, size = 2)+
+        scale_colour_brewer(palette = "Set1")+
+        scale_fill_brewer(palette = "Set1")+
+        ggtitle("Bradykinesia subscore as a function of time") +
+        theme_cowplot(font_size = 25)
+g_bradyprog1vio
+
+g_bradyprog1 <- ggplot(df2, aes(x = EstDisDurYears, y = BradySum, colour = timepoint)) +
+        geom_point(aes(fill = timepoint), size = 3) +
+        geom_line(aes(group = pseudonym), color = 'darkgrey', lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Bradykinesia progression')
+g_bradyprog1
+
+g_bradyprog2 <- df2 %>%
+        filter(MultipleSessions == 'Yes') %>%
+        ggplot(aes(x = timepoint, y = BradySum, fill = timepoint)) +
+        geom_boxplot(lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Bradykinesia subscore') + xlab('Patients') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_bradyprog2
+
+g_bradyprog3 <- df2 %>%
+        filter(MultipleSessions == 'Yes') %>%
+        ggplot(aes(BradySum, fill = timepoint)) +
+        geom_density(alpha = 1/2, lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Bradykinesia subscore') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1') +
+        geom_vline(aes(xintercept = mean(df2$BradySum[df2$timepoint == 'V1'], na.rm = TRUE)), lwd = 2, color = 'red') +
+        geom_vline(aes(xintercept = mean(df2$BradySum[df2$timepoint == 'V2'], na.rm = TRUE)), lwd = 2, color = 'blue')
+g_bradyprog3
+
+## Side question: Is symptom progression dependent on disease duration? ##
+g_bradyprog4 <- df2 %>%
+        filter(timepoint == 'V2') %>%
+        ggplot(aes(x = EstDisDurYears, y = BradySum.1YearProg)) +
+        geom_point(size = 3) +
+        geom_smooth(method = lm, color = 'red')
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Bradykinesia progression as a function of disease duration')
+g_bradyprog4
+
 #####
+
+df2_ttest <- df2 %>%
+        filter(timepoint == 'V2')
+t.test(df2$BradySum.1YearProg, alternative = 'two.sided')
 
 ##### Clustering #####
 
