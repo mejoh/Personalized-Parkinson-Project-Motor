@@ -1,58 +1,97 @@
 # Generate data frame
 
-ClinicalVarsDatabase()
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R')
+df_v1 <- ClinicalVarsDatabase('Castor.Visit1')
+df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
 
 # Sort data frame
-df2 <- df %>%
-        arrange(Visit1.pseudonym)
+df2_v1 <- df_v1 %>%
+        arrange(pseudonym)
 
-##### Calculate disease onset (time of diagnosis) #####
+df2_v2 <- df_v2 %>%
+        arrange(pseudonym)
 
-# Calculate time of diagnosis
+# Merge data frames
+
+df2 <- full_join(df2_v1, df2_v2) %>%
+        arrange(pseudonym, timepoint)
+
+##### Calculate disease onset (time of diagnosis) and estimated disease duration #####
+
+# Convert time of assessment to 'date' format, removing hm information
+df2 <- df2 %>%
+        mutate(Up3OfAssesTime = sub(';.*', '', Up3OfAssesTime)) %>%
+        mutate(Up3OfAssesTime = dmy(Up3OfAssesTime))
+
+# Calculate time of diagnosis for visit1
 # Year, month, and day are not available for all participants
 # Make an estimation for those with missing data
 # Missing data comes in two forms: Missing day only, or missing both month and day
 # We therefore define 3 data frames, one for full data and 2 for the two forms of missing data
 YearOnly <- df2 %>%
-        select(Visit1.pseudonym, Visit1.DiagParkYear, Visit1.DiagParkMonth, Visit1.DiagParkDay) %>%
-        filter(!is.na(Visit1.DiagParkYear)) %>%
-        filter(is.na(Visit1.DiagParkMonth))
-YearOnly$Visit1.DiagParkYear <- as.numeric(YearOnly$Visit1.DiagParkYear)
-YearOnly$Visit1.DiagParkMonth <- c(6)
-YearOnly$Visit1.DiagParkDay <- c(15)  # < Time of diagnosis set to middle of the year
+        select(pseudonym, timepoint, DiagParkYear, DiagParkMonth, DiagParkDay, Up3OfAssesTime) %>%
+        filter(!is.na(DiagParkYear)) %>%
+        filter(is.na(DiagParkMonth))
+YearOnly$DiagParkYear <- as.numeric(YearOnly$DiagParkYear)
+YearOnly$DiagParkMonth <- c(6)
+YearOnly$DiagParkDay <- c(15)  # < Time of diagnosis set to middle of the year
 
 YearMonthOnly <- df2 %>%
-        select(Visit1.pseudonym, Visit1.DiagParkYear, Visit1.DiagParkMonth, Visit1.DiagParkDay) %>%
-        filter(!is.na(Visit1.DiagParkYear)) %>%
-        filter(!is.na(Visit1.DiagParkMonth)) %>%
-        filter(is.na(Visit1.DiagParkDay))
-YearMonthOnly$Visit1.DiagParkYear <- as.numeric(YearMonthOnly$Visit1.DiagParkYear)
-YearMonthOnly$Visit1.DiagParkMonth <- as.numeric(YearMonthOnly$Visit1.DiagParkMonth)
-YearMonthOnly$Visit1.DiagParkDay <- c(15)     # < Time of diagnosis set to middle of the month
+        select(pseudonym, timepoint, DiagParkYear, DiagParkMonth, DiagParkDay, Up3OfAssesTime) %>%
+        filter(!is.na(DiagParkYear)) %>%
+        filter(!is.na(DiagParkMonth)) %>%
+        filter(is.na(DiagParkDay))
+YearMonthOnly$DiagParkYear <- as.numeric(YearMonthOnly$DiagParkYear)
+YearMonthOnly$DiagParkMonth <- as.numeric(YearMonthOnly$DiagParkMonth)
+YearMonthOnly$DiagParkDay <- c(15)     # < Time of diagnosis set to middle of the month
 
 YearMonthDay <- df2 %>%
-        select(Visit1.pseudonym, Visit1.DiagParkYear, Visit1.DiagParkMonth, Visit1.DiagParkDay) %>%
-        filter(!is.na(Visit1.DiagParkYear)) %>%
-        filter(!is.na(Visit1.DiagParkMonth)) %>%
-        filter(!is.na(Visit1.DiagParkDay))
-YearMonthDay$Visit1.DiagParkYear <- as.numeric(YearMonthDay$Visit1.DiagParkYear)
-YearMonthDay$Visit1.DiagParkMonth <- as.numeric(YearMonthDay$Visit1.DiagParkMonth)
-YearMonthDay$Visit1.DiagParkDay <- as.numeric(YearMonthDay$Visit1.DiagParkDay)
+        select(pseudonym, timepoint, DiagParkYear, DiagParkMonth, DiagParkDay, Up3OfAssesTime) %>%
+        filter(!is.na(DiagParkYear)) %>%
+        filter(!is.na(DiagParkMonth)) %>%
+        filter(!is.na(DiagParkDay))
+YearMonthDay$DiagParkYear <- as.numeric(YearMonthDay$DiagParkYear)
+YearMonthDay$DiagParkMonth <- as.numeric(YearMonthDay$DiagParkMonth)
+YearMonthDay$DiagParkDay <- as.numeric(YearMonthDay$DiagParkDay)
+
+YearMissing <- df2 %>%
+        select(pseudonym, timepoint, DiagParkYear, DiagParkMonth, DiagParkDay, Up3OfAssesTime) %>%
+        filter(is.na(DiagParkYear))
+YearMissing$DiagParkYear <- as.numeric(YearMissing$DiagParkYear)
+YearMissing$DiagParkMonth <- as.numeric(YearMissing$DiagParkMonth)
+YearMissing$DiagParkDay <- as.numeric(YearMissing$DiagParkDay)
 
 # Bind together the three tibbles defined above
-EstDiagnosisDates <- dplyr::bind_rows(YearOnly, YearMonthOnly, YearMonthDay)
+# Sort by pseudonym and timepoint, just like original data frame (very important!)
+EstDiagnosisDates <- bind_rows(YearOnly, YearMonthOnly, YearMonthDay, YearMissing) %>%
+        arrange(pseudonym, timepoint)
 
-# Sort by pseudoynym (very important to have same order as main data frame)
-EstDiagnosisDates <- EstDiagnosisDates %>%
-        arrange(Visit1.pseudonym)
-
-# Calculate an exact or estimated disease duration in years
+# Calculate an exact or estimated disease duration in years for visit 1
 EstDiagnosisDates <- EstDiagnosisDates %>% 
-        mutate(EstDiagDate = ymd(paste(Visit1.DiagParkYear,Visit1.DiagParkMonth,Visit1.DiagParkDay))) %>%
-        mutate(EstDisDurYears = as.numeric(today() - EstDiagDate) / 364)
+        mutate(EstDiagDate = ymd(paste(DiagParkYear,DiagParkMonth,DiagParkDay))) %>%
+        mutate(EstDisDurYears = as.numeric(Up3OfAssesTime - EstDiagDate) / 365)
+
+# Calculate an exact or estimated disease duration in years for visit 2
+for(n in 1:nrow(EstDiagnosisDates)){
+        if(EstDiagnosisDates$timepoint[n] == 'V2'){
+                EstDiagnosisDates$EstDisDurYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$EstDiagDate[n-1]) / 365
+        }
+}
+
+# Calculate time to follow-up
+EstDiagnosisDates <- EstDiagnosisDates %>%
+        mutate(TimeToFUYears = 0)
+for(n in 1:nrow(EstDiagnosisDates)){
+        if(EstDiagnosisDates$timepoint[n] == 'V2'){
+                EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-1]) / 365
+        }
+}
+BelowZeroFU <- EstDiagnosisDates$TimeToFUYears[EstDiagnosisDates$TimeToFUYears < 0]
+msg <- paste(length(BelowZeroFU), ' participants have negative time to follow-up, check so that visit 1 data is available. Otherwise a data entry mistake may have been made.', sep = '')
+warning(msg)
 
 # Add disease duration to main data frame
-df2 <- bind_cols(df2, tibble(Visit1.EstDisDurYears = EstDiagnosisDates$EstDisDurYears))
+df2 <- bind_cols(df2, tibble(EstDisDurYears = EstDiagnosisDates$EstDisDurYears))
 
 #####
 
@@ -61,57 +100,63 @@ df2 <- bind_cols(df2, tibble(Visit1.EstDisDurYears = EstDiagnosisDates$EstDisDur
 # Variable selection
 # Definition of bradykinesia subscore
 df2 <- df2 %>%
-        select(Visit1.pseudonym, 
-               Visit1.Up3OfRigRue, Visit1.Up3OfRigRle, Visit1.Up3OfRigLue, Visit1.Up3OfRigLle,
-               Visit1.Up3OfFiTaYesDev, Visit1.Up3OfFiTaNonDev,
-               Visit1.Up3OfHaMoYesDev, Visit1.Up3OfHaMoNonDev,
-               Visit1.Up3OfProSYesDev, Visit1.Up3OfProSNonDev,
-               Visit1.Up3OfToTaYesDev, Visit1.Up3OfToTaNonDev,
-               Visit1.Up3OfLAgiYesDev, Visit1.Up3OfLAgiNonDev,
-               Visit1.Up3OfRAmpArmYesDev, Visit1.Up3OfRAmpArmNonDev,
-               Visit1.Up3OfRAmpLegYesDev, Visit1.Up3OfRAmpLegNonDev,
-               Visit1.Up3OfRAmpJaw,
-               Visit1.EstDisDurYears,
-               Visit1.Up3OfHoeYah,
-               Visit1.MriNeuroPsychTask,
-               Visit1.DiagParkCertain,
-               Visit1.MostAffSide,
-               Visit1.PrefHand,
-               Visit1.Age,
-               Visit1.Gender,
-               Visit1.ParkinMedUser,
-               Visit1.SmokeCurrent) %>%
+        select(pseudonym, 
+               Up3OfRigRue, Up3OfRigRle, Up3OfRigLue, Up3OfRigLle,
+               Up3OfFiTaYesDev, Up3OfFiTaNonDev,
+               Up3OfHaMoYesDev, Up3OfHaMoNonDev,
+               Up3OfProSYesDev, Up3OfProSNonDev,
+               Up3OfToTaYesDev, Up3OfToTaNonDev,
+               Up3OfLAgiYesDev, Up3OfLAgiNonDev,
+               Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev,
+               Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev,
+               Up3OfRAmpJaw,
+               EstDisDurYears,
+               Up3OfHoeYah,
+               MriNeuroPsychTask,
+               DiagParkCertain,
+               MostAffSide,
+               PrefHand,
+               Age,
+               Gender,
+               ParkinMedUser,
+               SmokeCurrent,
+               timepoint,
+               TimeToFUYears) %>%
         mutate(across(2:20, as.numeric)) %>%
-        mutate(Visit1.BradySum = rowSums(.[2:15])) %>%
-        mutate(Visit1.RestTremAmpSum = rowSums(.[16:20]))
+        mutate(BradySum = rowSums(.[2:15])) %>%
+        mutate(RestTremAmpSum = rowSums(.[16:20]))
 
 # Transformations
-df2$Visit1.Up3OfHoeYah <- as.factor(df2$Visit1.Up3OfHoeYah)                     # Hoen & Yahr stage
-df2$Visit1.MriNeuroPsychTask <- as.factor(df2$Visit1.MriNeuroPsychTask)         # Which task was done?
-levels(df2$Visit1.MriNeuroPsychTask) <- c('Motor', 'Reward')
-df2$Visit1.DiagParkCertain <- as.factor(df2$Visit1.DiagParkCertain)             # Certainty of diagnosis
-levels(df2$Visit1.DiagParkCertain) <- c('PD','DoubtAboutPD','Parkinsonism','DoubtAboutParkinsonism', 'NeitherDisease')
-df2$Visit1.MostAffSide <- as.factor(df2$Visit1.MostAffSide)                     # Most affected side
-levels(df2$Visit1.MostAffSide) <- c('RightOnly', 'LeftOnly', 'BiR>L', 'BiL>R', 'BiR=L', 'None')
-df2$Visit1.PrefHand <- as.factor(df2$Visit1.PrefHand)                           # Dominant hand
-levels(df2$Visit1.PrefHand) <- c('Right', 'Left', 'NoPref')
-df2$Visit1.Gender <- as.factor(df2$Visit1.Gender)                               # Gender
-levels(df2$Visit1.Gender) <- c('Male', 'Female')
-df2$Visit1.Age <- as.numeric(df2$Visit1.Age)                                    # Age
-df2$Visit1.ParkinMedUser <- as.factor(df2$Visit1.ParkinMedUser)                 # Parkinson's medication use
-levels(df2$Visit1.ParkinMedUser) <- c('No','Yes')
-df2$Visit1.SmokeCurrent <- as.factor(df2$Visit1.SmokeCurrent)                   # Smoking
-levels(df2$Visit1.SmokeCurrent) <- c('Yes','No')
+df2$Up3OfHoeYah <- as.factor(df2$Up3OfHoeYah)                     # Hoen & Yahr stage
+df2$MriNeuroPsychTask <- as.factor(df2$MriNeuroPsychTask)         # Which task was done?
+levels(df2$MriNeuroPsychTask) <- c('Motor', 'Reward')
+df2$DiagParkCertain <- as.factor(df2$DiagParkCertain)             # Certainty of diagnosis
+levels(df2$DiagParkCertain) <- c('PD','DoubtAboutPD','Parkinsonism','DoubtAboutParkinsonism', 'NeitherDisease')
+df2$MostAffSide <- as.factor(df2$MostAffSide)                     # Most affected side
+levels(df2$MostAffSide) <- c('RightOnly', 'LeftOnly', 'BiR>L', 'BiL>R', 'BiR=L', 'None')
+df2$PrefHand <- as.factor(df2$PrefHand)                           # Dominant hand
+levels(df2$PrefHand) <- c('Right', 'Left', 'NoPref')
+df2$Gender <- as.factor(df2$Gender)                               # Gender
+levels(df2$Gender) <- c('Male', 'Female')
+df2$Age <- as.numeric(df2$Age)                                    # Age
+df2$ParkinMedUser <- as.factor(df2$ParkinMedUser)                 # Parkinson's medication use
+levels(df2$ParkinMedUser) <- c('No','Yes')
+df2$SmokeCurrent <- as.factor(df2$SmokeCurrent)                   # Smoking
+levels(df2$SmokeCurrent) <- c('Yes','No')
+df2$timepoint <- as.factor(df2$timepoint)                         # Timepoint
 
 # Subsetting by task
 #df2 <- df2 %>%
-#        filter(Visit1.MriNeuroPsychTask == 'Motor')
+#        filter(MriNeuroPsychTask == 'Motor')
 # Subset by noticable tremor
 #df2 <- df2 %>%
-#        filter(Visit1.RestTremAmpSum >= 1)
+#        filter(RestTremAmpSum >= 1)
 #####
 
-##### Plot ####
+##### Plots, Visit1 ####
+
+df2_v1 <- df2 %>%
+        filter(timepoint == 'V1')
 
 library(ggplot2)
 
@@ -121,7 +166,7 @@ bradykinesia_description <- paste("Bradykinesia subscore: \n",
                                   "Limb bradykinesia = Sum item 4-8 (0-40) \n",
                                   "Limb ridigity = Sum item 3 excl. neck (0-16)")
 
-g_brady1 <- ggplot(df2, aes(Visit1.BradySum)) +
+g_brady1 <- ggplot(df2_v1, aes(BradySum)) +
         geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Bradykinesia subscore') +
@@ -129,7 +174,7 @@ g_brady1 <- ggplot(df2, aes(Visit1.BradySum)) +
         scale_fill_brewer(palette = 'Set1')
 g_brady1
 
-g_brady2 <- ggplot(df2,aes(x = '',y = Visit1.BradySum)) +
+g_brady2 <- ggplot(df2_v1,aes(x = '',y = BradySum)) +
         geom_boxplot(lwd = 1, colour = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Bradykinesia subscore') + xlab('Patients') +
@@ -137,7 +182,7 @@ g_brady2 <- ggplot(df2,aes(x = '',y = Visit1.BradySum)) +
         scale_fill_brewer(palette = 'Set1')
 g_brady2
 
-g_brady3 <- ggplot(df2, aes(x = Visit1.EstDisDurYears, y = Visit1.BradySum, colour = Visit1.Up3OfHoeYah)) + 
+g_brady3 <- ggplot(df2_v1, aes(x = EstDisDurYears, y = BradySum, colour = Up3OfHoeYah)) + 
         geom_point(alpha = .6, size = 4) + 
         geom_smooth(method = 'lm', col = 'red') +
         scale_color_brewer(palette = 'Set1') +
@@ -162,7 +207,7 @@ bradykinesia_plots
 tremor_description <- paste("Resting tremor amplitude: \n",
                             "Limb resting tremor = Sum item 17 (0-16)")
 
-g_trem1 <- ggplot(df2, aes(Visit1.RestTremAmpSum)) +
+g_trem1 <- ggplot(df2_v1, aes(RestTremAmpSum)) +
         geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Resting tremor amplitude') +
@@ -170,7 +215,7 @@ g_trem1 <- ggplot(df2, aes(Visit1.RestTremAmpSum)) +
         scale_fill_brewer(palette = 'Set1')
 g_trem1
 
-g_trem2 <- ggplot(df2,aes(x = '',y = Visit1.RestTremAmpSum)) +
+g_trem2 <- ggplot(df2_v1,aes(x = '',y = RestTremAmpSum)) +
         geom_boxplot(lwd = 1, colour = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Resting tremor amplitude') + xlab('Patients') +
@@ -178,7 +223,7 @@ g_trem2 <- ggplot(df2,aes(x = '',y = Visit1.RestTremAmpSum)) +
         scale_fill_brewer(palette = 'Set1')
 g_trem2
 
-g_trem3 <- ggplot(df2, aes(x = Visit1.EstDisDurYears, y = Visit1.RestTremAmpSum, colour = Visit1.Up3OfHoeYah)) + 
+g_trem3 <- ggplot(df2_v1, aes(x = EstDisDurYears, y = RestTremAmpSum, colour = Up3OfHoeYah)) + 
         geom_point(alpha = .6, size = 4) + 
         geom_smooth(method = 'lm', col = 'red') +
         scale_color_brewer(palette = 'Set1') +
@@ -201,7 +246,7 @@ tremor_plots
 
 ## ESTIMATED DISEASE DURATION ##
 
-g_disdur1 <- ggplot(df2, aes(Visit1.EstDisDurYears)) +
+g_disdur1 <- ggplot(df2_v1, aes(EstDisDurYears)) +
         geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Disease duration (years)') +
@@ -209,7 +254,7 @@ g_disdur1 <- ggplot(df2, aes(Visit1.EstDisDurYears)) +
         scale_fill_brewer(palette = 'Set1')
 g_disdur1
 
-g_disdur2 <- ggplot(df2,aes(x = '',y = Visit1.EstDisDurYears)) +
+g_disdur2 <- ggplot(df2_v1,aes(x = '',y = EstDisDurYears)) +
         geom_boxplot(lwd = 1, colour = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Estimated disease duration (years)') + xlab('Patients') +
@@ -221,7 +266,7 @@ disdur_plots <- plot_grid(g_disdur1, g_disdur2, labels = 'AUTO', nrow = 1, ncol 
 disdur_plots
 
 ## AGE ##
-g_age1 <- ggplot(df2, aes(Visit1.Age)) +
+g_age1 <- ggplot(df2_v1, aes(Age)) +
         geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Age') +
@@ -229,7 +274,7 @@ g_age1 <- ggplot(df2, aes(Visit1.Age)) +
         scale_fill_brewer(palette = 'Set1')
 g_age1
 
-g_age2 <- ggplot(df2,aes(x = '',y = Visit1.Age)) +
+g_age2 <- ggplot(df2_v1,aes(x = '',y = Age)) +
         geom_boxplot(lwd = 1, colour = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Age') + xlab('Patients') +
@@ -241,7 +286,7 @@ age_plots <- plot_grid(g_age1, g_age2, labels = 'AUTO', nrow = 1, ncol = 2)
 age_plots
 
 ## GENDER ##
-g_gender1 <- ggplot(df2, aes(Visit1.Gender, fill = Visit1.Gender, colour = Visit1.Gender)) +
+g_gender1 <- ggplot(df2_v1, aes(Gender, fill = Gender, colour = Gender)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'Gender') +
@@ -250,7 +295,7 @@ g_gender1 <- ggplot(df2, aes(Visit1.Gender, fill = Visit1.Gender, colour = Visit
 g_gender1
 
 ## HOEHN & YAHR ##
-g_H&Y1 <- ggplot(df2, aes(Visit1.Up3OfHoeYah, fill = Visit1.Up3OfHoeYah, colour = Visit1.Up3OfHoeYah)) +
+g_H&Y1 <- ggplot(df2_v1, aes(Up3OfHoeYah, fill = Up3OfHoeYah, colour = Up3OfHoeYah)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'Hoehn & Yahr stage') +
@@ -259,7 +304,7 @@ g_H&Y1 <- ggplot(df2, aes(Visit1.Up3OfHoeYah, fill = Visit1.Up3OfHoeYah, colour 
 g_H&Y1
 
 ## CERTAINTY OF DIAGNOSIS ##
-g_certaintyofdiag1 <- ggplot(df2, aes(Visit1.DiagParkCertain, fill = Visit1.DiagParkCertain)) +
+g_certaintyofdiag1 <- ggplot(df2_v1, aes(DiagParkCertain, fill = DiagParkCertain)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'Certainty of diagnosis') +
@@ -268,7 +313,7 @@ g_certaintyofdiag1 <- ggplot(df2, aes(Visit1.DiagParkCertain, fill = Visit1.Diag
 g_certaintyofdiag1
 
 ## PD MEDICATION USAGE ##
-g_meduse1 <- ggplot(df2, aes(Visit1.ParkinMedUser, fill = Visit1.ParkinMedUser)) +
+g_meduse1 <- ggplot(df2_v1, aes(ParkinMedUser, fill = ParkinMedUser)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'PD medication users') +
@@ -277,7 +322,7 @@ g_meduse1 <- ggplot(df2, aes(Visit1.ParkinMedUser, fill = Visit1.ParkinMedUser))
 g_meduse1
 
 ## TASK ##
-g_task1 <- ggplot(df2, aes(Visit1.MriNeuroPsychTask, fill = Visit1.MriNeuroPsychTask)) +
+g_task1 <- ggplot(df2_v1, aes(MriNeuroPsychTask, fill = MriNeuroPsychTask)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'Task') +
@@ -286,7 +331,7 @@ g_task1 <- ggplot(df2, aes(Visit1.MriNeuroPsychTask, fill = Visit1.MriNeuroPsych
 g_task1
 
 ## MOST AFFECTED SIDE AND HANDEDNESS##
-g_mas1 <- ggplot(df2, aes(Visit1.MostAffSide, fill = Visit1.MostAffSide)) +
+g_mas1 <- ggplot(df2_v1, aes(MostAffSide, fill = MostAffSide)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'Most affected side') +
@@ -294,7 +339,7 @@ g_mas1 <- ggplot(df2, aes(Visit1.MostAffSide, fill = Visit1.MostAffSide)) +
         scale_fill_brewer(palette = 'Set1')
 g_mas1
 
-g_prefhand1 <- ggplot(df2, aes(Visit1.PrefHand, fill = Visit1.PrefHand)) +
+g_prefhand1 <- ggplot(df2_v1, aes(PrefHand, fill = PrefHand)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'Dominant hand') +
@@ -302,19 +347,23 @@ g_prefhand1 <- ggplot(df2, aes(Visit1.PrefHand, fill = Visit1.PrefHand)) +
         scale_fill_brewer(palette = 'Set1')
 g_prefhand1
 
-df2_side <- df2 %>%
-        select(Visit1.PrefHand, Visit1.MostAffSide) %>%
+side <- df2_v1 %>%
+        select(PrefHand, MostAffSide) %>%
         table()
-df2_side
+side
 
 # Summary stats
 #df2_summary <- df2 %>%
 #        dplyr::summarise(n = n(), 
-#                         brady_mean = mean(Visit1.BradySum), brady_sd = sd(Visit1.BradySum),
-#                         disdur_mean = mean(Visit1.EstDisDurYears), disdur_sd = sd(Visit1.EstDisDurYears)) %>%
+#                         brady_mean = mean(BradySum), brady_sd = sd(BradySum),
+#                         disdur_mean = mean(EstDisDurYears), disdur_sd = sd(EstDisDurYears)) %>%
 #        dplyr::mutate(brady_se = brady_sd/sqrt(n), brady_ci = 2*brady_se,
 #                      disdur_se = disdur_sd/sqrt(n), disdur_ci = 2*disdur_se)
 
+
+#####
+
+##### Plots, Visit2
 
 #####
 
@@ -327,9 +376,9 @@ df2_side
 # Tremor is not being weighed high enough. Probably due to low amount of
 # participants with noticable tremor.
 df2_kmeans <- df2 %>%
-        select(Visit1.BradySum, Visit1.RestTremAmpSum)
+        select(BradySum, RestTremAmpSum)
 kmeansObj <- kmeans(df2_kmeans, centers = 2)
-plot(df2_kmeans$Visit1.BradySum, df2_kmeans$Visit1.RestTremAmpSum, col = kmeansObj$cluster, pch = 19, cex = 2)
+plot(df2_kmeans$BradySum, df2_kmeans$RestTremAmpSum, col = kmeansObj$cluster, pch = 19, cex = 2)
 points(kmeansObj$centers, col = 1:2, pch = 3, cex = 3, lwd = 3)
 
 #####
