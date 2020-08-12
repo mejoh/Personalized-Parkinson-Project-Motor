@@ -3,7 +3,9 @@ source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R
 df_v1 <- ClinicalVarsDatabase('Castor.Visit1')
 df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
 
+load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment.RData")
 # Sort data frame
+library(tidyverse)
 df2_v1 <- df_v1 %>%
         arrange(pseudonym, timepoint)
 
