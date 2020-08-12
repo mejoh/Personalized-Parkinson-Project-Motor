@@ -50,16 +50,10 @@ ImportSubData <- function(dSub, pattern){
 
 # Create a list of subject directories in the pulled-data folder
 dPulledData <- 'P:/3022026.01/pep/pulled-data'
-# START OF PATTERN LOOP
 dSubs <- list.dirs(dPulledData, recursive = FALSE)
 #dSubs <- dSubs[1:30] # For testing
 dSubs <- dSubs[-c(grep('.pepData', dSubs))]
 nSubs <- length(dSubs)
-
-# Define patterns used to search for Castor.<pattern> files
-#pattern <- c('Castor.HomeQuestionnaires1')
-#pattern <- c('Castor.Visit1')
-#pattern <- c('Castor.Visit2')
 
 # Exclude subjects that do not have files matching pattern
 Sel <- rep(TRUE, nSubs)
