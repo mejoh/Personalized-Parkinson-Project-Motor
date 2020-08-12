@@ -1,5 +1,7 @@
 ClinicalVarsPreprocessing <- function(dataframe){
-        
+
+library(tidyverse)        
+library(lubridate)               
 ##### Calculate disease onset (time of diagnosis) and estimated disease duration #####
 
 # Convert time of assessment to 'date' format, removing hm information
@@ -129,7 +131,9 @@ dataframe <- dataframe %>%
         mutate(BradySum = rowSums(.[2:15])) %>%
         mutate(RestTremAmpSum = rowSums(.[16:20]))
 
-# Transformations
+#####
+
+##### Transformations #####
 dataframe$Up3OfHoeYah <- as.factor(dataframe$Up3OfHoeYah)                     # Hoen & Yahr stage
 dataframe$MriNeuroPsychTask <- as.factor(dataframe$MriNeuroPsychTask)         # Which task was done?
 levels(dataframe$MriNeuroPsychTask) <- c('Motor', 'Reward')
