@@ -18,3 +18,4 @@ motor/interpol/interpol/interpol_interpolate.m
 *.m~
 R/visit1_visit2_environment.RData
 R/ClinicalVarsDescriptives.html
+R/ClinicalVarsDescriptives.Rmd
