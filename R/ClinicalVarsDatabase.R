@@ -24,7 +24,7 @@ ImportSubData <- function(dSub, pattern){
         if(pattern=='Castor.Visit1' || pattern=='Castor.Visit2'){
                 ExcludedFiles <- c('Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_1',
                                    'Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_2',
-                                   'Castor.Visit1.Motorische_taken_ON.Updrs3_deel_3')
+                                   'Castor.Visit1.Motorische_taken_ON.Updrs3_deel_3')   # < Not sure about this last one... only incorrect for some
                 for(i in 1:length(ExcludedFiles)){
                         idx <- grep(ExcludedFiles[i], fSubsetFiles)
                         if(not_empty(idx)){
@@ -51,7 +51,7 @@ ImportSubData <- function(dSub, pattern){
 # Create a list of subject directories in the pulled-data folder
 dPulledData <- 'P:/3022026.01/pep/pulled-data'
 dSubs <- list.dirs(dPulledData, recursive = FALSE)
-#dSubs <- dSubs[1:30] # For testing
+#dSubs <- unique(grep(paste(check, collapse = "|"), dSubs, value = TRUE)) # For testing
 dSubs <- dSubs[-c(grep('.pepData', dSubs))]
 nSubs <- length(dSubs)
 
