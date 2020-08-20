@@ -1,9 +1,9 @@
 ##### Generate data frame ####
-source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R')
-df_v1 <- ClinicalVarsDatabase('Castor.Visit1')
-df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
-
+#source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R')
+#df_v1 <- ClinicalVarsDatabase('Castor.Visit1')
+#df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
 load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment.RData")
+
 # Sort data frame
 library(tidyverse)
 df2_v1 <- df_v1 %>%
@@ -16,6 +16,7 @@ df2_v2 <- df_v2 %>%
 df2 <- full_join(df2_v1, df2_v2) %>%
         arrange(pseudonym, timepoint)
 
+# Select vars and generate additional ones
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsPreprocessing.R')
 df2 <- ClinicalVarsPreprocessing(df2)
 ##### 
@@ -28,6 +29,36 @@ library(cowplot)
 
 df2_v1 <- df2 %>%
         filter(timepoint == 'V1')
+
+## Total UPDRS3 score ##
+g_SumUpdrs31 <- ggplot(df2_v1, aes(Up3OfSumOfTotalWithinRange)) +
+        geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Total UPDRS3') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_SumUpdrs31
+
+g_SumUpdrs32 <- ggplot(df2_v1,aes(x = '',y = Up3OfSumOfTotalWithinRange)) +
+        geom_boxplot(lwd = 1, colour = 'blue') +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Total UPDRS3') + xlab('Patients') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_SumUpdrs32
+
+g_SumUpdrs33 <- ggplot(df2_v1, aes(x = EstDisDurYears, y = Up3OfSumOfTotalWithinRange, colour = Up3OfHoeYah)) + 
+        geom_point(alpha = .6, size = 4) + 
+        geom_smooth(method = 'lm', col = 'red') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1') +
+        theme_cowplot(font_size = 25) +
+        labs(x = 'Disease duration (years)',
+             y = 'Total UPDRS3',
+             title = 'Progression of motor symptoms')
+g_SumUpdrs33
+totalupdrs3_plots <- plot_grid(g_SumUpdrs31, g_SumUpdrs32, g_SumUpdrs33, labels = 'AUTO', nrow = 2, ncol = 2)
+totalupdrs3_plots
 
 ## BRADYKINESIA ##
 # Scatterplot (Bradykinesia/Tremor subscore ~ Disease duration)
@@ -118,7 +149,7 @@ tremor_plots
 g_disdur1 <- ggplot(df2_v1, aes(EstDisDurYears)) +
         geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
         theme_cowplot(font_size = 25) +
-        labs(title = 'Disease duration (years)') +
+        labs(title = 'Estimated disease duration (years)') +
         scale_color_brewer(palette = 'Set1') +
         scale_fill_brewer(palette = 'Set1')
 g_disdur1
@@ -154,6 +185,26 @@ g_age2
 age_plots <- plot_grid(g_age1, g_age2, labels = 'AUTO', nrow = 1, ncol = 2)
 age_plots
 
+## Education years ##
+g_EducYears1 <- ggplot(df2_v1, aes(NpsEducYears)) +
+        geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Education years') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_EducYears1
+
+g_EducYears2 <- ggplot(df2_v1,aes(x = '',y = NpsEducYears)) +
+        geom_boxplot(lwd = 1, colour = 'blue') +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Education years') + xlab('Patients') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_EducYears2
+
+EducYears_plots <- plot_grid(g_EducYears1, g_EducYears2, labels = 'AUTO', nrow = 1, ncol = 2)
+EducYears_plots
+
 ## GENDER ##
 g_gender1 <- ggplot(df2_v1, aes(Gender, fill = Gender, colour = Gender)) +
         geom_bar() +
@@ -164,13 +215,13 @@ g_gender1 <- ggplot(df2_v1, aes(Gender, fill = Gender, colour = Gender)) +
 g_gender1
 
 ## HOEHN & YAHR ##
-g_H&Y1 <- ggplot(df2_v1, aes(Up3OfHoeYah, fill = Up3OfHoeYah, colour = Up3OfHoeYah)) +
+g_HY1 <- ggplot(df2_v1, aes(Up3OfHoeYah, fill = Up3OfHoeYah, colour = Up3OfHoeYah)) +
         geom_bar() +
         theme_cowplot(font_size = 25) +
         labs(title = 'Hoehn & Yahr stage') +
         scale_color_brewer(palette = 'Set1') +
         scale_fill_brewer(palette = 'Set1')
-g_H&Y1
+g_HY1
 
 ## CERTAINTY OF DIAGNOSIS ##
 g_certaintyofdiag1 <- ggplot(df2_v1, aes(DiagParkCertain, fill = DiagParkCertain)) +
@@ -189,6 +240,8 @@ g_meduse1 <- ggplot(df2_v1, aes(ParkinMedUser, fill = ParkinMedUser)) +
         scale_color_brewer(palette = 'Set1') +
         scale_fill_brewer(palette = 'Set1')
 g_meduse1
+
+df2_v1 %>% filter(ParkinMedUser == 'No')
 
 ## TASK ##
 g_task1 <- ggplot(df2_v1, aes(MriNeuroPsychTask, fill = MriNeuroPsychTask)) +
@@ -238,7 +291,7 @@ g_visits1
 g_timetofu1 <- df2 %>%
         filter(timepoint == 'V2') %>%
         ggplot(aes(x = '', y = TimeToFUYears)) +
-        geom_boxplot() +
+        geom_boxplot(lwd = 1, colour = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Time to follow-up (years)') +
         scale_color_brewer(palette = 'Set1') +
@@ -251,11 +304,63 @@ g_timetofu1
 df2_summary <- df2 %>%
         dplyr::group_by(timepoint) %>%
         dplyr::summarise(n = n(), 
+                         Up3Sum_mean = mean(Up3OfSumOfTotalWithinRange, na.rm = TRUE), Up3Sum_sd = sd(Up3OfSumOfTotalWithinRange, na.rm = TRUE),
                          brady_mean = mean(BradySum, na.rm = TRUE), brady_sd = sd(BradySum, na.rm = TRUE),
+                         tremor_mean = mean(RestTremAmpSum, na.rm = TRUE), tremor_sd = sd(RestTremAmpSum, na.rm = TRUE),
                          disdur_mean = mean(EstDisDurYears, na.rm = TRUE), disdur_sd = sd(EstDisDurYears, na.rm = TRUE)) %>%
-        dplyr::mutate(brady_se = brady_sd/sqrt(n), brady_ci = 2*brady_se,
+        dplyr::mutate(Up3Sum_se = Up3Sum_sd/sqrt(n), Up3Sum_ci = 2*Up3Sum_se,
+                      brady_se = brady_sd/sqrt(n), brady_ci = 2*brady_se,
+                      tremor_se = tremor_sd/sqrt(n), tremor_ci = 2*tremor_se,
                       disdur_se = disdur_sd/sqrt(n), disdur_ci = 2*disdur_se)
 
+## Total UPDRS3
+g_Up3Sumprog1vio <- ggplot(df2, aes(x = timepoint, y = Up3OfSumOfTotalWithinRange, fill = timepoint)) +
+        geom_flat_violin(aes(fill = timepoint),position = position_nudge(x = .1, y = 0), adjust = 1, trim = FALSE, alpha = .5, colour = 'black', size = 1)+
+        geom_point(aes(x = as.numeric(timepoint)-.15, y = Up3OfSumOfTotalWithinRange, colour = timepoint),position = position_jitter(width = .05), size = 2, shape = 20, alpha = .7)+
+        geom_boxplot(aes(x = timepoint, y = Up3OfSumOfTotalWithinRange, fill = timepoint),outlier.shape = NA, alpha = .5, width = .1, colour = "black", size = 1)+
+        geom_line(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = Up3Sum_mean, group = timepoint, colour = timepoint), linetype = 3, lwd = 2)+
+        geom_point(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = Up3Sum_mean, group = timepoint, colour = timepoint), shape = 18, size = 1) +
+        geom_errorbar(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = Up3Sum_mean, group = timepoint, colour = timepoint, ymin = Up3Sum_mean-Up3Sum_se, ymax = Up3Sum_mean+Up3Sum_se), width = .05, size = 1)+
+        scale_colour_brewer(palette = "Set1")+
+        scale_fill_brewer(palette = "Set1")+
+        ggtitle("Total UPDRS3 as a function of time") +
+        theme_cowplot(font_size = 25)
+g_Up3Sumprog1vio
+
+g_Up3Sumprog1 <- ggplot(df2, aes(x = EstDisDurYears, y = Up3OfSumOfTotalWithinRange, colour = timepoint)) +
+        geom_point(aes(fill = timepoint), size = 3) +
+        geom_line(aes(group = pseudonym), color = 'darkgrey', lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Total UPDRS3 progression')
+g_Up3Sumprog1
+
+g_Up3Sumprog2 <- df2 %>%
+        filter(MultipleSessions == 'Yes') %>%
+        ggplot(aes(x = timepoint, y = Up3OfSumOfTotalWithinRange, fill = timepoint)) +
+        geom_boxplot(lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Total UPDRS3') + xlab('Time') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_Up3Sumprog2
+
+g_Up3Sumprog3 <- df2 %>%
+        filter(MultipleSessions == 'Yes') %>%
+        ggplot(aes(Up3OfSumOfTotalWithinRange, fill = timepoint)) +
+        geom_density(alpha = 1/2, lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Total UPDRS3') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1') +
+        geom_vline(aes(xintercept = mean(df2$Up3OfSumOfTotalWithinRange[df2$timepoint == 'V1'], na.rm = TRUE)), lwd = 2, color = 'red') +
+        geom_vline(aes(xintercept = mean(df2$Up3OfSumOfTotalWithinRange[df2$timepoint == 'V2'], na.rm = TRUE)), lwd = 2, color = 'blue')
+g_Up3Sumprog3
+
+Up3Sum_prog_plots <- plot_grid(g_Up3Sumprog1vio, g_Up3Sumprog1, g_Up3Sumprog2, g_Up3Sumprog3, labels = 'AUTO', nrow = 2, ncol = 2)
+Up3Sum_prog_plots
+
+
+## Bradykinesia
 g_bradyprog1vio <- ggplot(df2, aes(x = timepoint, y = BradySum, fill = timepoint)) +
         geom_flat_violin(aes(fill = timepoint),position = position_nudge(x = .1, y = 0), adjust = 1, trim = FALSE, alpha = .5, colour = 'black', size = 1)+
         geom_point(aes(x = as.numeric(timepoint)-.15, y = BradySum, colour = timepoint),position = position_jitter(width = .05), size = 2, shape = 20, alpha = .7)+
@@ -301,6 +406,52 @@ g_bradyprog3
 bradykinesia_prog_plots <- plot_grid(g_bradyprog1vio, g_bradyprog1, g_bradyprog2, g_bradyprog3, labels = 'AUTO', nrow = 2, ncol = 2)
 bradykinesia_prog_plots
 
+## Tremor
+g_tremorprog1vio <- ggplot(df2, aes(x = timepoint, y = RestTremAmpSum, fill = timepoint)) +
+        geom_flat_violin(aes(fill = timepoint),position = position_nudge(x = .1, y = 0), adjust = 1, trim = FALSE, alpha = .5, colour = 'black', size = 1)+
+        geom_point(aes(x = as.numeric(timepoint)-.15, y = RestTremAmpSum, colour = timepoint),position = position_jitter(width = .05), size = 2, shape = 20, alpha = .7)+
+        geom_boxplot(aes(x = timepoint, y = RestTremAmpSum, fill = timepoint),outlier.shape = NA, alpha = .5, width = .1, colour = "black", size = 1)+
+        geom_line(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = tremor_mean, group = timepoint, colour = timepoint), linetype = 3, lwd = 2)+
+        geom_point(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = tremor_mean, group = timepoint, colour = timepoint), shape = 18, size = 1) +
+        geom_errorbar(data = df2_summary, aes(x = as.numeric(timepoint)+.1, y = tremor_mean, group = timepoint, colour = timepoint, ymin = tremor_mean-tremor_se, ymax = tremor_mean+tremor_se), width = .05, size = 1)+
+        scale_colour_brewer(palette = "Set1")+
+        scale_fill_brewer(palette = "Set1")+
+        ggtitle("Tremor subscore as a function of time") +
+        theme_cowplot(font_size = 25)
+g_tremorprog1vio
+
+g_tremorprog1 <- ggplot(df2, aes(x = EstDisDurYears, y = RestTremAmpSum, colour = timepoint)) +
+        geom_point(aes(fill = timepoint), size = 3) +
+        geom_line(aes(group = pseudonym), color = 'darkgrey', lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Tremor progression')
+g_tremorprog1
+
+g_tremorprog2 <- df2 %>%
+        filter(MultipleSessions == 'Yes') %>%
+        ggplot(aes(x = timepoint, y = RestTremAmpSum, fill = timepoint)) +
+        geom_boxplot(lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Tremor subscore') + xlab('Time') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1')
+g_tremorprog2
+
+g_tremorprog3 <- df2 %>%
+        filter(MultipleSessions == 'Yes') %>%
+        ggplot(aes(RestTremAmpSum, fill = timepoint)) +
+        geom_density(alpha = 1/2, lwd = 1) +
+        theme_cowplot(font_size = 25) +
+        labs(title = 'Tremor subscore') +
+        scale_color_brewer(palette = 'Set1') +
+        scale_fill_brewer(palette = 'Set1') +
+        geom_vline(aes(xintercept = mean(df2$RestTremAmpSum[df2$timepoint == 'V1'], na.rm = TRUE)), lwd = 2, color = 'red') +
+        geom_vline(aes(xintercept = mean(df2$RestTremAmpSum[df2$timepoint == 'V2'], na.rm = TRUE)), lwd = 2, color = 'blue')
+g_tremorprog3
+
+tremor_prog_plots <- plot_grid(g_tremorprog1vio, g_tremorprog1, g_tremorprog2, g_tremorprog3, labels = 'AUTO', nrow = 2, ncol = 2)
+tremor_prog_plots
+
 ## Side question: Is symptom progression dependent on disease duration? ##
 g_bradyprog4 <- df2 %>%
         filter(timepoint == 'V2') %>%
@@ -312,10 +463,12 @@ g_bradyprog4 <- df2 %>%
 g_bradyprog4
 
 #####
-
 df2_ttest <- df2 %>%
         filter(timepoint == 'V2')
-t.test(df2$BradySum.1YearProg, alternative = 'two.sided')
+
+t.test(df2_ttest$Up3OfSumOfTotalWithinRange.1YearProg, alternative = 'two.sided')
+t.test(df2_ttest$BradySum.1YearProg, alternative = 'two.sided')
+t.test(df2_ttest$RestTremAmpSum.1YearProg, alternative = 'two.sided')
 
 ##### Clustering #####
 
