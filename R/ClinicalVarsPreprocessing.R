@@ -1,7 +1,8 @@
 ClinicalVarsPreprocessing <- function(dataframe){
 
 library(tidyverse)        
-library(lubridate)               
+library(lubridate)
+        
 ##### Calculate disease onset (time of diagnosis) and estimated disease duration #####
 
 # Convert time of assessment to 'date' format, removing hm information
@@ -93,7 +94,7 @@ dataframe$TimeToFUYears[dataframe$TimeToFUYears < 0] <- NA
 ##### Check for negative values for EstDisDurYears #####
 BelowZeroDisDur <- dataframe %>%
         filter(EstDisDurYears < 0)
-msg <- paste(nrow(BelowZeroDisDur), ' participants have negative time to follow-up, check so that visit 1 data is available.
+msg <- paste(nrow(BelowZeroDisDur), ' participants have negative disease durations, check so that visit 1 data is available.
              Otherwise a data entry mistake may have been made. Setting EstDisDurYears to NA for: ', sep = '')
 print(msg)
 print(BelowZeroDisDur$pseudonym)
@@ -115,6 +116,7 @@ dataframe <- dataframe %>%
                Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev,
                Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev,
                Up3OfRAmpJaw,
+               Up3OfSumOfTotalWithinRange,
                EstDisDurYears,
                Up3OfHoeYah,
                MriNeuroPsychTask,
@@ -125,15 +127,16 @@ dataframe <- dataframe %>%
                Gender,
                ParkinMedUser,
                SmokeCurrent,
+               NpsEducYears,
                timepoint,
                TimeToFUYears) %>%
-        mutate(across(2:20, as.numeric)) %>%
+        mutate(across(2:21, as.numeric)) %>%
         mutate(BradySum = rowSums(.[2:15])) %>%
         mutate(RestTremAmpSum = rowSums(.[16:20]))
 
 #####
 
-##### Transformations #####
+##### Class transformations #####
 dataframe$Up3OfHoeYah <- as.factor(dataframe$Up3OfHoeYah)                     # Hoen & Yahr stage
 dataframe$MriNeuroPsychTask <- as.factor(dataframe$MriNeuroPsychTask)         # Which task was done?
 levels(dataframe$MriNeuroPsychTask) <- c('Motor', 'Reward')
@@ -150,6 +153,7 @@ dataframe$ParkinMedUser <- as.factor(dataframe$ParkinMedUser)                 # 
 levels(dataframe$ParkinMedUser) <- c('No','Yes')
 dataframe$SmokeCurrent <- as.factor(dataframe$SmokeCurrent)                   # Smoking
 levels(dataframe$SmokeCurrent) <- c('Yes','No')
+dataframe$NpsEducYears <- as.numeric(dataframe$NpsEducYears)                  # Education years
 dataframe$timepoint <- as.factor(dataframe$timepoint)                         # Timepoint
 
 #####
@@ -165,14 +169,16 @@ dataframe$timepoint <- as.factor(dataframe$timepoint)                         # 
 ##### Calculate disease progression and indicate which participants have FU data #####
 
 dataframe <- dataframe %>%
-        mutate(BradySum.1YearProg = NA,
+        mutate(Up3OfSumOfTotalWithinRange.1YearProg = NA,
+               BradySum.1YearProg = NA,
                RestTremAmpSum.1YearProg = NA,
                MultipleSessions = 0)
 
 for(n in 1:nrow(dataframe)){
         if(dataframe$timepoint[n] == 'V2'){
+                dataframe$Up3OfSumOfTotalWithinRange.1YearProg[n] <- dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]
                 dataframe$BradySum.1YearProg[n] <- dataframe$BradySum[n] - dataframe$BradySum[n-1]
-                dataframe$RestTremAmpSum.1YearProg[n] <- dataframe$BradySum[n] - dataframe$BradySum[n-1]
+                dataframe$RestTremAmpSum.1YearProg[n] <- dataframe$RestTremAmpSum[n] - dataframe$RestTremAmpSum[n-1]
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
 }
@@ -180,6 +186,7 @@ dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
 levels(dataframe$MultipleSessions) <- c('No','Yes')
 #####
 
+# Output final dataframe
 dataframe
 
 }
