@@ -101,24 +101,57 @@ print(BelowZeroDisDur$pseudonym)
 dataframe$EstDisDurYears[dataframe$EstDisDurYears < 0] <- NA
 #####
 
-##### Select variables + Calculate bradykinesia/tremor subscore #####
+##### Select variables + Calculate total score and bradykinesia/tremor subscore #####
 
 # Variable selection
 # Definition of bradykinesia subscore
 dataframe <- dataframe %>%
         select(pseudonym, 
-               Up3OfRigRue, Up3OfRigRle, Up3OfRigLue, Up3OfRigLle,
+               Up3OfSpeech,
+               Up3OfFacial,
+               Up3OfRigNec, Up3OfRigRue, Up3OfRigLue, Up3OfRigRle, Up3OfRigLle,
                Up3OfFiTaYesDev, Up3OfFiTaNonDev,
                Up3OfHaMoYesDev, Up3OfHaMoNonDev,
                Up3OfProSYesDev, Up3OfProSNonDev,
                Up3OfToTaYesDev, Up3OfToTaNonDev,
                Up3OfLAgiYesDev, Up3OfLAgiNonDev,
-               Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev,
-               Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev,
-               Up3OfRAmpJaw,
-               Up3OfSumOfTotalWithinRange,
-               EstDisDurYears,
+               Up3OfArise,
+               Up3OfGait,
+               Up3OfFreez,
+               Up3OfStaPos,
+               Up3OfPostur,
+               Up3OfSpont,
+               Up3OfPosTYesDev, Up3OfPosTNonDev,
+               Up3OfKinTreYesDev, Up3OfKinTreNonDev,
+               Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev, Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev, Up3OfRAmpJaw,
+               Up3OfConstan,
+               Up3OfPresDysKin,
+               Up3OfDysKinInt,
                Up3OfHoeYah,
+               Up3OfSumOfTotalWithinRange,
+               Up3OnSpeech,
+               Up3OnFacial,
+               Up3OnRigNec, Up3OnRigRue, Up3OnRigLue, Up3OnRigRle, Up3OnRigLle,
+               Up3OnFiTaYesDev, Up3OnFiTaNonDev,
+               Up3OnHaMoYesDev, Up3OnHaMoNonDev,
+               Up3OnProSYesDev, Up3OnProSNonDev,
+               Up3OnToTaYesDev, Up3OnToTaNonDev,
+               Up3OnLAgiYesDev, Up3OnLAgiNonDev,
+               Up3OnArise,
+               Up3OnGait,
+               Up3OnFreez,
+               Up3OnStaPos,
+               Up3OnPostur,
+               Up3OnSpont,
+               Up3OnPosTYesDev, Up3OnPosTNonDev,
+               Up3OnKinTreYesDev, Up3OnKinTreNonDev,
+               Up3OnRAmpArmYesDev, Up3OnRAmpArmNonDev, Up3OnRAmpLegYesDev, Up3OnRAmpLegNonDev, Up3OnRAmpJaw,
+               Up3OnConstan,
+               Up3OnPresDysKin,
+               Up3OnDysKinInt,
+               Up3OnHoeYah,
+               Up3OnSumOfTotalWithinRange,
+               EstDisDurYears,
                MriNeuroPsychTask,
                DiagParkCertain,
                MostAffSide,
@@ -130,14 +163,19 @@ dataframe <- dataframe %>%
                NpsEducYears,
                timepoint,
                TimeToFUYears) %>%
-        mutate(across(2:21, as.numeric)) %>%
-        mutate(BradySum = rowSums(.[2:15])) %>%
-        mutate(RestTremAmpSum = rowSums(.[16:20]))
+        mutate(across(2:75, as.numeric)) %>%
+        mutate(Up3OfBradySum = rowSums(.[5:16])) %>%
+        mutate(Up3OfRestTremAmpSum = rowSums(.[29:33])) %>%
+        mutate(Up3OfTotal = rowSums(.[2:34])) %>%
+        mutate(Up3OnTotal = rowSums(.[39:71])) %>%
+        mutate(Up3OnBradySum = rowSums(.[42:53])) %>%
+        mutate(Up3OnRestTremAmpSum = rowSums(.[66:70]))
 
 #####
 
 ##### Class transformations #####
 dataframe$Up3OfHoeYah <- as.factor(dataframe$Up3OfHoeYah)                     # Hoen & Yahr stage
+dataframe$Up3OnHoeYah <- as.factor(dataframe$Up3OnHoeYah)
 dataframe$MriNeuroPsychTask <- as.factor(dataframe$MriNeuroPsychTask)         # Which task was done?
 levels(dataframe$MriNeuroPsychTask) <- c('Motor', 'Reward')
 dataframe$DiagParkCertain <- as.factor(dataframe$DiagParkCertain)             # Certainty of diagnosis
@@ -170,20 +208,41 @@ dataframe$timepoint <- as.factor(dataframe$timepoint)                         # 
 
 dataframe <- dataframe %>%
         mutate(Up3OfSumOfTotalWithinRange.1YearProg = NA,
-               BradySum.1YearProg = NA,
-               RestTremAmpSum.1YearProg = NA,
+               Up3OnSumOfTotalWithinRange.1YearProg = NA,
+               Up3OfBradySum.1YearProg = NA,
+               Up3OnBradySum.1YearProg = NA,
+               Up3OfRestTremAmpSum.1YearProg = NA,
+               Up3OnRestTremAmpSum.1YearProg = NA,
                MultipleSessions = 0)
 
 for(n in 1:nrow(dataframe)){
         if(dataframe$timepoint[n] == 'V2'){
                 dataframe$Up3OfSumOfTotalWithinRange.1YearProg[n] <- dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]
-                dataframe$BradySum.1YearProg[n] <- dataframe$BradySum[n] - dataframe$BradySum[n-1]
-                dataframe$RestTremAmpSum.1YearProg[n] <- dataframe$RestTremAmpSum[n] - dataframe$RestTremAmpSum[n-1]
+                dataframe$Up3OnSumOfTotalWithinRange.1YearProg[n] <- dataframe$Up3OnSumOfTotalWithinRange[n] - dataframe$Up3OnSumOfTotalWithinRange[n-1]
+                dataframe$Up3OfBradySum.1YearProg[n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
+                dataframe$Up3OnBradySum.1YearProg[n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
+                dataframe$Up3OfRestTremAmpSum.1YearProg[n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
+                dataframe$Up3OnRestTremAmpSum.1YearProg[n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
 }
 dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
 levels(dataframe$MultipleSessions) <- c('No','Yes')
+#####
+
+##### Task is not reported in visit 2 (3?), fix #####
+for(n in 1:nrow(dataframe)){
+        if(is.na(dataframe$MriNeuroPsychTask[n]) && dataframe$timepoint[n] == 'V2'){
+                dataframe$MriNeuroPsychTask[n] <- dataframe$MriNeuroPsychTask[n-1]
+        }
+}
+#####
+
+##### Report on missing values of data frame #####
+x <- apply(dataframe, 2, is.na) %>% colSums
+msg <- c('Reporting missing values per variable...')
+print(msg)
+print(x)
 #####
 
 # Output final dataframe
