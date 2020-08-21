@@ -23,8 +23,8 @@ ImportSubData <- function(dSub, pattern){
         # Removal of duplication and naming errors
         if(pattern=='Castor.Visit1' || pattern=='Castor.Visit2'){
                 ExcludedFiles <- c('Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_1',
-                                   'Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_2',
-                                   'Castor.Visit1.Motorische_taken_ON.Updrs3_deel_3')   # < Not sure about this last one... only incorrect for some
+                                   'Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_2')#,
+                                   #'Castor.Visit1.Motorische_taken_ON.Updrs3_deel_3')   # < Not sure about this last one... only incorrect for some
                 for(i in 1:length(ExcludedFiles)){
                         idx <- grep(ExcludedFiles[i], fSubsetFiles)
                         if(not_empty(idx)){
@@ -41,6 +41,18 @@ ImportSubData <- function(dSub, pattern){
         for(i in 1:length(fSubsetFiles)){
                 json <- readtext(fSubsetFiles[i], text_field = 'texts')
                 json <- parse_json(json$text)
+                # Rename vars where Of and On labels have been accidentally reversed
+                if(str_detect(fSubsetFiles[i], 'Motorische_taken_ON') && str_detect(names(json$crf), 'Up3Of')){
+                        print(dSub)
+                        msg <- 'Up3Of variable found in On assessment, replacing with Up3On...'
+                        print(msg)
+                        names(json$crf) <- str_replace_all(names(json$crf), 'Up3Of', 'Up3On')
+                }else if(str_detect(fSubsetFiles[i], 'Motorische_taken_OFF') && str_detect(names(json$crf), 'Up3On')){
+                        print(dSub)
+                        msg <- 'Up3On variable found in Off assessment, replacing with Up3Of...'
+                        print(msg)
+                        names(json$crf) <- str_replace_all(names(json$crf), 'Up3Of', 'Up3On')
+                }
                 Data <- bind_cols(Data[1,], as_tibble(json$crf)[1,])    # < Indexing to remove rows, gets rid of list answers!!!
         }
         
@@ -78,25 +90,24 @@ VarNames <- c()
 for(n in 1:nSubs){
         dat <- ImportSubData(dSubs[n], pattern)
         nam <- names(dat)
-        VarNames <- c(VarNames, nam)    # < Optimization possible, very large array
+        VarNames <- c(VarNames, nam)
+        VarNames <- unique(VarNames)
 }
-UniqueVarNames <- unique(VarNames)
-rm(VarNames)
 
 # Initialize the final data frame and name variables
 df <- tibble('1' = rep('NA', nSubs))            # < NAs need to be chars for now so that the code below can work
 # Add a bunch of NAs for other vars
-for(i in 1:(length(UniqueVarNames) - 1)){
+for(i in 1:(length(VarNames) - 1)){
         df <- bind_cols(df, tibble(varname = rep('NA', nSubs)))
 }
-colnames(df) <- UniqueVarNames
+colnames(df) <- VarNames                # Name variables
 
 # Import subject data variable by variable
 for(n in 1:nSubs){
         dat <- ImportSubData(dSubs[n], pattern)
         SubVarNames <- colnames(dat)
         for(i in 1:length(SubVarNames)){
-                colidx <- str_which(UniqueVarNames, SubVarNames[i])
+                colidx <- str_which(VarNames, SubVarNames[i])
                 df[n,colidx] <- unlist(dat[i])  # < Some variables are lists, like dat[77], these will be incorrectly imported!!! 
         }
 }
@@ -112,9 +123,9 @@ if(grepl('Castor.HomeQuestionnaires1', pattern, fixed = TRUE)){
 df <- bind_cols(df, tibble('timepoint' = rep(timepoint,nSubs)))
 
 # Turn uninformative characters to NA
-df[df=='NA'] <- NA    #
-df[df=='?'] <- NA     # Not available for certain subjects (castor dependencies)
-df[df==''] <- NA      # Not filled in
+df[df=='NA'] <- NA    # Not filled in?
+df[df=='?'] <- NA     # Not available for certain subjects (castor dependencies?)
+df[df==''] <- NA      # Not filled in?
 df[df=='##USER_MISSING_95##'] <- NA
 df[df=='##USER_MISSING_96##'] <- NA
 df[df=='##USER_MISSING_97##'] <- NA
