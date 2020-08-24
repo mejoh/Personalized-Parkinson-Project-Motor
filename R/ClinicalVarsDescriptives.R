@@ -7,7 +7,9 @@
 #save.image("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment2.RData")
 
 load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment2.RData")
+#####
 
+##### Preprocess data frame #####
 # Sort data frame
 library(tidyverse)
 df2_v1 <- df_v1 %>%
@@ -37,14 +39,11 @@ df2 <- df2 %>%
         filter(MriNeuroPsychTask == 'Motor')
 #####
 
-##### #####
-#####
-
 ##### Summary stats #####
 
 ##
-df2 %>% group_by(timepoint) %>% summarise(Off = mean(Up3OfTotal, na.rm = TRUE), On = mean(Up3OnTotal, na.rm = TRUE))
-df2 %>% group_by(timepoint) %>% summarise(missing = sum(is.na(Up3OfTotal)), n = n())
+#df2 %>% group_by(timepoint) %>% summarise(Off = mean(Up3OfTotal, na.rm = TRUE), On = mean(Up3OnTotal, na.rm = TRUE))
+#df2 %>% group_by(timepoint) %>% summarise(missing = sum(is.na(Up3OfTotal)), n = n())
 
 #####
 
@@ -52,7 +51,7 @@ source("M:/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
 library(ggplot2)
 library(cowplot)
 
-##### Plots, Visit1 ####
+##### DEPRECATED Plots, Visit1 ####
 
 df2_v1 <- df2 %>%
         filter(timepoint == 'V1')
@@ -303,7 +302,7 @@ side
 
 #####
 
-##### Plots, Visit2 #####
+##### DEPRECATED Plots, Visit2 #####
 
 ## Count of Visit2 sessions vs Visit1 sessions ##
 g_visits1 <- ggplot(df2, aes(timepoint, fill = timepoint, colour = timepoint)) +
@@ -542,9 +541,12 @@ MultipleSessionBoxDensPlots <- function(dataframe, x, y){
         plot_grid(title, plots, ncol=1, rel_heights=c(0.1, 1))
         
 }
-y <- c('Up3OfBradySum')
+y <- c('Up3OfTotal', 'Up3OfBradySum')
 x <- c('timepoint')
-MultipleSessionBoxDensPlots(df2, x, y)
+for(n in unique(y)){
+        g <- MultipleSessionBoxDensPlots(df2, x, n)
+        print(g)
+}
 
 # Box and density plots for exploring variables from single sessions
 SingleSessionBoxDensPlots <- function(dataframe, y, visit){
@@ -567,11 +569,14 @@ SingleSessionBoxDensPlots <- function(dataframe, y, visit){
         plot_grid(title, plots, ncol=1, rel_heights=c(0.1, 1))
         
 }
-y <- c('Up3OfBradySum')
+y <- c('Up3OfTotal', 'Up3OfBradySum')
 visit = c('V1')
-SingleSessionBoxDensPlots(df2, y, visit)
+for(n in unique(y)){
+        g <- SingleSessionBoxDensPlots(df2, n, visit)
+        print(g)
+}
 
-# Bar graphs for frequencies
+# Bar graphs for exploring frequencies
 SingleSessionBarPlots <- function(dataframe, y, visit){
         dataframe <- dataframe %>%
                 filter(timepoint == visit)
@@ -585,9 +590,12 @@ SingleSessionBarPlots <- function(dataframe, y, visit){
 }
 y <- c('Gender')
 visit <- c('V1')
-SingleSessionBarPlots(df2, y, visit)
+for(n in unique(y)){
+        g <- SingleSessionBarPlots(df2, n, visit)
+        print(g)
+}
 
-# Scatter plots for relationships between disease progression and duration, tagged with timepoint
+# Scatter plots for exploring relationships between disease progression and duration, tagged with timepoint
 ScatterPlotsComplex <- function(dataframe, y, x, group){
         dataframe <- dataframe %>%
                 filter(timepoint == 'V1' | timepoint == 'V2')
@@ -621,10 +629,13 @@ ScatterPlotsComplex <- function(dataframe, y, x, group){
         plot_grid(plots, ncol=1, rel_heights=c(0.1, 1))
         
 }
-y <- c('Up3OfTotal')
+y <- c('Up3OfTotal', 'Up3OfBradySum')
 x <- c('EstDisDurYears')
 group <- c('timepoint')
-ScatterPlotsComplex(df2, y, x, group)
+for(n in unique(y)){
+        g <- ScatterPlotsComplex(df2, n, x, group)
+        print(g)
+}
 
 # Simpler scatter plots
 ScatterPlotsSimple <- function(dataframe, y, x, visit){
@@ -638,10 +649,13 @@ ScatterPlotsSimple <- function(dataframe, y, x, visit){
                 theme_cowplot(font_size = 25)
         g_scatter + labs(title = paste(y, ' ~ ', x, '   Timepoint =', visit))
 }
-y <- 'Up3OfTotal'
-x <- 'EstDisDurYears'
-visit <- 'V1'
-ScatterPlotsSimple(df2, y, x, visit)
+y <- c('Up3OfTotal', 'Up3OfBradySum')
+x <- c('EstDisDurYears')
+visit <- c('V1')
+for(n in unique(y)){
+        g <- ScatterPlotsSimple(df2, n, x, visit)
+        print(g)
+}
 
 #####
 
