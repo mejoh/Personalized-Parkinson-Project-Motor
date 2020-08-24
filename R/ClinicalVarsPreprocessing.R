@@ -234,11 +234,12 @@ dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
 levels(dataframe$MultipleSessions) <- c('No','Yes')
 #####
 
-##### Task is not reported in visit 2 (3?), fix #####
+##### Task is not reported in visit 2 (3?), and is not identified for home questionnaires, fix #####
 for(n in 1:nrow(dataframe)){
-        if(is.na(dataframe$MriNeuroPsychTask[n]) && dataframe$timepoint[n] == 'V2'){
-                dataframe$MriNeuroPsychTask[n] <- dataframe$MriNeuroPsychTask[n-1]
-        }
+        if(is.na(dataframe$MriNeuroPsychTask[n]) && dataframe$timepoint[n] == 'V2' && dataframe$pseudonym[n] == dataframe$pseudonym[n-1]){
+                dataframe$MriNeuroPsychTask[n] <- dataframe$MriNeuroPsychTask[n-1]      # Takes value reported in visit 1
+        }else if(is.na(dataframe$MriNeuroPsychTask[n]) && dataframe$timepoint[n] == 'HQ1' && dataframe$pseudonym[n] == dataframe$pseudonym[n+1])
+                dataframe$MriNeuroPsychTask[n] <- dataframe$MriNeuroPsychTask[n+1]      # Takes value reported in visit 1
 }
 #####
 
