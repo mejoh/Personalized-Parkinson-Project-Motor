@@ -1,8 +1,12 @@
 ##### Generate data frame ####
+
 #source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R')
 #df_v1 <- ClinicalVarsDatabase('Castor.Visit1')
 #df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
-load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment.RData")
+#df_hq1 <- ClinicalVarsDatabase('Castor.HomeQuestionnaires1')
+#save.image("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment2.RData")
+
+load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment2.RData")
 
 # Sort data frame
 library(tidyverse)
@@ -12,14 +16,37 @@ df2_v1 <- df_v1 %>%
 df2_v2 <- df_v2 %>%
         arrange(pseudonym, timepoint)
 
+
+df2_hq1 <- df_hq1 %>%
+        arrange(pseudonym, timepoint)
+
 # Merge data frames
 df2 <- full_join(df2_v1, df2_v2) %>%
+        arrange(pseudonym, timepoint)
+
+df2 <- full_join(df2, df2_hq1) %>%
         arrange(pseudonym, timepoint)
 
 # Select vars and generate additional ones
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsPreprocessing.R')
 df2 <- ClinicalVarsPreprocessing(df2)
 ##### 
+
+##### Subset #####
+df2 <- df2 %>%
+        filter(MriNeuroPsychTask == 'Motor')
+#####
+
+##### #####
+#####
+
+##### Summary stats #####
+
+##
+df2 %>% group_by(timepoint) %>% summarise(Off = mean(Up3OfTotal, na.rm = TRUE), On = mean(Up3OnTotal, na.rm = TRUE))
+df2 %>% group_by(timepoint) %>% summarise(missing = sum(is.na(Up3OfTotal)), n = n())
+
+#####
 
 source("M:/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
 library(ggplot2)
@@ -66,7 +93,7 @@ bradykinesia_description <- paste("Bradykinesia subscore: \n",
                                   "Limb bradykinesia = Sum item 4-8 (0-40) \n",
                                   "Limb ridigity = Sum item 3 excl. neck (0-16)")
 
-g_brady1 <- ggplot(df2_v1, aes(BradySum)) +
+g_brady1 <- ggplot(df2_v1, aes(BradySumOff)) +
         geom_density(alpha = 1/2, lwd = 1, colour = 'blue', fill = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Bradykinesia subscore') +
@@ -74,7 +101,7 @@ g_brady1 <- ggplot(df2_v1, aes(BradySum)) +
         scale_fill_brewer(palette = 'Set1')
 g_brady1
 
-g_brady2 <- ggplot(df2_v1,aes(x = '',y = BradySum)) +
+g_brady2 <- ggplot(df2_v1,aes(x = '',y = BradySumOff)) +
         geom_boxplot(lwd = 1, colour = 'blue') +
         theme_cowplot(font_size = 25) +
         labs(title = 'Bradykinesia subscore') + xlab('Patients') +
@@ -82,7 +109,7 @@ g_brady2 <- ggplot(df2_v1,aes(x = '',y = BradySum)) +
         scale_fill_brewer(palette = 'Set1')
 g_brady2
 
-g_brady3 <- ggplot(df2_v1, aes(x = EstDisDurYears, y = BradySum, colour = Up3OfHoeYah)) + 
+g_brady3 <- ggplot(df2_v1, aes(x = EstDisDurYears, y = BradySumOff, colour = Up3OfHoeYah)) + 
         geom_point(alpha = .6, size = 4) + 
         geom_smooth(method = 'lm', col = 'red') +
         scale_color_brewer(palette = 'Set1') +
@@ -463,6 +490,161 @@ g_bradyprog4 <- df2 %>%
 g_bradyprog4
 
 #####
+
+##### General plotting #####
+
+# Box plots for exploring Time x Group interactions (e.g. effect of medication)
+SessionByGroupBoxPlots <- function(dataframe, x, groups){
+        
+        library(reshape2)
+        
+        dataframe <- dataframe %>%
+                filter(MultipleSessions == 'Yes') %>%
+                filter(timepoint == 'V1' | timepoint == 'V2') %>%
+                select(c(pseudonym, timepoint, !!groups)) %>%
+                melt(id.vars = c('pseudonym', 'timepoint'), variable.name = 'group') %>%
+                tibble        
+                
+        g_SbyG <- dataframe %>%
+                ggplot(aes(timepoint, value, fill = group)) +
+                geom_boxplot(lwd = 1, outlier.size = 3) +
+                theme_cowplot(font_size = 25) +
+                scale_color_brewer(palette = 'Set1') +
+                scale_fill_brewer(palette = 'Set1')
+        g_SbyG + labs(title = paste('Time x Group interaction plot'))
+        
+}
+x <- c('timepoint')
+groups <- c('Up3OfTotal', 'Up3OnTotal')
+SessionByGroupBoxPlots(df2, x, groups)
+
+# Box and density plots for exploring variables from multiple sessions
+MultipleSessionBoxDensPlots <- function(dataframe, x, y){
+        
+        dataframe <- dataframe %>%
+                filter(MultipleSessions == 'Yes') %>%
+                filter(timepoint == 'V1' | timepoint == 'V2')
+       
+         g_box <- dataframe %>%
+                ggplot(aes_string(x = x, y = y)) + 
+                geom_boxplot(lwd=1, outlier.size = 3, fill = 'darkgrey') + 
+                theme_cowplot(font_size = 25)
+        
+        g_dens <- dataframe %>%
+                ggplot(aes_string(y, fill = x)) +
+                geom_density(alpha = 1/2, lwd = 1) +
+                theme_cowplot(font_size = 25) +
+                scale_color_brewer(palette = 'Set1') +
+                scale_fill_brewer(palette = 'Set1')
+        
+        plots <- plot_grid(g_box, g_dens, labels = 'AUTO', nrow = 1, ncol = 2)
+        title <- ggdraw() + draw_label(y, fontface='bold', size = 35)
+        plot_grid(title, plots, ncol=1, rel_heights=c(0.1, 1))
+        
+}
+y <- c('Up3OfBradySum')
+x <- c('timepoint')
+MultipleSessionBoxDensPlots(df2, x, y)
+
+# Box and density plots for exploring variables from single sessions
+SingleSessionBoxDensPlots <- function(dataframe, y, visit){
+        
+        dataframe <- dataframe %>%
+                filter(timepoint == visit)
+        
+        g_box <- ggplot(dataframe, aes_string(x = "''", y = y)) +
+                geom_boxplot(lwd = 1, fill = 'darkgrey', outlier.size = 3) +
+                theme_cowplot(font_size = 25)
+        
+        g_dens <- ggplot(dataframe, aes_string(y)) +
+                geom_density(alpha = 1/2, lwd = 1, fill = 'darkgrey') +
+                theme_cowplot(font_size = 25) +
+                scale_color_brewer(palette = 'Set1') +
+                scale_fill_brewer(palette = 'Set1')
+        
+        plots <- plot_grid(g_box, g_dens, labels = 'AUTO', nrow = 1, ncol = 2)
+        title <- ggdraw() + draw_label(paste(y, '   Timepoint =', visit), fontface='bold', size = 35)
+        plot_grid(title, plots, ncol=1, rel_heights=c(0.1, 1))
+        
+}
+y <- c('Up3OfBradySum')
+visit = c('V1')
+SingleSessionBoxDensPlots(df2, y, visit)
+
+# Bar graphs for frequencies
+SingleSessionBarPlots <- function(dataframe, y, visit){
+        dataframe <- dataframe %>%
+                filter(timepoint == visit)
+        
+        g_bar <- dataframe %>%
+                ggplot(aes_string(y)) +
+                geom_bar(colour = 'darkgrey') +
+                theme_cowplot(font_size = 25) +
+                labs(title = paste(y, '   Timepoint =', visit))
+        g_bar
+}
+y <- c('Gender')
+visit <- c('V1')
+SingleSessionBarPlots(df2, y, visit)
+
+# Scatter plots for relationships between disease progression and duration, tagged with timepoint
+ScatterPlotsComplex <- function(dataframe, y, x, group){
+        dataframe <- dataframe %>%
+                filter(timepoint == 'V1' | timepoint == 'V2')
+                
+        g_scatter1 <- dataframe %>%
+                ggplot(aes_string(x = x, y = y, colour = group)) + 
+                geom_point(size = 3) +
+                geom_line(aes(group = pseudonym), color = 'darkgrey', lwd = 1, alpha = 0.7) +
+                theme_cowplot(font_size = 25)
+        
+        progvar <- paste(y, '.1YearProg', sep = '')
+        
+        g_scatter2 <- dataframe %>%
+                ggplot(aes_string(x = x, y = y)) + 
+                geom_point(size = 3) +
+                geom_point(data = dataframe %>% filter(timepoint == 'V2'), aes_string(y = y, color = progvar), size = 3) +
+                geom_line(aes(group = pseudonym), color = 'darkgrey', lwd = 1, alpha = 0.7) +
+                theme_cowplot(font_size = 25) +
+                scale_color_gradient(low = 'blue', high = 'red')
+        
+        mean_progression <- mean(unlist(dataframe[, colnames(dataframe) == progvar]), na.rm = TRUE)
+        
+        g_scatter3 <- dataframe %>% filter(timepoint == 'V2') %>%
+                ggplot(aes_string(x = x, y = progvar, colour = progvar)) +
+                geom_point(size = 3) +
+                theme_cowplot(font_size = 25) +
+                scale_color_gradient(low = 'blue', high = 'red') +
+                geom_hline(yintercept = mean_progression, linetype = 3, lwd = 1)
+        
+        plots <- plot_grid(g_scatter1, g_scatter2, g_scatter3, labels = 'AUTO', nrow = 3, ncol = 1)
+        plot_grid(plots, ncol=1, rel_heights=c(0.1, 1))
+        
+}
+y <- c('Up3OfTotal')
+x <- c('EstDisDurYears')
+group <- c('timepoint')
+ScatterPlotsComplex(df2, y, x, group)
+
+# Simpler scatter plots
+ScatterPlotsSimple <- function(dataframe, y, x, visit){
+        dataframe <- dataframe %>%
+                filter(timepoint == visit)
+        
+        g_scatter <- dataframe %>%
+                ggplot(aes_string(x = x, y = y)) +
+                geom_point(size = 3) +
+                geom_smooth(method = 'lm') +
+                theme_cowplot(font_size = 25)
+        g_scatter + labs(title = paste(y, ' ~ ', x, '   Timepoint =', visit))
+}
+y <- 'Up3OfTotal'
+x <- 'EstDisDurYears'
+visit <- 'V1'
+ScatterPlotsSimple(df2, y, x, visit)
+
+#####
+
 df2_ttest <- df2 %>%
         filter(timepoint == 'V2')
 
