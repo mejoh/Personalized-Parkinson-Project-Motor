@@ -213,6 +213,8 @@ dataframe <- dataframe %>%
                Up3OnBradySum.1YearProg = NA,
                Up3OfRestTremAmpSum.1YearProg = NA,
                Up3OnRestTremAmpSum.1YearProg = NA,
+               Up3OfTotal.1YearProg = NA,
+               Up3OnTotal.1YearProg = NA,
                MultipleSessions = 0)
 
 for(n in 1:nrow(dataframe)){
@@ -223,6 +225,8 @@ for(n in 1:nrow(dataframe)){
                 dataframe$Up3OnBradySum.1YearProg[n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
                 dataframe$Up3OfRestTremAmpSum.1YearProg[n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
                 dataframe$Up3OnRestTremAmpSum.1YearProg[n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
+                dataframe$Up3OfTotal.1YearProg[n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
+                dataframe$Up3OnTotal.1YearProg[n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
 }
