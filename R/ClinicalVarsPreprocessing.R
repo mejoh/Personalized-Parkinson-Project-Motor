@@ -196,14 +196,6 @@ dataframe$timepoint <- as.factor(dataframe$timepoint)                         # 
 
 #####
 
-##### Subsetting by task #####
-#dataframe <- dataframe %>%
-#        filter(MriNeuroPsychTask == 'Motor')
-# Subset by noticable tremor
-#dataframe <- dataframe %>%
-#        filter(RestTremAmpSum >= 1)
-#####
-
 ##### Calculate disease progression and indicate which participants have FU data #####
 
 dataframe <- dataframe %>%
