@@ -69,7 +69,7 @@ for(n in 1:nrow(EstDiagnosisDates)){
 
 ## Calculate time to follow-up ##
 EstDiagnosisDates <- EstDiagnosisDates %>%
-        mutate(TimeToFUYears = NA)
+        mutate(TimeToFUYears = 0)
 for(n in 1:nrow(EstDiagnosisDates)){
         if(EstDiagnosisDates$timepoint[n] == 'V2'){
                 EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-1]) / 365
