@@ -226,13 +226,59 @@ dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
 levels(dataframe$MultipleSessions) <- c('No','Yes')
 #####
 
-##### Task is not reported in visit 2 (3?), and is not identified for home questionnaires, fix #####
-for(n in 1:nrow(dataframe)){
-        if(is.na(dataframe$MriNeuroPsychTask[n]) && dataframe$timepoint[n] == 'V2' && dataframe$pseudonym[n] == dataframe$pseudonym[n-1]){
-                dataframe$MriNeuroPsychTask[n] <- dataframe$MriNeuroPsychTask[n-1]      # Takes value reported in visit 1
-        }else if(is.na(dataframe$MriNeuroPsychTask[n]) && dataframe$timepoint[n] == 'HQ1' && dataframe$pseudonym[n] == dataframe$pseudonym[n+1])
-                dataframe$MriNeuroPsychTask[n] <- dataframe$MriNeuroPsychTask[n+1]      # Takes value reported in visit 1
+##### Variables like gender and age are only reported for visit1. Below is a function that 'expands' visit1 values to other timepoints #####
+
+# List of variables you want to 'extend'
+varlist <- c('Gender', 'Age', 'MriNeuroPsychTask')
+# Extract one variable for one subject and replace NAs with real values
+# This is useful for variables that were only assessed at visit1, but is needed at other levels of 'timepoint'
+ExtendVars <- function(dataframe, varlist){
+        
+        # Iterate over variables in the input list
+        for(var in varlist){    
+                
+                # Iterate over pseudonyms
+                for(id in unique(dataframe$pseudonym)){
+                        
+                        # Subset data based on current pseudonym and current variable
+                        vals <- dataframe %>%
+                                filter(pseudonym == id) %>%
+                                select(matches(var))
+                        
+                        # Perform the same subsetting as above and look for NAs
+                        na.idx <- dataframe %>%
+                                filter(pseudonym == id) %>%
+                                select(matches(var)) %>%
+                                is.na %>%
+                                as.vector
+                        
+                        # Skip ids with no real values
+                        if(length(na.idx) == sum(na.idx)) next
+                        
+                        # Define index for non-NA values
+                        val.idx <- !na.idx
+                        
+                        # Find the value that is not NA
+                        non.na.val <- vals[val.idx,]
+                        
+                        # Replace NAs with real values
+                        vals[na.idx,] <- non.na.val
+                        
+                        #Find column and row index in data frame where values should be replaced
+                        col.idx <- colnames(dataframe) == var
+                        row.idx <- dataframe$pseudonym == id
+                        
+                        # Perform replacement
+                        dataframe[row.idx, col.idx] <- vals
+                        
+                }
+        }
+        
+        return(dataframe)
+        
 }
+dataframe <- ExtendVars(dataframe,varlist)
+
 #####
 
 ##### Report on missing values of data frame #####
