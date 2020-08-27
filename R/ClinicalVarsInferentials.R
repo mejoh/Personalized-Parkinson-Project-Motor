@@ -57,7 +57,7 @@ summary(modelIonly)
 modelRI1 <- lmer(TotalUpdrs3 ~ 1 + TimeToFUYears + (1|pseudonym), data = dat)
 summary(modelRI1)
 
-modelRI2 <- lmer(TotalUpdrs3 ~ 1 + TimeToFUYears + Gender + Age + (1|pseudonym), data = dat)
+modelRI2 <- lmer(TotalUpdrs3 ~ 1 + TimeToFUYears + Medication + (1|pseudonym), data = dat)
 summary(modelRI2)
 
 modelRI3 <- lmer(TotalUpdrs3 ~ 1 + TimeToFUYears + Medication + Gender + Age + (1|pseudonym), data = dat)
