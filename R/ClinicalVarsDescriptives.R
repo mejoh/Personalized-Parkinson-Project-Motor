@@ -504,13 +504,24 @@ SessionByGroupBoxPlots <- function(dataframe, x, groups){
                 melt(id.vars = c('pseudonym', 'timepoint'), variable.name = 'group') %>%
                 tibble        
                 
-        g_SbyG <- dataframe %>%
+        g_SbyGbox <- dataframe %>%
                 ggplot(aes(timepoint, value, fill = group)) +
                 geom_boxplot(lwd = 1, outlier.size = 3) +
                 theme_cowplot(font_size = 25) +
                 scale_color_brewer(palette = 'Set1') +
                 scale_fill_brewer(palette = 'Set1')
-        g_SbyG + labs(title = paste('Time x Group interaction plot'))
+        
+        g_SbyGdens <- dataframe %>%
+                ggplot(aes(value, colour = timepoint)) +
+                geom_density(data = dataframe %>% filter(timepoint=='V1'), aes(value, fill = group), alpha = 1/3, lwd = 2) +
+                geom_density(data = dataframe %>% filter(timepoint=='V2'), aes(value, fill = group), alpha = 1/3, lwd = 2) +
+                theme_cowplot(font_size = 25) +
+                scale_color_brewer(palette = 'Set1') +
+                scale_fill_brewer(palette = 'Set1')
+        
+        plots <- plot_grid(g_SbyGbox, g_SbyGdens, labels = 'AUTO', nrow = 1, ncol = 2)
+        title <- ggdraw() + draw_label('Time x Group interaction plot', fontface='bold', size = 35)
+        plot_grid(title, plots, ncol=1, rel_heights=c(0.1, 1))
         
 }
 x <- c('timepoint')
