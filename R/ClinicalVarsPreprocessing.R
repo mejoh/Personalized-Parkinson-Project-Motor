@@ -163,7 +163,8 @@ dataframe <- dataframe %>%
                timepoint,
                TimeToFUYears,
                starts_with('Up1a'),
-               starts_with('Nps')) %>%
+               starts_with('Nps'),
+               starts_with('RemSbdq')) %>%
         mutate(across(2:75, as.numeric)) %>%
         mutate(Up3OfBradySum = rowSums(.[5:16])) %>%
         mutate(Up3OfRestTremAmpSum = rowSums(.[29:33])) %>%
