@@ -160,9 +160,10 @@ dataframe <- dataframe %>%
                Gender,
                ParkinMedUser,
                SmokeCurrent,
-               NpsEducYears,
                timepoint,
-               TimeToFUYears) %>%
+               TimeToFUYears,
+               starts_with('Up1a'),
+               starts_with('Nps')) %>%
         mutate(across(2:75, as.numeric)) %>%
         mutate(Up3OfBradySum = rowSums(.[5:16])) %>%
         mutate(Up3OfRestTremAmpSum = rowSums(.[29:33])) %>%
