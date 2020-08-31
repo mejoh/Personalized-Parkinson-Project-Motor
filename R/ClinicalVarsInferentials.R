@@ -1,38 +1,5 @@
-##### Generate data frame ####
-
-#source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R')
-#df_v1 <- ClinicalVarsDatabase('Castor.Visit1')
-#df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
-#df_hq1 <- ClinicalVarsDatabase('Castor.HomeQuestionnaires1')
-#save.image("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment2.RData")
-
-load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment2.RData")
-#####
-
-##### Preprocess data frame #####
-# Sort data frame
-library(tidyverse)
-df2_v1 <- df_v1 %>%
-        arrange(pseudonym, timepoint)
-
-df2_v2 <- df_v2 %>%
-        arrange(pseudonym, timepoint)
-
-
-df2_hq1 <- df_hq1 %>%
-        arrange(pseudonym, timepoint)
-
-# Merge data frames
-df2 <- full_join(df2_v1, df2_v2) %>%
-        arrange(pseudonym, timepoint)
-
-df2 <- full_join(df2, df2_hq1) %>%
-        arrange(pseudonym, timepoint)
-
-# Select vars and generate additional ones
-source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsPreprocessing.R')
-df2 <- ClinicalVarsPreprocessing(df2)
-##### 
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsGenerateDataFrame.R')
+df2 <- ClinicalVarsGenerateDataFrame(rerun = FALSE)
 
 ##### Subset #####
 df2 <- df2 %>%
