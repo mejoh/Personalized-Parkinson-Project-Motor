@@ -19,6 +19,9 @@ ImportSubData <- function(dSub, pattern){
         # Find subject's files and subset by pattern
         fAllFiles <- dir(dSub, full.names = TRUE)
         fSubsetFiles <- fAllFiles[grep(pattern, fAllFiles)]
+        if(pattern=='Castor.Visit1'){
+               fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('Castor.HomeQuestionnaires1', fAllFiles)])
+        }
         
         # Removal of duplication and naming errors
         if(pattern=='Castor.Visit1' || pattern=='Castor.Visit2'){
