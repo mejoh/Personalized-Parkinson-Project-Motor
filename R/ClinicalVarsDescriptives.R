@@ -6,6 +6,12 @@ df2 <- df2 %>%
         filter(MriNeuroPsychTask == 'Motor')
 #####
 
+##### Export data #####
+pth <- "P:/3022026.01/analyses/nina/"
+fname <- paste(pth, "CastorData.csv", sep = '')
+write_csv(df2, fname)
+#####
+
 ##### Summary stats #####
 
 ##
@@ -634,6 +640,43 @@ for(n in unique(y)){
         g <- ScatterPlotsSimple(df2, n, x, visit)
         print(g)
 }
+
+# Lineplots for lmer
+SubjectSlopesPlots <- function(dataframe, y, x, group){
+        dataframe <- dataframe %>%
+                filter(MultipleSessions == 'Yes')
+        
+        g_line <- ggplot(dataframe, aes_string(x=x, y=y, group=group)) +
+                geom_line(aes_string(color=y), lwd = 1,  alpha = 1/2) + 
+                scale_color_gradient(low = 'black', high = 'red') +
+                geom_jitter(width=0.01, size=2, shape=21, fill='white') +
+                theme_cowplot(font_size = 25)
+        g_line
+}
+y <- c('Up3OfTotal')
+x <- c('timepoint')
+group <- c('pseudonym')
+for(n in unique(y)){
+        g <- SubjectSlopesPlots(df2, y, x, group)
+        print(g)
+}
+
+MedSlopesPlots <- function(dataframe){
+        dataframe <- dataframe %>%
+                select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal) %>%
+                group_by(timepoint) %>%
+                summarise(Off=mean(Up3OfTotal, na.rm=TRUE), On=mean(Up3OnTotal, na.rm=TRUE)) %>%
+                pivot_longer(!timepoint, names_to='Medication', values_to='Up3Total')
+        
+        g_line <- ggplot(dataframe, aes(x=timepoint, y = Up3Total, group=Medication)) +
+                geom_line(aes(color=Medication), lwd=1) +
+                geom_point(size=5) +
+                theme_cowplot(font_size = 25)
+        
+        g_line
+}
+
+MedSlopesPlots(df2)
 
 #####
 
