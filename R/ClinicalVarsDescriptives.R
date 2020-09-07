@@ -646,9 +646,10 @@ SubjectSlopesPlots <- function(dataframe, y, x, group){
         dataframe <- dataframe %>%
                 filter(MultipleSessions == 'Yes')
         
+        progvar <- paste(y, '.1YearProg', sep = '')
         g_line <- ggplot(dataframe, aes_string(x=x, y=y, group=group)) +
-                geom_line(aes_string(color=y), lwd = 1,  alpha = 1/2) + 
-                scale_color_gradient(low = 'black', high = 'red') +
+                geom_line(aes_string(color=progvar), lwd = 1.2,  alpha = .7) + 
+                scale_color_gradient2(low = 'blue', high = 'red') +
                 geom_jitter(width=0.01, size=2, shape=21, fill='white') +
                 theme_cowplot(font_size = 25)
         g_line
@@ -661,7 +662,7 @@ for(n in unique(y)){
         print(g)
 }
 
-MedSlopesPlots <- function(dataframe){
+MedSlopesMeanPlots <- function(dataframe){
         dataframe <- dataframe %>%
                 select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal) %>%
                 group_by(timepoint) %>%
@@ -676,7 +677,8 @@ MedSlopesPlots <- function(dataframe){
         g_line
 }
 
-MedSlopesPlots(df2)
+MedSlopesMeanPlots(df2)
+
 
 #####
 
