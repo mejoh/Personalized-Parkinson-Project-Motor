@@ -11,24 +11,26 @@ MotorTaskDatabase <- function(project){
   library(tidyjson)
         
   if(project == '3022026.01'){
-          prefix <- 'sub-POM1FM'
+          prefix <- 'sub-POM'
   }else{
-          prefix <- 'sub-PIT1MR'   
+          prefix <- 'sub-PIT'   
   }
   
   ##### Sub-functions #####
   
   # Generate a list of subjects, store in 'subjects'
   SubjectList <- function(project, prefix){
-  directory <- paste('P:/', project, '/bids/', sep = '')
-  subjects <- dir(directory, pattern = prefix)
+        directory <- paste('P:/', project, '/pep/bids/', sep = '')
+        subjects <- dir(directory, pattern = prefix)
   }
 
   # Import data from events.tsv/json files for all subjects, store in 'events'
   # Outputs a list of information from events.tsv and events.json 
   # Outputs NA if motor task files are missing (script also finds reward task subjects)
-  ImportEventsTsv <- function(project, subject){
-  filepth <- paste('P:/', project, '/bids/', subject, '/beh/', sep='')
+  ImportEventsTsv <- function(project, subject, visit){
+  
+                  
+  filepth <- paste('P:/', project, '/pep/bids/', subject, '/', visit, '/beh/', sep='')
   for(i in 3:1){
           ptn <- paste('_task-motor_acq-MB6_run-', i, sep='')
           checkfile <- paste(filepth, dir(filepth, ptn)[1], sep = '')
@@ -62,6 +64,7 @@ MotorTaskDatabase <- function(project){
   Subjects <- SubjectList(project, prefix) # Generate subject list
   Conditions <- c('Ext', 'Int2', 'Int3')    # Set conditions
   Data <- tribble(~Subject,
+                  ~Visit,
                   ~Condition,
                   ~Response.Time,
                   ~Percentage.Correct,
@@ -71,8 +74,13 @@ MotorTaskDatabase <- function(project){
   # Fill data frame
   for(n in 1:length(Subjects)){
     
+    dSubDir <- paste('P:/', project, '/pep/bids/', Subjects[n], sep='')
+    Visits <- dir(dSubDir)
+    Visits <- Visits[startsWith(Visits,'ses')]
+    for(t in Visits){
+          
     # Import data            
-    Events <- ImportEventsTsv(project, Subjects[n])
+    Events <- ImportEventsTsv(project, Subjects[n], t)
     
     # Write one observation (row) per condition to data frame
     for(i in 1:length(Conditions)){
@@ -92,6 +100,7 @@ MotorTaskDatabase <- function(project){
         # Write row to data frame            
         Data <- add_row(Data,
                 Subject = Subjects[n],
+                Visit = t,
                 Condition = Conditions[i],
                 Response.Time = filter(Row, correct_response == 'Hit') %>% pull(var = response_time) %>% mean,
                 Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
@@ -102,6 +111,7 @@ MotorTaskDatabase <- function(project){
         # Write row to data frame. Fill with NAs if files are missing           
         Data <- add_row(Data,
                 Subject = Subjects[n],
+                Visit = t,
                 Condition = Conditions[i],
                 Response.Time = NA,
                 Percentage.Correct = NA,
@@ -109,8 +119,10 @@ MotorTaskDatabase <- function(project){
                 Group = NA)
       }
     }
+    }
   }
   
+  Data$Visit <- as.factor(Data$Visit)
   Data$Condition <- as.factor(Data$Condition)               # Convert relevant variables into factors
   Data$Responding.Hand <- as.factor(Data$Responding.Hand)
   Data$Group <- as.factor(Data$Group)
