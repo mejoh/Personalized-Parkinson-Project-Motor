@@ -212,7 +212,7 @@ dataframe <- dataframe %>%
                MultipleSessions = 0)
 
 for(n in 1:nrow(dataframe)){
-        if(dataframe$timepoint[n] == 'V2'){
+        if(dataframe$timepoint[n] == 'V2' && dataframe$timepoint[n-1] == 'V1'){
                 dataframe$Up3OfSumOfTotalWithinRange.1YearProg[n] <- dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]
                 dataframe$Up3OnSumOfTotalWithinRange.1YearProg[n] <- dataframe$Up3OnSumOfTotalWithinRange[n] - dataframe$Up3OnSumOfTotalWithinRange[n-1]
                 dataframe$Up3OfBradySum.1YearProg[n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
