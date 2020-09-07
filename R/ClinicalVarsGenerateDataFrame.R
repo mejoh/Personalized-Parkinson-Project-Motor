@@ -1,6 +1,6 @@
 ## Function for generating data frame
 
-ClinicalVarsGenerateDataFrame <- function(rerun){
+ClinicalVarsGenerateDataFrame <- function(rerun = FALSE){
 
 ##### Generate data frame ####
 
