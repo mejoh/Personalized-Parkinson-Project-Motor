@@ -101,7 +101,7 @@ print(BelowZeroDisDur$pseudonym)
 dataframe$EstDisDurYears[dataframe$EstDisDurYears < 0] <- NA
 #####
 
-##### Select variables + Calculate total score and bradykinesia/tremor subscore #####
+##### Select variables + Calculate total score and bradykinesia/tremor subscore + Medication delta #####
 
 # Variable selection
 # Definition of bradykinesia subscore
@@ -171,7 +171,10 @@ dataframe <- dataframe %>%
         mutate(Up3OfTotal = rowSums(.[2:34])) %>%
         mutate(Up3OnTotal = rowSums(.[39:71])) %>%
         mutate(Up3OnBradySum = rowSums(.[42:53])) %>%
-        mutate(Up3OnRestTremAmpSum = rowSums(.[66:70]))
+        mutate(Up3OnRestTremAmpSum = rowSums(.[66:70])) %>%
+        mutate(Up3TotalOnOffDelta = Up3OnTotal - Up3OfTotal,
+               Up3BradySumOnOffDelta = Up3OnBradySum - Up3OfBradySum,
+               Up3RestTremAmpSumOnOffDelta = Up3OnRestTremAmpSum - Up3OfRestTremAmpSum)
 
 #####
 
@@ -213,14 +216,14 @@ dataframe <- dataframe %>%
 
 for(n in 1:nrow(dataframe)){
         if(dataframe$timepoint[n] == 'V2' && dataframe$timepoint[n-1] == 'V1'){
-                dataframe$Up3OfSumOfTotalWithinRange.1YearProg[n] <- dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]
-                dataframe$Up3OnSumOfTotalWithinRange.1YearProg[n] <- dataframe$Up3OnSumOfTotalWithinRange[n] - dataframe$Up3OnSumOfTotalWithinRange[n-1]
-                dataframe$Up3OfBradySum.1YearProg[n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
-                dataframe$Up3OnBradySum.1YearProg[n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
-                dataframe$Up3OfRestTremAmpSum.1YearProg[n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
-                dataframe$Up3OnRestTremAmpSum.1YearProg[n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
-                dataframe$Up3OfTotal.1YearProg[n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
-                dataframe$Up3OnTotal.1YearProg[n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
+                dataframe$Up3OfSumOfTotalWithinRange.1YearProg[(n-1):n] <- dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]
+                dataframe$Up3OnSumOfTotalWithinRange.1YearProg[(n-1):n] <- dataframe$Up3OnSumOfTotalWithinRange[n] - dataframe$Up3OnSumOfTotalWithinRange[n-1]
+                dataframe$Up3OfBradySum.1YearProg[(n-1):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
+                dataframe$Up3OnBradySum.1YearProg[(n-1):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
+                dataframe$Up3OfRestTremAmpSum.1YearProg[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
+                dataframe$Up3OnRestTremAmpSum.1YearProg[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
+                dataframe$Up3OfTotal.1YearProg[(n-1):n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
+                dataframe$Up3OnTotal.1YearProg[(n-1):n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
 }
