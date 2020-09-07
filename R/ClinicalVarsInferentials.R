@@ -6,27 +6,100 @@ df2 <- df2 %>%
         filter(MriNeuroPsychTask == 'Motor')
 #####
 
+library(reshape2)
+# Unbalanced: MultipleSessions == 'No'
 dat <- df2 %>%
         filter(timepoint == 'V1' | timepoint == 'V2') %>%
-        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age, EstDisDurYears, TimeToFUYears) %>%
-        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'TimeToFUYears'), variable.name = 'Medication', value.name = 'TotalUpdrs3') %>%
+        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age) %>%
+        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint'), variable.name = 'Medication', value.name = 'y') %>%
         tibble %>%
+        mutate(pseudonym = as.factor(pseudonym)) %>%
         arrange(pseudonym, timepoint)
 
+# Balanced: MultipleSession=='Yes'
+dat <- df2 %>%
+        filter(MultipleSessions=='Yes') %>%
+        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age) %>%
+        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint'), variable.name = 'Medication', value.name = 'y') %>%
+        tibble %>%
+        mutate(pseudonym = as.factor(pseudonym)) %>%
+        arrange(pseudonym, timepoint)
+levels(dat$Medication) <- c('Off','On')
 
 ##### Linear mixed effects modelling #####
 library(lme4)
 library(lmerTest)
+library(lattice)
+library(bbmle)
 
-modelIonly <- lmer(TotalUpdrs3 ~ 1 + (1|pseudonym), data = dat)
-summary(modelIonly)
+contrasts(dat$Gender) <- cbind(m_vs_f=c(1,-1))
+contrasts(dat$timepoint) <- cbind(v1_vs_v2=c(1,-1))
+contrasts(dat$Medication) <- cbind(off_vs_on=c(1,-1))
 
-modelRI1 <- lmer(TotalUpdrs3 ~ 1 + TimeToFUYears + (1|pseudonym), data = dat)
-summary(modelRI1)
+# Test random intercepts for subjects
+fm00 <- lm(y ~ 1, data = dat)
+summary(fm00)
+fm01 <- lmer(y ~ 1 + (1|pseudonym), data=dat, REML=FALSE)
+summary(fm01)
+dev1 <- -2*logLik(fm01)
+dev0 <- -2*logLik(fm00)
+devdiff <- as.numeric(dev0-dev1); devdiff
+dfdiff <- attr(dev1,'df') - attr(dev0,'df'); dfdiff
+cat('Chi-square =', devdiff, '(df=', dfdiff,'), p = ', pchisq(devdiff,dfdiff,lower.tail = FALSE))
+AIC(fm00, fm01)
+AICtab(fm00, fm01)
 
-modelRI2 <- lmer(TotalUpdrs3 ~ 1 + TimeToFUYears + Medication + (1|pseudonym), data = dat)
-summary(modelRI2)
+# Gender
+fm02 <- lmer(y ~ 1 + Gender + (1 | pseudonym), data=dat, REML=FALSE)
+summary(fm02)
+anova(fm01,fm02,refit=FALSE)
 
-modelRI3 <- lmer(TotalUpdrs3 ~ 1 + TimeToFUYears + Medication + Gender + Age + (1|pseudonym), data = dat)
-summary(modelRI3)
+# Age
+fm03 <- lmer(y ~ 1 + Gender + Age + (1 | pseudonym), data = dat, REML=FALSE)
+summary(fm03)
+anova(fm02,fm03,refit=FALSE)
+
+# Medication
+fm04 <- lmer(y ~ 1 + Gender + Age + Medication + (1 | pseudonym), data = dat, REML=FALSE)
+summary(fm04)
+anova(fm03,fm04,refit=FALSE)
+
+# Time
+fm05 <- lmer(y ~ 1 + Gender + Age + Medication + timepoint + (1 | pseudonym), data = dat, REML = FALSE)
+summary(fm05)
+anova(fm04,fm05,refit=FALSE)
+
+# Random slope: Time
+fm06 <- lmer(y ~ 1 + Gender + Age + Medication + timepoint + (1 + timepoint | pseudonym), data = dat, REML = FALSE)
+summary(fm06)
+anova(fm05,fm06,refit=FALSE)
+
+pr06 <- profile(fm06)
+xyplot(pr06)
+
+
+
+xyplot(profile(m1))
+splom(profile(m1))
+confint(profile(m1))
+fixef()
+ranef()
+coef()
+AIC()
+AICtab()
+-2*logLik(x)
+deviance()
+anova(m1,m2, refit = FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
 #####
