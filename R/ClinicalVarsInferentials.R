@@ -1,11 +1,6 @@
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsGenerateDataFrame.R')
 df2 <- ClinicalVarsGenerateDataFrame(rerun = FALSE)
 
-##### Subset #####
-df2 <- df2 %>%
-        filter(MriNeuroPsychTask == 'Motor')
-#####
-
 library(reshape2)
 # Unbalanced: MultipleSessions == 'No'
 dat <- df2 %>%
@@ -24,7 +19,10 @@ dat <- df2 %>%
         tibble %>%
         mutate(pseudonym = as.factor(pseudonym)) %>%
         arrange(pseudonym, timepoint)
+
 levels(dat$Medication) <- c('Off','On')
+
+#####
 
 ##### Linear mixed effects modelling #####
 library(lme4)
@@ -55,31 +53,36 @@ summary(fm02)
 anova(fm01,fm02,refit=FALSE)
 
 # Age
-fm03 <- lmer(y ~ 1 + Gender + Age + (1 | pseudonym), data = dat, REML=FALSE)
+fm03 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + (1 | pseudonym), data = dat, REML=FALSE)
 summary(fm03)
 anova(fm02,fm03,refit=FALSE)
 
 # Medication
-fm04 <- lmer(y ~ 1 + Gender + Age + Medication + (1 | pseudonym), data = dat, REML=FALSE)
+fm04 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + (1 | pseudonym), data = dat, REML=FALSE)
 summary(fm04)
 anova(fm03,fm04,refit=FALSE)
 
 # Time
-fm05 <- lmer(y ~ 1 + Gender + Age + Medication + timepoint + (1 | pseudonym), data = dat, REML = FALSE)
+fm05 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 | pseudonym), data = dat, REML = FALSE)
 summary(fm05)
 anova(fm04,fm05,refit=FALSE)
 
 # Random slope: Time
-fm06 <- lmer(y ~ 1 + Gender + Age + Medication + timepoint + (1 + timepoint | pseudonym), data = dat, REML = FALSE)
+fm06 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 + timepoint | pseudonym), data = dat, REML = FALSE)
 summary(fm06)
 anova(fm05,fm06,refit=FALSE)
 
 pr06 <- profile(fm06)
 xyplot(pr06)
 
+# Random slope: Medication
+fm07 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 + timepoint + Medication | pseudonym), data = dat, REML = FALSE)
+summary(fm07)
+anova(fm06,fm07,refit=FALSE)
 
 
-xyplot(profile(m1))
+
+xyplot(profile(fm07))
 splom(profile(m1))
 confint(profile(m1))
 fixef()
