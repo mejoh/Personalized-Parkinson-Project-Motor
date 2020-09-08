@@ -1,4 +1,4 @@
-## Function for generating data frame
+## Wrapper script for ClinicalVarsDatabse and ClinicalVarsPreprocessing
 
 ClinicalVarsGenerateDataFrame <- function(rerun = FALSE){
 
@@ -30,6 +30,17 @@ df2 <- full_join(df2_v1, df2_v2) %>%
 # Select vars and generate additional ones
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsPreprocessing.R')
 df2 <- ClinicalVarsPreprocessing(df2)
+
+# Subset by task
+df2 <- df2 %>%
+        filter(MriNeuroPsychTask == 'Motor')
+
+#####
+
+# Export data
+pth <- "P:/3022026.01/analyses/nina/"
+fname <- paste(pth, "CastorData.csv", sep = '')
+write_csv(df2, fname)
 
 print(df2)
 

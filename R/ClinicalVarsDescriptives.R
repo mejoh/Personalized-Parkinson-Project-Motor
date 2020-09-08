@@ -1,17 +1,6 @@
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsGenerateDataFrame.R')
 df2 <- ClinicalVarsGenerateDataFrame(rerun = FALSE)
 
-##### Subset #####
-df2 <- df2 %>%
-        filter(MriNeuroPsychTask == 'Motor')
-#####
-
-##### Export data #####
-pth <- "P:/3022026.01/analyses/nina/"
-fname <- paste(pth, "CastorData.csv", sep = '')
-write_csv(df2, fname)
-#####
-
 ##### Summary stats #####
 
 ##
@@ -642,7 +631,7 @@ for(n in unique(y)){
 }
 
 # Lineplots for lmer
-SubjectSlopesPlots <- function(dataframe, y, x, group){
+TimeSlopesBySubjectPlots <- function(dataframe, y, x, group){
         dataframe <- dataframe %>%
                 filter(MultipleSessions == 'Yes')
         
@@ -658,7 +647,7 @@ y <- c('Up3OfTotal')
 x <- c('timepoint')
 group <- c('pseudonym')
 for(n in unique(y)){
-        g <- SubjectSlopesPlots(df2, y, x, group)
+        g <- TimeSlopesBySubjectPlots(df2, y, x, group)
         print(g)
 }
 
@@ -676,18 +665,40 @@ MedSlopesMeanPlots <- function(dataframe){
         
         g_line
 }
-
 MedSlopesMeanPlots(df2)
+
+MedSlopesBySubsPlots <- function(dataframe){
+        dataframe <- dataframe %>%
+                select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Up3TotalOnOffDelta) %>%
+                pivot_longer(!c(pseudonym, timepoint, Up3TotalOnOffDelta), names_to='Medication', values_to='Severity') %>%
+                mutate(Medication = as.factor(Medication))
+        
+        dataframeV1 <- dataframe %>%
+                filter(timepoint == 'V1')
+        g_lineV1 <- ggplot(dataframeV1, aes(x=Medication, y=Severity, group=pseudonym)) +
+                geom_line(aes(color=Up3TotalOnOffDelta), lwd=1.2, alpha = .7) +
+                scale_color_gradient2(low = 'blue', high = 'red') +
+                geom_jitter(width=0.01, size=2, shape=21, fill='white') +
+                theme_cowplot(font_size = 25) +
+                labs(title ='V1')
+        
+        dataframeV2 <- dataframe %>%
+                filter(timepoint == 'V2')
+        g_lineV2 <- ggplot(dataframeV2, aes(x=Medication, y=Severity, group=pseudonym)) +
+                geom_line(aes(color=Up3TotalOnOffDelta), lwd=1.2, alpha = .7) +
+                scale_color_gradient2(low = 'blue', high = 'red') +
+                geom_jitter(width=0.01, size=2, shape=21, fill='white') +
+                theme_cowplot(font_size = 25) +
+                labs(title = 'V2')
+        
+        library(ggpubr)
+        ggarrange(g_lineV1, g_lineV2, ncol=2)
+        
+}
+MedSlopesBySubsPlots(df2)
 
 
 #####
-
-df2_ttest <- df2 %>%
-        filter(timepoint == 'V2')
-
-t.test(df2_ttest$Up3OfSumOfTotalWithinRange.1YearProg, alternative = 'two.sided')
-t.test(df2_ttest$BradySum.1YearProg, alternative = 'two.sided')
-t.test(df2_ttest$RestTremAmpSum.1YearProg, alternative = 'two.sided')
 
 ##### Clustering #####
 
