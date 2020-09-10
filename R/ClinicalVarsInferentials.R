@@ -67,6 +67,10 @@ fm05 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medi
 summary(fm05)
 anova(fm04,fm05,refit=FALSE)
 
+fm05b <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + Medication*timepoint + (1 | pseudonym), data = dat, REML = FALSE)
+summary(fm05b)
+anova(fm05,fm05b,refit=FALSE)
+
 # Random slope: Time
 fm06 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 + timepoint | pseudonym), data = dat, REML = FALSE)
 summary(fm06)
