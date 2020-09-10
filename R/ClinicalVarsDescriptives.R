@@ -654,14 +654,24 @@ for(n in unique(y)){
 MedSlopesMeanPlots <- function(dataframe){
         dataframe <- dataframe %>%
                 select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal) %>%
-                group_by(timepoint) %>%
-                summarise(Off=mean(Up3OfTotal, na.rm=TRUE), On=mean(Up3OnTotal, na.rm=TRUE)) %>%
-                pivot_longer(!timepoint, names_to='Medication', values_to='Up3Total')
+                pivot_longer(!c(pseudonym, timepoint), names_to='Medication', values_to='Up3Total') %>%
+                group_by(timepoint, Medication)
+        dataframe$Medication <- factor(dataframe$Medication, levels = c('Up3OfTotal','Up3OnTotal'), labels = c('Off','On'))
         
-        g_line <- ggplot(dataframe, aes(x=timepoint, y = Up3Total, group=Medication)) +
-                geom_line(aes(color=Medication), lwd=1) +
-                geom_point(size=5) +
-                theme_cowplot(font_size = 25)
+        dataframe.summary <- dataframe %>%
+                summarise(n=n(), Mean=mean(Up3Total, na.rm=TRUE), SD=sd(Up3Total, na.rm=TRUE), SE=SD/sqrt(n), lower=Mean+(-1.96*SE), upper=Mean+(1.96*SE))
+        
+        g_line <- ggplot(dataframe.summary, aes(x=timepoint, y = Mean, group=Medication)) +
+                geom_line(aes(color=Medication), lwd=2) +
+                geom_point(size=4) +
+                geom_errorbar(aes(ymin=lower,ymax=upper), width=0.1, lwd=1) +
+                theme_minimal_hgrid(font_size = 25, color = 'darkgrey') +
+                labs(title = 'Total UPDRS-III score as a function of time and medication') + 
+                ylab('Total UPDRS-III') +
+                xlab('Time') +
+                scale_x_discrete(labels=c('Baseline','Follow-up')) +
+                scale_color_brewer(palette = 'Dark2') +
+                scale_fill_brewer(palette = 'Dark2')
         
         g_line
 }
