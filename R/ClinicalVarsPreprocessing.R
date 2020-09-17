@@ -61,18 +61,19 @@ EstDiagnosisDates <- EstDiagnosisDates %>%
         mutate(EstDisDurYears = as.numeric(Up3OfAssesTime - EstDiagDate) / 365)
 
 # Calculate an exact or estimated disease duration in years for visit 2
-for(n in 1:nrow(EstDiagnosisDates)){
-        if(EstDiagnosisDates$timepoint[n] == 'V2'){
-                EstDiagnosisDates$EstDisDurYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$EstDiagDate[n-1]) / 365
-        }
-}
+#for(n in 1:nrow(EstDiagnosisDates)){
+#        if(EstDiagnosisDates$timepoint[n] == 'V2'){
+#                EstDiagnosisDates$EstDisDurYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$EstDiagDate[n-1]) / 365
+#        }
+#}
 
-## Calculate time to follow-up ##
+## Calculate time to follow-up and set baseline disease duration ##
 EstDiagnosisDates <- EstDiagnosisDates %>%
         mutate(TimeToFUYears = 0)
 for(n in 1:nrow(EstDiagnosisDates)){
-        if(EstDiagnosisDates$timepoint[n] == 'V2'){
+        if(EstDiagnosisDates$timepoint[n] == 'V2' && EstDiagnosisDates$timepoint[n-1] == 'V1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-1]){
                 EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-1]) / 365
+                EstDiagnosisDates$EstDisDurYears[n] <- EstDiagnosisDates$EstDisDurYears[n-1]
         }
 }
 
