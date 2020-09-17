@@ -9,19 +9,14 @@ MotorTaskDatabase <- function(project){
         
   library(tidyverse)
   library(tidyjson)
-        
-  if(project == '3022026.01'){
-          prefix <- 'sub-POM'
-  }else{
-          prefix <- 'sub-PIT'   
-  }
   
   ##### Sub-functions #####
   
   # Generate a list of subjects, store in 'subjects'
-  SubjectList <- function(project, prefix){
+  SubjectList <- function(project){
         directory <- paste('P:/', project, '/pep/bids/', sep = '')
-        subjects <- dir(directory, pattern = prefix)
+        directory.contents <- dir(directory)
+        subjects <- directory.contents[str_detect(directory.contents, '^sub-')]
   }
 
   # Import data from events.tsv/json files for all subjects, store in 'events'
@@ -47,7 +42,7 @@ MotorTaskDatabase <- function(project){
   
   if(!is.na(tsvfile) && !is.na(jsonfile)){
           events <- read_tsv(paste(filepth, tsvfile, sep=''), na = 'n/a')
-          json <- read_json(paste(filepth, jsonfile, sep='')) %>% 
+          json <- tidyjson::read_json(paste(filepth, jsonfile, sep='')) %>% 
                   spread_all %>% 
                   select(Group.Value, RespondingHand.Value)   
   }else{
@@ -61,7 +56,7 @@ MotorTaskDatabase <- function(project){
   
   #####
   
-  Subjects <- SubjectList(project, prefix) # Generate subject list
+  Subjects <- SubjectList(project) # Generate subject list
   Conditions <- c('Ext', 'Int2', 'Int3')    # Set conditions
   Data <- tribble(~Subject,
                   ~Visit,
