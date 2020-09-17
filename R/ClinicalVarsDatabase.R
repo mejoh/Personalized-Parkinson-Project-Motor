@@ -65,9 +65,7 @@ ImportSubData <- function(dSub, pattern){
 # Create a list of subject directories in the pulled-data folder
 dPulledData <- 'P:/3022026.01/pep/ClinVars'
 dSubs <- list.dirs(dPulledData, recursive = FALSE)
-dSubs <- dSubs[1:2]
 #dSubs <- unique(grep(paste(check, collapse = "|"), dSubs, value = TRUE)) # For testing
-#dSubs <- dSubs[-c(grep('.pepData', dSubs))]
 nSubs <- length(dSubs)
 
 # Exclude subjects that do not have files matching pattern
