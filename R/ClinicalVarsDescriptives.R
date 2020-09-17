@@ -571,7 +571,8 @@ for(n in unique(y)){
 # Scatter plots for exploring relationships between disease progression and duration, tagged with timepoint
 ScatterPlotsComplex <- function(dataframe, y, x, group){
         dataframe <- dataframe %>%
-                filter(timepoint == 'V1' | timepoint == 'V2')
+                filter(timepoint == 'V1' | timepoint == 'V2') %>%
+                mutate(EstDisDurYears = EstDisDurYears + TimeToFUYears)
                 
         g_scatter1 <- dataframe %>%
                 ggplot(aes_string(x = x, y = y, colour = group)) + 
@@ -584,10 +585,9 @@ ScatterPlotsComplex <- function(dataframe, y, x, group){
         g_scatter2 <- dataframe %>%
                 ggplot(aes_string(x = x, y = y)) + 
                 geom_point(size = 3) +
-                geom_point(data = dataframe %>% filter(timepoint == 'V2'), aes_string(y = y, color = progvar), size = 3) +
-                geom_line(aes(group = pseudonym), color = 'darkgrey', lwd = 1, alpha = 0.7) +
+                geom_line(aes_string(group = 'pseudonym', color=progvar), lwd = 1, alpha = 0.7) +
                 theme_cowplot(font_size = 25) +
-                scale_color_gradient(low = 'blue', high = 'red')
+                scale_color_gradient2(low = 'blue', high = 'red')
         
         mean_progression <- mean(unlist(dataframe[, colnames(dataframe) == progvar]), na.rm = TRUE)
         
