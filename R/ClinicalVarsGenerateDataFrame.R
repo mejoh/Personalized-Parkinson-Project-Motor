@@ -6,11 +6,11 @@ ClinicalVarsGenerateDataFrame <- function(rerun = FALSE){
 
 if(rerun == TRUE){
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R')
-df_v1 <- ClinicalVarsDatabase('Castor.Visit1')
-df_v2 <- ClinicalVarsDatabase('Castor.Visit2')
-save.image("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment3.RData")
+df_v1 <- ClinicalVarsDatabase('ses-Visit1')
+df_v2 <- ClinicalVarsDatabase('ses-Visit2')
+save.image("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment4.RData")
 }else{
-load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment3.RData")
+load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment4.RData")
 }
 #####
 
