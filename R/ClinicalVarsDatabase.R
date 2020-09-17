@@ -23,7 +23,7 @@ ImportSubData <- function(dSub, pattern){
                fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('Castor.HomeQuestionnaires1', fAllFiles)])
         }
         
-        # Removal of duplication and naming errors
+        # FIX: Removal of duplication and naming errors
         if(pattern=='Castor.Visit1' || pattern=='Castor.Visit2'){
                 ExcludedFiles <- c('Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_1',
                                    'Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_2')#,
@@ -44,7 +44,7 @@ ImportSubData <- function(dSub, pattern){
         for(i in 1:length(fSubsetFiles)){
                 json <- readtext(fSubsetFiles[i], text_field = 'texts')
                 json <- parse_json(json$text)
-                # Rename vars where Of and On labels have been accidentally reversed
+                # FIX: Rename vars where Of and On labels have been accidentally reversed
                 if(str_detect(fSubsetFiles[i], 'Motorische_taken_ON') && str_detect(names(json$crf), 'Up3Of')){
                         print(dSub)
                         msg <- 'Up3Of variable found in On assessment, replacing with Up3On...'
