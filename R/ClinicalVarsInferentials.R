@@ -5,8 +5,8 @@ library(reshape2)
 # Unbalanced: MultipleSessions == 'No'
 dat <- df2 %>%
         filter(timepoint == 'V1' | timepoint == 'V2') %>%
-        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age) %>%
-        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint'), variable.name = 'Medication', value.name = 'y') %>%
+        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age, EstDisDurYears) %>%
+        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint', 'EstDisDurYears'), variable.name = 'Medication', value.name = 'y') %>%
         tibble %>%
         mutate(pseudonym = as.factor(pseudonym)) %>%
         arrange(pseudonym, timepoint)
@@ -14,8 +14,8 @@ dat <- df2 %>%
 # Balanced: MultipleSession=='Yes'
 dat <- df2 %>%
         filter(MultipleSessions=='Yes') %>%
-        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age) %>%
-        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint'), variable.name = 'Medication', value.name = 'y') %>%
+        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age, EstDisDurYears) %>%
+        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint', 'EstDisDurYears'), variable.name = 'Medication', value.name = 'y') %>%
         tibble %>%
         mutate(pseudonym = as.factor(pseudonym)) %>%
         arrange(pseudonym, timepoint)
@@ -67,22 +67,41 @@ fm05 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medi
 summary(fm05)
 anova(fm04,fm05,refit=FALSE)
 
-fm05b <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + Medication*timepoint + (1 | pseudonym), data = dat, REML = FALSE)
-summary(fm05b)
-anova(fm05,fm05b,refit=FALSE)
-
-# Random slope: Time
-fm06 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 + timepoint | pseudonym), data = dat, REML = FALSE)
+# Medication x Time
+fm06 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + Medication*timepoint + (1 | pseudonym), data = dat, REML = FALSE)
 summary(fm06)
 anova(fm05,fm06,refit=FALSE)
+
+# Baseline disease duration
+fm07 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + EstDisDurYears + (1 | pseudonym), data = dat, REML = FALSE)
+summary(fm07)
+anova(fm05,fm07,refit=FALSE)    # Linear
+
+fm07b <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + EstDisDurYears + poly(EstDisDurYears,2) + (1 | pseudonym), data = dat, REML = FALSE)
+summary(fm07b)
+anova(fm07,fm07b,refit=FALSE)   # Quadratic
+
+fm07c <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + EstDisDurYears + poly(EstDisDurYears,2) + poly(EstDisDurYears,3) + (1 | pseudonym), data = dat, REML = FALSE)
+summary(fm07c)
+anova(fm07b,fm07c,refit=FALSE)  # Cubic
+
+# Time x Baseline disease duration
+fm08 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + EstDisDurYears + timepoint*EstDisDurYears + (1 | pseudonym), data = dat, REML = FALSE)
+summary(fm08)
+anova(fm07,fm08,refit=FALSE)
+
+# Random slope: Time
+fmr01 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 + timepoint | pseudonym), data = dat, REML = FALSE)
+summary(fm06)
+anova(fm05,fmr01,refit=FALSE)
 
 pr06 <- profile(fm06)
 xyplot(pr06)
 
 # Random slope: Medication
-fm07 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 + timepoint + Medication | pseudonym), data = dat, REML = FALSE)
-summary(fm07)
-anova(fm06,fm07,refit=FALSE)
+fmr02 <- lmer(y ~ 1 + Gender + I(scale(Age, center = TRUE, scale = FALSE)) + Medication + timepoint + (1 + timepoint + Medication | pseudonym), data = dat, REML = FALSE)
+summary(fmr02)
+anova(fmr01,fmr02,refit=FALSE)
 
 
 
