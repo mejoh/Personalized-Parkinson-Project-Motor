@@ -17,14 +17,14 @@ library(lubridate)
 ImportSubData <- function(dSub, pattern){
         
         # Find subject's files and subset by pattern
-        fAllFiles <- dir(dSub, full.names = TRUE)
+        fAllFiles <- dir(dSub, full.names = TRUE, recursive = TRUE)
         fSubsetFiles <- fAllFiles[grep(pattern, fAllFiles)]
-        if(pattern=='Castor.Visit1'){
-               fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('Castor.HomeQuestionnaires1', fAllFiles)])
+        if(pattern=='ses-Visit1'){
+               fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('ses-HomeQuestionnaires1', fAllFiles)])
         }
         
         # FIX: Removal of duplication and naming errors
-        if(pattern=='Castor.Visit1' || pattern=='Castor.Visit2'){
+        if(pattern=='ses-Visit1' || pattern=='ses-Visit2'){
                 ExcludedFiles <- c('Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_1',
                                    'Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_2')#,
                                    #'Castor.Visit1.Motorische_taken_ON.Updrs3_deel_3')   # < Not sure about this last one... only incorrect for some
@@ -42,8 +42,7 @@ ImportSubData <- function(dSub, pattern){
         
         # Parse subsetted json files and bind to data frame
         for(i in 1:length(fSubsetFiles)){
-                json <- readtext(fSubsetFiles[i], text_field = 'texts')
-                json <- parse_json(json$text)
+                json <- read_json(fSubsetFiles[i])
                 # FIX: Rename vars where Of and On labels have been accidentally reversed
                 if(str_detect(fSubsetFiles[i], 'Motorische_taken_ON') && str_detect(names(json$crf), 'Up3Of')){
                         print(dSub)
@@ -64,19 +63,22 @@ ImportSubData <- function(dSub, pattern){
 }
 
 # Create a list of subject directories in the pulled-data folder
-dPulledData <- 'P:/3022026.01/pep/pulled-data'
+dPulledData <- 'P:/3022026.01/pep/ClinVars'
 dSubs <- list.dirs(dPulledData, recursive = FALSE)
+dSubs <- dSubs[1:2]
 #dSubs <- unique(grep(paste(check, collapse = "|"), dSubs, value = TRUE)) # For testing
-dSubs <- dSubs[-c(grep('.pepData', dSubs))]
+#dSubs <- dSubs[-c(grep('.pepData', dSubs))]
 nSubs <- length(dSubs)
 
 # Exclude subjects that do not have files matching pattern
 Sel <- rep(TRUE, nSubs)
 for(n in 1:nSubs){
-        filelist <- grep(pattern, dir(dSubs[n]))
-        if(length(filelist) == 0){
+        dPattern <- paste(dSubs[n],'/', pattern, sep = '')
+        if(dir.exists(dPattern) && length(dir(dPattern) != 0)){
+                filelist <- dir(dPattern)
+        }else{
                 Sel[n] <- FALSE
-                msg <- paste('Excluding', basename(dSubs[n]), ': no files matching pattern')
+                msg <- paste('Excluding', basename(dSubs[n]), ': no files for', pattern)
                 print(msg)
         }
 }
@@ -116,11 +118,11 @@ for(n in 1:nSubs){
 }
 
 # Add column defining timepoint
-if(grepl('Castor.HomeQuestionnaires1', pattern, fixed = TRUE)){
+if(grepl('ses-HomeQuestionnaires1', pattern, fixed = TRUE)){
         timepoint <- 'HQ1'
-}else if(grepl('Castor.Visit1', pattern, fixed = TRUE)){
+}else if(grepl('ses-Visit1', pattern, fixed = TRUE)){
         timepoint <- 'V1'
-}else if(grepl('Castor.Visit2', pattern, fixed = TRUE)){
+}else if(grepl('ses-Visit2', pattern, fixed = TRUE)){
         timepoint <- 'V2'
 }
 df <- bind_cols(df, tibble('timepoint' = rep(timepoint,nSubs)))
