@@ -13,16 +13,24 @@ library(cowplot)
 
 #####
 
+##### Widen data frame to accomodate plotting of motor task performance #####
+
+df.wide <- df %>%
+        pivot_wider(names_from = Condition,
+                    values_from = c(Response.Time, Percentage.Correct))
+
+#####
+
 ##### General plotting #####
 
 # Box plots for exploring Time x Group interactions (e.g. effect of medication)
-SessionByGroupBoxPlots <- function(dataframe, x, groups){
+SessionByGroupBoxPlots <- function(dataframe, x, x.ticks, groups){
         
         library(reshape2)
         
         dataframe <- dataframe %>%
                 filter(MultipleSessions == 'Yes') %>%
-                filter(timepoint == 'V1' | timepoint == 'V2') %>%
+                filter(timepoint == x.ticks[1] | timepoint == x.ticks[2]) %>%
                 select(c(pseudonym, timepoint, !!groups)) %>%
                 melt(id.vars = c('pseudonym', 'timepoint'), variable.name = 'group') %>%
                 tibble        
@@ -36,8 +44,8 @@ SessionByGroupBoxPlots <- function(dataframe, x, groups){
         
         g_SbyGdens <- dataframe %>%
                 ggplot(aes(value, colour = timepoint)) +
-                geom_density(data = dataframe %>% filter(timepoint=='V1'), aes(value, fill = group), alpha = 1/3, lwd = 2) +
-                geom_density(data = dataframe %>% filter(timepoint=='V2'), aes(value, fill = group), alpha = 1/3, lwd = 2) +
+                geom_density(data = dataframe %>% filter(timepoint==x.ticks[1]), aes(value, fill = group), alpha = 1/3, lwd = 2) +
+                geom_density(data = dataframe %>% filter(timepoint==x.ticks[2]), aes(value, fill = group), alpha = 1/3, lwd = 2) +
                 theme_cowplot(font_size = 25) +
                 scale_color_brewer(palette = 'Set1') +
                 scale_fill_brewer(palette = 'Set1')
@@ -48,8 +56,11 @@ SessionByGroupBoxPlots <- function(dataframe, x, groups){
         
 }
 x <- c('timepoint')
-groups <- c('Up3OfTotal', 'Up3OnTotal')
-SessionByGroupBoxPlots(df, x, groups)
+x.ticks <- c('V1','V3')
+#groups <- c('Up3OfTotal', 'Up3OnTotal')
+#SessionByGroupBoxPlots(df, x, x.ticks, groups)
+groups <- c('Response.Time_Ext', 'Response.Time_Int2', 'Response.Time_Int3')
+SessionByGroupBoxPlots(df.wide, x, x.ticks, groups)
 
 # Box and density plots for exploring variables from multiple sessions
 MultipleSessionBoxDensPlots <- function(dataframe, x, y){
