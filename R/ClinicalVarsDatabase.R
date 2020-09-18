@@ -42,7 +42,7 @@ ImportSubData <- function(dSub, pattern){
         
         # Parse subsetted json files and bind to data frame
         for(i in 1:length(fSubsetFiles)){
-                json <- read_json(fSubsetFiles[i])
+                json <- jsonlite::read_json(fSubsetFiles[i])
                 # FIX: Rename vars where Of and On labels have been accidentally reversed
                 if(str_detect(fSubsetFiles[i], 'Motorische_taken_ON') && str_detect(names(json$crf), 'Up3Of')){
                         print(dSub)
