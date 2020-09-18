@@ -2,7 +2,7 @@
 # X is a Subjects x Variables tibble with behavioural data
 
 MotorTaskDatabase <- function(project){
-        
+  
   library(tidyverse)
   library(tidyjson)
   
