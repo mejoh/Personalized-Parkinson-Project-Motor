@@ -1,11 +1,7 @@
 # X <- MotorTaskDatabase('project')
 # X is a Subjects x Variables tibble with behavioural data
-# 'project' is a string denoting POM or PIT directories
 
 MotorTaskDatabase <- function(project){
-
-        #project <- '3022026.01' / '3024006.01'  # Set project nr
-        #prefix <- 'sub-POM1FM' / 'sub-PIT1MR'  # Set subject prefix      
         
   library(tidyverse)
   library(tidyjson)
