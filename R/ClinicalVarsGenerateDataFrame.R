@@ -42,6 +42,6 @@ df2 <- ClinicalVarsPreprocessing(df2)
 #fname <- paste(pth, "CastorData.csv", sep = '')
 #write_csv(df2, fname)
 
-#print(df2)
+print(df2)
 
 }
