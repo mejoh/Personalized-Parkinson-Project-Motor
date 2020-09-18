@@ -1,4 +1,4 @@
-# Combine motor task performance and clinical variales into a single data frame
+# Combine motor task performance and clinical variables into a single data frame
 
 ##### Import data #####
 
@@ -59,7 +59,7 @@ cat('Number of subjects with motor task data that lack task labels: ', '\n',
     'Fixing missing labels for subjects with motor task data...')
 
 for(i in 1:nrow(df)){
-        if(is.na(df$MriNeuroPsychTask[i]) && (!is.na(df$Response.Time_Ext[i]) | !is.na(df$Response.Time_Int2[i]) | !is.na(df$Response.Time_Int3[i]))){
+        if(is.na(df$MriNeuroPsychTask[i]) && (!is.na(df$Response.Time_Ext[i]) | !is.na(df$Response.Time_Int2[i]) | !is.na(df$Response.Time_Int3[i]) | !is.na(df$Percentage.Correct_Ext[i]) | !is.na(df$Percentage.Correct_Int2[i]) | !is.na(df$Percentage.Correct_Int3[i]))){
                 df$MriNeuroPsychTask[i] <- factor('Motor')
         }else if(df$pseudonym[i] == df$pseudonym[i-1] && is.na(df$MriNeuroPsychTask[i])){
                 df$MriNeuroPsychTask[i] <- df$MriNeuroPsychTask[i-1]
@@ -95,4 +95,33 @@ df.long <- bind_cols(df.long, Percentage.Correct)
 df.long.motor <- df.long %>%
         filter(MriNeuroPsychTask=='Motor')
 
+#####
+
+##### CHECK: Missing data #####
+
+# Timepoint
+cat('Number of subjects per timepoint: ', '\n')
+table(df.long.motor$timepoint) / 3
+
+
+CheckMissing <- function(dataframe, t, v){
+        nm <- dataframe %>% filter(timepoint==t) %>% select(any_of(v)) %>% is.na %>% sum / 3
+        cat('Missing ', v, 'at timepoint', t, ': ', nm, '\n')
+}
+# Motor task data
+timepoint <- c('V1','V3')
+vars <- c('Response.Time', 'Percentage.Correct')
+for(t in timepoint){
+        for(v in vars){
+        CheckMissing(df.long.motor, t, v)
+        }
+}
+# UPDRS3
+timepoint <- c('V1','V2')
+vars <- c('Up3OfTotal', 'Up3OnTotal', 'Up3OfBradySum', 'Up3OnBradySum')
+for(t in timepoint){
+        for(v in vars){
+                CheckMissing(df.long.motor, t, v)
+        }
+}
 #####
