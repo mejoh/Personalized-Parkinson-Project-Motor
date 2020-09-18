@@ -32,16 +32,16 @@ source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsPreprocess
 df2 <- ClinicalVarsPreprocessing(df2)
 
 # Subset by task
-df2 <- df2 %>%
-        filter(MriNeuroPsychTask == 'Motor')
+#df2 <- df2 %>%
+#        filter(MriNeuroPsychTask == 'Motor')
 
 #####
 
 # Export data
-pth <- "P:/3022026.01/analyses/nina/"
-fname <- paste(pth, "CastorData.csv", sep = '')
-write_csv(df2, fname)
+#pth <- "P:/3022026.01/analyses/nina/"
+#fname <- paste(pth, "CastorData.csv", sep = '')
+#write_csv(df2, fname)
 
-print(df2)
+#print(df2)
 
 }
