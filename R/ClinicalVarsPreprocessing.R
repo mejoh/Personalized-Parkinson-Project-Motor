@@ -82,27 +82,25 @@ dataframe <- bind_cols(dataframe, tibble(EstDisDurYears = EstDiagnosisDates$EstD
 
 #####
 
-##### Check for negative values for TimeToFUYears #####
+##### CHECK: negative values for TimeToFUYears #####
 BelowZeroFU <- dataframe %>%
         filter(TimeToFUYears < 0)
-msg <- paste(nrow(BelowZeroFU), ' participants have negative time to follow-up, check so that visit 1 data is available.
-             Otherwise a data entry mistake may have been made. Setting TimeToFUYears to NA for: ', sep = '')
-print(msg)
+cat(nrow(BelowZeroFU), ' participants have negative time to follow-up, check so that visit 1 data is available.', '\n',
+             'Data entry mistake may have been made. Setting TimeToFUYears to NA for: ', '\n', sep = '')
 print(BelowZeroFU$pseudonym)
 dataframe$TimeToFUYears[dataframe$TimeToFUYears < 0] <- NA
 #####
 
-##### Check for negative values for EstDisDurYears #####
+##### CHECK: negative values for EstDisDurYears #####
 BelowZeroDisDur <- dataframe %>%
         filter(EstDisDurYears < 0)
-msg <- paste(nrow(BelowZeroDisDur), ' participants have negative disease durations, check so that visit 1 data is available.
-             Otherwise a data entry mistake may have been made. Setting EstDisDurYears to NA for: ', sep = '')
-print(msg)
+cat(nrow(BelowZeroDisDur), ' participants have negative disease durations, check so that visit 1 data is available.', '\n',
+             'Data entry mistake may have been made. Setting EstDisDurYears to NA for: ', '\n', sep = '')
 print(BelowZeroDisDur$pseudonym)
 dataframe$EstDisDurYears[dataframe$EstDisDurYears < 0] <- NA
 #####
 
-##### Select variables + Calculate total score and bradykinesia/tremor subscore + Medication delta #####
+##### Select and construct variables #####
 
 # Variable selection
 # Definition of bradykinesia subscore
@@ -179,11 +177,13 @@ dataframe <- dataframe %>%
         mutate(Up3OnRestTremAmpSum = rowSums(.[66:70])) %>%
         mutate(Up3TotalOnOffDelta = Up3OnTotal - Up3OfTotal,
                Up3BradySumOnOffDelta = Up3OnBradySum - Up3OfBradySum,
-               Up3RestTremAmpSumOnOffDelta = Up3OnRestTremAmpSum - Up3OfRestTremAmpSum)
+               Up3RestTremAmpSumOnOffDelta = Up3OnRestTremAmpSum - Up3OfRestTremAmpSum,
+               TremorDominant = Up3OfRestTremAmpSum >= 1)
 
 #####
 
 ##### Class transformations #####
+
 dataframe$Up3OfHoeYah <- as.factor(dataframe$Up3OfHoeYah)                     # Hoen & Yahr stage
 dataframe$Up3OnHoeYah <- as.factor(dataframe$Up3OnHoeYah)
 dataframe$MriNeuroPsychTask <- as.factor(dataframe$MriNeuroPsychTask)         # Which task was done?
@@ -203,6 +203,7 @@ dataframe$SmokeCurrent <- as.factor(dataframe$SmokeCurrent)                   # 
 levels(dataframe$SmokeCurrent) <- c('Yes','No')
 dataframe$NpsEducYears <- as.numeric(dataframe$NpsEducYears)                  # Education years
 dataframe$timepoint <- as.factor(dataframe$timepoint)                         # Timepoint
+dataframe$TremorDominant <- as.factor(dataframe$TremorDominant)               # Tremor dominance
 
 #####
 
@@ -234,6 +235,15 @@ for(n in 1:nrow(dataframe)){
 }
 dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
 levels(dataframe$MultipleSessions) <- c('No','Yes')
+
+dataframe <- dataframe %>%
+        mutate(Up3OfTotal.1YearProg.Perc = Up3OfTotal.1YearProg / Up3OfTotal,
+               Up3OnTotal.1YearProg.Perc = Up3OnTotal.1YearProg / Up3OnTotal,
+               Up3OfBradySum.1YearProg.Perc = Up3OfBradySum.1YearProg / Up3OfBradySum,
+               Up3OnBradySum.1YearProg.Perc = Up3OnBradySum.1YearProg / Up3OnBradySum,
+               Up3OfRestTremAmpSum.1YearProg.Perc = Up3OfRestTremAmpSum.1YearProg / Up3OfRestTremAmpSum,
+               Up3OnRestTremAmpSum.1YearProg.Perc = Up3OnRestTremAmpSum.1YearProg / Up3OnRestTremAmpSum)
+
 #####
 
 ##### Variables like gender and age are only reported for visit1. Below is a function that 'expands' visit1 values to other timepoints #####
@@ -291,7 +301,7 @@ dataframe <- ExtendVars(dataframe,varlist)
 
 #####
 
-##### Report on missing values of data frame #####
+##### CHECK: missing values of data frame #####
 x <- apply(dataframe, 2, is.na) %>% colSums
 msg <- c('Reporting missing values per variable...')
 print(msg)
