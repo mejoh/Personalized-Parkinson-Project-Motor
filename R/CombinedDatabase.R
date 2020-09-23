@@ -113,6 +113,7 @@ Percentage.Correct <- df %>%
                      values_to='Percentage.Correct') %>%
         select('Percentage.Correct')
 df.long <- bind_cols(df.long, Percentage.Correct)
+df.long$Condition <- as.factor(df.long$Condition)
 
 #####
 
@@ -127,10 +128,10 @@ df.long.motor <- df.long %>%
 
 # Unique pseudonyms
 n.pseudos <- length(unique(df.long.motor$pseudonym))
-cat('Number of unique pseudonyms: ', n.pseudos, '\n')
+cat('Number of unique pseudonyms after subsetting for motor task: ', n.pseudos, '\n')
 
 # Timepoint
-cat('Number of subjects per timepoint: ', '\n')
+cat('Number of subjects per timepoint after subsetting for motor task: ', '\n')
 table(df.long.motor$timepoint) / 3
 
 
