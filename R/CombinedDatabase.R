@@ -17,7 +17,7 @@ source('M:/scripts/Personalized-Parkinson-Project-Motor/R/MotorTaskGenerateDataF
 dfMotor <- MotorTaskGenerateDataFrame(rerun = FALSE)
 dfMotor.wide <- dfMotor %>%
         pivot_wider(names_from = Condition,
-                    values_from = c(Response.Time, Percentage.Correct))
+                    values_from = c(Response.Time, Percentage.Correct, Button.Press.Mean, Button.Press.Sd))
 dfMotor.wide <- dfMotor.wide %>%
         mutate(Visit=ifelse(Visit=='ses-Visit1','V1','V3'),
                timepoint=as.factor(Visit),
@@ -97,42 +97,42 @@ for(n in unique(df$pseudonym)){
 
 #####
 
+##### Subset by motor task #####
+
+df.motor <- df %>%
+        filter(MriNeuroPsychTask=='Motor')
+
+#####
+
 ##### Lengthen data frame #####
 
-df.long <- df %>%
+df.motor.long <- df.motor %>%
         pivot_longer(cols=starts_with('Response.Time'),
                      names_to='Condition',
                      names_pattern='Response.Time_(.*)',
                      values_to='Response.Time') %>%
         select(-c(starts_with('Percentage.Correct')))
-Percentage.Correct <- df %>%
+Percentage.Correct <- df.motor %>%
         select(starts_with('Percentage.Correct')) %>%
         pivot_longer(cols=c(1:3),
                      names_to = 'Condition',
                      names_pattern='Percentage.Correct_(.*)',
                      values_to='Percentage.Correct') %>%
         select('Percentage.Correct')
-df.long <- bind_cols(df.long, Percentage.Correct)
-df.long$Condition <- as.factor(df.long$Condition)
-
-#####
-
-##### Subset by motor task #####
-
-df.long.motor <- df.long %>%
-        filter(MriNeuroPsychTask=='Motor')
+df.motor.long <- bind_cols(df.motor.long, Percentage.Correct)
+df.motor.long$Condition <- as.factor(df.motor.long$Condition)
 
 #####
 
 ##### CHECK: Important characteristics and missing data #####
 
 # Unique pseudonyms
-n.pseudos <- length(unique(df.long.motor$pseudonym))
+n.pseudos <- length(unique(df.motor.long$pseudonym))
 cat('Number of unique pseudonyms after subsetting for motor task: ', n.pseudos, '\n')
 
 # Timepoint
 cat('Number of subjects per timepoint after subsetting for motor task: ', '\n')
-table(df.long.motor$timepoint) / 3
+table(df.motor.long$timepoint) / 3
 
 
 # Check for missing data
@@ -145,7 +145,7 @@ timepoint <- c('V1','V3')
 vars <- c('Response.Time', 'Percentage.Correct')
 for(t in timepoint){
         for(v in vars){
-        CheckMissing(df.long.motor, t, v)
+        CheckMissing(df.motor.long, t, v)
         }
 }
         # UPDRS3
@@ -153,11 +153,11 @@ timepoint <- c('V1','V2')
 vars <- c('Up3OfTotal', 'Up3OnTotal', 'Up3OfBradySum', 'Up3OnBradySum')
 for(t in timepoint){
         for(v in vars){
-                CheckMissing(df.long.motor, t, v)
+                CheckMissing(df.motor.long, t, v)
         }
 }
 #####
 
-print(df.long.motor)
+print(df.motor.long)
 
 }
