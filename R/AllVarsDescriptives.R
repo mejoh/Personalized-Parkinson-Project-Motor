@@ -1,9 +1,11 @@
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/CombinedDatabase.R')
 df <- CombinedDatabase()
 
+##### Libraries #####
 #source("M:/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
 library(tidyverse)
 library(cowplot)
+#####
 
 ##### Summary stats #####
 
@@ -118,6 +120,14 @@ for(i in continuous.vars){
 
 #####
 
+##### Widen data frame to accomodate plotting of motor task performance #####
+
+df.wide <- df %>%
+        pivot_wider(names_from = Condition,
+                    values_from = c(Response.Time, Percentage.Correct))
+
+#####
+
 ##### Collection of plotting functions #####
 
 # Box plots for exploring Time x Group interactions (e.g. effect of medication)
@@ -213,7 +223,7 @@ SingleSessionBoxDensPlots <- function(dataframe, y, visit){
 }
 y <- c('Up3OfTotal.1YearProg', 'Up3OfBradySum.1YearProg',
        'Up3OfTotal.1YearProg.Perc', 'Up3OfBradySum.1YearProg.Perc')
-visit = c('V2')
+visit = c('V1')
 for(n in unique(y)){
         g <- SingleSessionBoxDensPlots(df, n, visit)
         print(g)
@@ -380,14 +390,6 @@ MedSlopesBySubsPlots(df)
 
 #####
 
-##### Widen data frame to accomodate plotting of motor task performance #####
-
-df.wide <- df %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Response.Time, Percentage.Correct))
-
-#####
-
 ##### CHECK: Outliers in relevant variables #####
 
 # Box and density plots for exploring variables from single sessions
@@ -491,24 +493,6 @@ for(n in unique(y)){
 
 outlier.pseudo.all <- unique(c(outlier.pseudo1, outlier.pseudo2, outlier.pseudo3))
 cat('Total number of outliers among selected variables:', length(outlier.pseudo.all))
-
-#####
-
-##### Exclusion criteria #####
-
-# Poor performance on motor task
-cutoff <- 0.33
-PerformanceCheck <- df.wide %>%
-        select(pseudonym,timepoint, starts_with('Percentage.Correct')) %>%
-        filter(timepoint=='V1' | timepoint == 'V3') %>%
-        drop_na %>%
-        mutate(BelowCutoff = ifelse(Percentage.Correct_Ext < cutoff | Percentage.Correct_Int2 < cutoff | Percentage.Correct_Int3 < cutoff,
-                                    TRUE,FALSE))
-
-PoorPerformance <- PerformanceCheck %>%
-        filter(BelowCutoff == TRUE)
-
-PoorPerformance.pseudos <- pull(PoorPerformance, var = pseudonym)
 
 #####
 
