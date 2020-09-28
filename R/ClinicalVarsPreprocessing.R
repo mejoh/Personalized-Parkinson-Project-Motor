@@ -222,27 +222,19 @@ dataframe <- dataframe %>%
 
 for(n in 1:nrow(dataframe)){
         if(dataframe$timepoint[n] == 'V2' && dataframe$timepoint[n-1] == 'V1'){
-                dataframe$Up3OfSumOfTotalWithinRange.1YearProg[(n-1):n] <- dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]
-                dataframe$Up3OnSumOfTotalWithinRange.1YearProg[(n-1):n] <- dataframe$Up3OnSumOfTotalWithinRange[n] - dataframe$Up3OnSumOfTotalWithinRange[n-1]
-                dataframe$Up3OfBradySum.1YearProg[(n-1):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
-                dataframe$Up3OnBradySum.1YearProg[(n-1):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
-                dataframe$Up3OfRestTremAmpSum.1YearProg[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
-                dataframe$Up3OnRestTremAmpSum.1YearProg[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
-                dataframe$Up3OfTotal.1YearProg[(n-1):n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
-                dataframe$Up3OnTotal.1YearProg[(n-1):n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
+                dataframe$Up3OfSumOfTotalWithinRange.1YearROC[(n-1):n] <- ((dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]) / dataframe$Up3OfSumOfTotalWithinRange[n-1]) * 100
+                dataframe$Up3OnSumOfTotalWithinRange.1YearROC[(n-1):n] <- ((dataframe$Up3OnSumOfTotalWithinRange[n] - dataframe$Up3OnSumOfTotalWithinRange[n-1]) / dataframe$Up3OnSumOfTotalWithinRange[n-1]) * 100
+                dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]) / dataframe$Up3OfBradySum[n-1]) * 100
+                dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]) / dataframe$Up3OnBradySum[n-1]) * 100
+                dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]) / dataframe$Up3OfRestTremAmpSum[n-1]) * 100
+                dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]) / dataframe$Up3OnRestTremAmpSum[n-1]) * 100
+                dataframe$Up3OfTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]) / dataframe$Up3OfTotal[n-1]) * 100
+                dataframe$Up3OnTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]) / dataframe$Up3OnTotal[n-1]) * 100
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
 }
 dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
 levels(dataframe$MultipleSessions) <- c('No','Yes')
-
-dataframe <- dataframe %>%
-        mutate(Up3OfTotal.1YearProg.Perc = Up3OfTotal.1YearProg / Up3OfTotal,
-               Up3OnTotal.1YearProg.Perc = Up3OnTotal.1YearProg / Up3OnTotal,
-               Up3OfBradySum.1YearProg.Perc = Up3OfBradySum.1YearProg / Up3OfBradySum,
-               Up3OnBradySum.1YearProg.Perc = Up3OnBradySum.1YearProg / Up3OnBradySum,
-               Up3OfRestTremAmpSum.1YearProg.Perc = Up3OfRestTremAmpSum.1YearProg / Up3OfRestTremAmpSum,
-               Up3OnRestTremAmpSum.1YearProg.Perc = Up3OnRestTremAmpSum.1YearProg / Up3OnRestTremAmpSum)
 
 #####
 
