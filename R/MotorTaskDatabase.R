@@ -59,6 +59,9 @@ MotorTaskDatabase <- function(project){
                   ~Condition,
                   ~Response.Time,
                   ~Percentage.Correct,
+                  ~Button.Press.Mean,
+                  ~Button.Press.Sd,
+                  ~Button.Press.Repetitions,
                   ~Responding.Hand,
                   ~Group)    # Generate data frame
 
@@ -72,6 +75,24 @@ MotorTaskDatabase <- function(project){
           
     # Import data            
     Events <- ImportEventsTsv(project, Subjects[n], t)
+    
+    # Calculate button press repetitions
+    if(!is.na(Events[[1]]) && !is.na(Events[[2]])){
+        reps.dat <- Events[[1]] %>%
+                filter(event_type=='response') %>%
+                filter(trial_type!='Catch') %>%
+                select(trial_type, button_pressed) %>%
+                filter(button_pressed > 0)
+    
+        repetition_counter <- 0
+        for(v in 1:length(reps.dat$trial_type)){
+                if(str_detect(reps.dat$trial_type[v],'Int') && v != 1){
+                        if(reps.dat$button_pressed[v] == reps.dat$button_pressed[v-1]){
+                                repetition_counter <- repetition_counter + 1
+                        }
+                }
+        }
+    }
     
     # Write one observation (row) per condition to data frame
     for(i in 1:length(Conditions)){
@@ -95,6 +116,9 @@ MotorTaskDatabase <- function(project){
                 Condition = Conditions[i],
                 Response.Time = filter(Row, correct_response == 'Hit') %>% pull(var = response_time) %>% mean,
                 Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
+                Button.Press.Mean = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% mean,
+                Button.Press.Sd = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% sd,
+                Button.Press.Repetitions = repetition_counter,
                 Responding.Hand = Events[[2]]$RespondingHand.Value,
                 Group = Events[[2]]$Group.Value)
       }else{
@@ -106,6 +130,9 @@ MotorTaskDatabase <- function(project){
                 Condition = Conditions[i],
                 Response.Time = NA,
                 Percentage.Correct = NA,
+                Button.Press.Mean = NA,
+                Button.Press.Sd = NA,
+                Button.Press.Repetitions = NA,
                 Responding.Hand = NA,
                 Group = NA)
       }
