@@ -210,14 +210,14 @@ dataframe$TremorDominant <- as.factor(dataframe$TremorDominant)               # 
 ##### Calculate disease progression and indicate which participants have FU data #####
 
 dataframe <- dataframe %>%
-        mutate(Up3OfSumOfTotalWithinRange.1YearProg = NA,
-               Up3OnSumOfTotalWithinRange.1YearProg = NA,
-               Up3OfBradySum.1YearProg = NA,
-               Up3OnBradySum.1YearProg = NA,
-               Up3OfRestTremAmpSum.1YearProg = NA,
-               Up3OnRestTremAmpSum.1YearProg = NA,
-               Up3OfTotal.1YearProg = NA,
-               Up3OnTotal.1YearProg = NA,
+        mutate(Up3OfSumOfTotalWithinRange.1YearROC = NA,
+               Up3OnSumOfTotalWithinRange.1YearROC = NA,
+               Up3OfBradySum.1YearROC = NA,
+               Up3OnBradySum.1YearROC = NA,
+               Up3OfRestTremAmpSum.1YearROC = NA,
+               Up3OnRestTremAmpSum.1YearROC = NA,
+               Up3OfTotal.1YearROC = NA,
+               Up3OnTotal.1YearROC = NA,
                MultipleSessions = 0)
 
 for(n in 1:nrow(dataframe)){
