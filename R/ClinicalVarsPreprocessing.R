@@ -122,20 +122,19 @@ list.RigidityOn <- str_replace(list.RigidityOff, 'Of','On')
 # Variable selection
 # Definition of bradykinesia subscore
 dataframe <- dataframe %>%
-        select(pseudonym, 
-               starts_with('Up3Of'),
-               starts_with('Up3On'),
+        select(pseudonym,
+               Age,
+               Gender, 
                EstDisDurYears,
+               timepoint,
+               TimeToFUYears,
                MriNeuroPsychTask,
                DiagParkCertain,
                MostAffSide,
                PrefHand,
-               Age,
-               Gender,
                ParkinMedUser,
-               SmokeCurrent,
-               timepoint,
-               TimeToFUYears,
+               starts_with('Up3Of'),
+               starts_with('Up3On'),
                starts_with('Up1a'),
                starts_with('Updrs2'),
                starts_with('Nps'),
@@ -178,8 +177,6 @@ levels(dataframe$Gender) <- c('Male', 'Female')
 dataframe$Age <- as.numeric(dataframe$Age)                                    # Age
 dataframe$ParkinMedUser <- as.factor(dataframe$ParkinMedUser)                 # Parkinson's medication use
 levels(dataframe$ParkinMedUser) <- c('No','Yes')
-dataframe$SmokeCurrent <- as.factor(dataframe$SmokeCurrent)                   # Smoking
-levels(dataframe$SmokeCurrent) <- c('Yes','No')
 dataframe$NpsEducYears <- as.numeric(dataframe$NpsEducYears)                  # Education years
 dataframe$timepoint <- as.factor(dataframe$timepoint)                         # Timepoint
 dataframe$TremorDominant.cutoff1 <- as.factor(dataframe$TremorDominant.cutoff1)   # Tremor dominance
@@ -190,46 +187,51 @@ dataframe$TremorDominant.cutoff2 <- as.factor(dataframe$TremorDominant.cutoff2)
 ##### Calculate disease progression and indicate which participants have FU data #####
 
 dataframe <- dataframe %>%
-        mutate(Up3OfBradySum.1YearROC = NA,
-               Up3OnBradySum.1YearROC = NA,
-               Up3OfRestTremAmpSum.1YearROC = NA,
-               Up3OnRestTremAmpSum.1YearROC = NA,
+        mutate(Up3OfTotal.1YearDelta = NA,
+               Up3OnTotal.1YearDelta = NA,
                Up3OfTotal.1YearROC = NA,
                Up3OnTotal.1YearROC = NA,
+               
+               Up3OfBradySum.1YearDelta = NA,
+               Up3OnBradySum.1YearDelta = NA,
                Up3OfBradySum.1YearROC = NA,
                Up3OnBradySum.1YearROC = NA,
+               
+               Up3OfRestTremAmpSum.1YearDelta = NA,
+               Up3OnRestTremAmpSum.1YearDelta = NA,
                Up3OfRestTremAmpSum.1YearROC = NA,
                Up3OnRestTremAmpSum.1YearROC = NA,
-               Up3OfTotal.1YearROC = NA,
-               Up3OnTotal.1YearROC = NA,
-               Up3OfBradySum.1YearDelta = NA,
-               Up3OnBradySum.1YearDelta = NA,
-               Up3OfRestTremAmpSum.1YearDelta = NA,
-               Up3OnRestTremAmpSum.1YearDelta = NA,
-               Up3OfTotal.1YearDelta = NA,
-               Up3OnTotal.1YearDelta = NA,
-               Up3OfBradySum.1YearDelta = NA,
-               Up3OnBradySum.1YearDelta = NA,
-               Up3OfRestTremAmpSum.1YearDelta = NA,
-               Up3OnRestTremAmpSum.1YearDelta = NA,
-               Up3OfTotal.1YearDelta = NA,
-               Up3OnTotal.1YearDelta = NA,
+               
+               Up3OfRigiditySum.1YearDelta = NA,
+               Up3OnRigiditySum.1YearDelta = NA,
+               Up3OfRigiditySum.1YearROC = NA,
+               Up3OnRigiditySum.1YearROC = NA,
+
                MultipleSessions = 0)
 
 for(n in 1:nrow(dataframe)){
         if(dataframe$timepoint[n] == 'V2' && dataframe$timepoint[n-1] == 'V1'){
-                dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]) / dataframe$Up3OfBradySum[n-1]) * 100
-                dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]) / dataframe$Up3OnBradySum[n-1]) * 100
-                dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]) / dataframe$Up3OfRestTremAmpSum[n-1]) * 100
-                dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]) / dataframe$Up3OnRestTremAmpSum[n-1]) * 100
-                dataframe$Up3OfTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]) / dataframe$Up3OfTotal[n-1]) * 100
-                dataframe$Up3OnTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]) / dataframe$Up3OnTotal[n-1]) * 100
-                dataframe$Up3OfBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
-                dataframe$Up3OnBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
-                dataframe$Up3OfRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
-                dataframe$Up3OnRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
+
                 dataframe$Up3OfTotal.1YearDelta[(n-1):n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
                 dataframe$Up3OnTotal.1YearDelta[(n-1):n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
+                dataframe$Up3OfTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]) / dataframe$Up3OfTotal[n-1]) * 100
+                dataframe$Up3OnTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]) / dataframe$Up3OnTotal[n-1]) * 100
+
+                dataframe$Up3OfBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
+                dataframe$Up3OnBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
+                dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]) / dataframe$Up3OfBradySum[n-1]) * 100
+                dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]) / dataframe$Up3OnBradySum[n-1]) * 100
+                
+                dataframe$Up3OfRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
+                dataframe$Up3OnRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
+                dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]) / dataframe$Up3OfRestTremAmpSum[n-1]) * 100
+                dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]) / dataframe$Up3OnRestTremAmpSum[n-1]) * 100
+                
+                dataframe$Up3OfRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]
+                dataframe$Up3OnRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]
+                dataframe$Up3OfRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]) / dataframe$Up3OfRigiditySum[n-1]) * 100
+                dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]) / dataframe$Up3OnRigiditySum[n-1]) * 100
+                
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
 }
