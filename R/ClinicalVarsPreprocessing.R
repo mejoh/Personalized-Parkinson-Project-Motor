@@ -102,54 +102,29 @@ dataframe$EstDisDurYears[dataframe$EstDisDurYears < 0] <- NA
 
 ##### Select and construct variables #####
 
+# Lists of subscores
+list.TotalOff <- c('Up3OfSpeech', 'Up3OfFacial', 'Up3OfRigNec', 'Up3OfRigRue', 'Up3OfRigLue', 'Up3OfRigRle', 'Up3OfRigLle',
+                   'Up3OfFiTaYesDev', 'Up3OfFiTaNonDev', 'Up3OfHaMoYesDev', 'Up3OfHaMoNonDev', 'Up3OfProSYesDev',
+                   'Up3OfProSNonDev', 'Up3OfToTaYesDev', 'Up3OfToTaNonDev', 'Up3OfLAgiYesDev', 'Up3OfLAgiNonDev',
+                   'Up3OfArise', 'Up3OfGait', 'Up3OfFreez', 'Up3OfStaPos', 'Up3OfPostur', 'Up3OfSpont', 'Up3OfPosTYesDev',
+                   'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev', 'Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev',
+                   'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfRAmpJaw', 'Up3OfConstan')
+list.TotalOn <- str_replace(list.TotalOff, 'Of','On')
+list.BradykinesiaOff <- c('Up3OfFiTaYesDev', 'Up3OfFiTaNonDev', 'Up3OfHaMoYesDev', 'Up3OfHaMoNonDev', 'Up3OfProSYesDev',
+                          'Up3OfProSNonDev', 'Up3OfToTaYesDev', 'Up3OfToTaNonDev', 'Up3OfLAgiYesDev', 'Up3OfLAgiNonDev',
+                          'Up3OfArise', 'Up3OfGait', 'Up3OfFreez', 'Up3OfSpont')
+list.BradykinesiaOn <- str_replace(list.BradykinesiaOff, 'Of', 'On')
+list.RestTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfConstan')
+list.RestTremorOn <- str_replace(list.RestTremorOff, 'Of', 'On')
+list.RigidityOff <- c('Up3OfRigNec', 'Up3OfRigRue', 'Up3OfRigLue', 'Up3OfRigRle', 'Up3OfRigLle')
+list.RigidityOn <- str_replace(list.RigidityOff, 'Of','On')
+
 # Variable selection
 # Definition of bradykinesia subscore
 dataframe <- dataframe %>%
         select(pseudonym, 
-               Up3OfSpeech,
-               Up3OfFacial,
-               Up3OfRigNec, Up3OfRigRue, Up3OfRigLue, Up3OfRigRle, Up3OfRigLle,
-               Up3OfFiTaYesDev, Up3OfFiTaNonDev,
-               Up3OfHaMoYesDev, Up3OfHaMoNonDev,
-               Up3OfProSYesDev, Up3OfProSNonDev,
-               Up3OfToTaYesDev, Up3OfToTaNonDev,
-               Up3OfLAgiYesDev, Up3OfLAgiNonDev,
-               Up3OfArise,
-               Up3OfGait,
-               Up3OfFreez,
-               Up3OfStaPos,
-               Up3OfPostur,
-               Up3OfSpont,
-               Up3OfPosTYesDev, Up3OfPosTNonDev,
-               Up3OfKinTreYesDev, Up3OfKinTreNonDev,
-               Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev, Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev, Up3OfRAmpJaw,
-               Up3OfConstan,
-               Up3OfPresDysKin,
-               Up3OfDysKinInt,
-               Up3OfHoeYah,
-               Up3OfSumOfTotalWithinRange,
-               Up3OnSpeech,
-               Up3OnFacial,
-               Up3OnRigNec, Up3OnRigRue, Up3OnRigLue, Up3OnRigRle, Up3OnRigLle,
-               Up3OnFiTaYesDev, Up3OnFiTaNonDev,
-               Up3OnHaMoYesDev, Up3OnHaMoNonDev,
-               Up3OnProSYesDev, Up3OnProSNonDev,
-               Up3OnToTaYesDev, Up3OnToTaNonDev,
-               Up3OnLAgiYesDev, Up3OnLAgiNonDev,
-               Up3OnArise,
-               Up3OnGait,
-               Up3OnFreez,
-               Up3OnStaPos,
-               Up3OnPostur,
-               Up3OnSpont,
-               Up3OnPosTYesDev, Up3OnPosTNonDev,
-               Up3OnKinTreYesDev, Up3OnKinTreNonDev,
-               Up3OnRAmpArmYesDev, Up3OnRAmpArmNonDev, Up3OnRAmpLegYesDev, Up3OnRAmpLegNonDev, Up3OnRAmpJaw,
-               Up3OnConstan,
-               Up3OnPresDysKin,
-               Up3OnDysKinInt,
-               Up3OnHoeYah,
-               Up3OnSumOfTotalWithinRange,
+               starts_with('Up3Of'),
+               starts_with('Up3On'),
                EstDisDurYears,
                MriNeuroPsychTask,
                DiagParkCertain,
@@ -168,17 +143,21 @@ dataframe <- dataframe %>%
                starts_with('Ess'),
                starts_with('ScopaSlp'),
                starts_with('RemSbdq')) %>%
-        mutate(across(2:75, as.numeric)) %>%
-        mutate(Up3OfBradySum = rowSums(.[5:16])) %>%
-        mutate(Up3OfRestTremAmpSum = rowSums(.[29:33])) %>%
-        mutate(Up3OfTotal = rowSums(.[2:34])) %>%
-        mutate(Up3OnTotal = rowSums(.[39:71])) %>%
-        mutate(Up3OnBradySum = rowSums(.[42:53])) %>%
-        mutate(Up3OnRestTremAmpSum = rowSums(.[66:70])) %>%
-        mutate(Up3TotalOnOffDelta = Up3OnTotal - Up3OfTotal,
-               Up3BradySumOnOffDelta = Up3OnBradySum - Up3OfBradySum,
-               Up3RestTremAmpSumOnOffDelta = Up3OnRestTremAmpSum - Up3OfRestTremAmpSum,
-               TremorDominant = Up3OfRestTremAmpSum >= 1)
+        mutate(across(-c('pseudonym', 'Updrs2Cag', 'ScopaAut31b', 'ScopaAut32b', 'NpsMocBonus', 'timepoint', 'ScopaAutCag',
+                         'ScopaAut29b', 'EssCag', 'ScopaSlpCag', 'RemSbdqCag'), as.numeric)) %>% 
+        mutate(Up3OfTotal = rowSums(.[list.TotalOff]),
+               Up3OnTotal = rowSums(.[list.TotalOn])) %>%
+        mutate(Up3OfBradySum = rowSums(.[list.BradykinesiaOff]),
+               Up3OnBradySum = rowSums(.[list.BradykinesiaOn])) %>%
+        mutate(Up3OfRestTremAmpSum = rowSums(.[list.RestTremorOff]),
+               Up3OnRestTremAmpSum = rowSums(.[list.RestTremorOn])) %>%
+        mutate(Up3OfRigiditySum = rowSums(.[list.RigidityOff]),
+               Up3OnRigiditySum = rowSums(.[list.RigidityOn])) %>%
+        mutate(Up3TotalOnOffDelta = Up3OfTotal - Up3OnTotal,
+               Up3BradySumOnOffDelta = Up3OfBradySum - Up3OnBradySum,
+               Up3RestTremAmpSumOnOffDelta = Up3OfRestTremAmpSum - Up3OnRestTremAmpSum) %>%
+        mutate(TremorDominant.cutoff1 = Up3OfRestTremAmpSum >= 1,
+               TremorDominant.cutoff2 = Up3OfRestTremAmpSum >= 2)
 
 #####
 
@@ -203,33 +182,54 @@ dataframe$SmokeCurrent <- as.factor(dataframe$SmokeCurrent)                   # 
 levels(dataframe$SmokeCurrent) <- c('Yes','No')
 dataframe$NpsEducYears <- as.numeric(dataframe$NpsEducYears)                  # Education years
 dataframe$timepoint <- as.factor(dataframe$timepoint)                         # Timepoint
-dataframe$TremorDominant <- as.factor(dataframe$TremorDominant)               # Tremor dominance
+dataframe$TremorDominant.cutoff1 <- as.factor(dataframe$TremorDominant.cutoff1)   # Tremor dominance
+dataframe$TremorDominant.cutoff2 <- as.factor(dataframe$TremorDominant.cutoff2)
 
 #####
 
 ##### Calculate disease progression and indicate which participants have FU data #####
 
 dataframe <- dataframe %>%
-        mutate(Up3OfSumOfTotalWithinRange.1YearROC = NA,
-               Up3OnSumOfTotalWithinRange.1YearROC = NA,
+        mutate(Up3OfBradySum.1YearROC = NA,
+               Up3OnBradySum.1YearROC = NA,
+               Up3OfRestTremAmpSum.1YearROC = NA,
+               Up3OnRestTremAmpSum.1YearROC = NA,
+               Up3OfTotal.1YearROC = NA,
+               Up3OnTotal.1YearROC = NA,
                Up3OfBradySum.1YearROC = NA,
                Up3OnBradySum.1YearROC = NA,
                Up3OfRestTremAmpSum.1YearROC = NA,
                Up3OnRestTremAmpSum.1YearROC = NA,
                Up3OfTotal.1YearROC = NA,
                Up3OnTotal.1YearROC = NA,
+               Up3OfBradySum.1YearDelta = NA,
+               Up3OnBradySum.1YearDelta = NA,
+               Up3OfRestTremAmpSum.1YearDelta = NA,
+               Up3OnRestTremAmpSum.1YearDelta = NA,
+               Up3OfTotal.1YearDelta = NA,
+               Up3OnTotal.1YearDelta = NA,
+               Up3OfBradySum.1YearDelta = NA,
+               Up3OnBradySum.1YearDelta = NA,
+               Up3OfRestTremAmpSum.1YearDelta = NA,
+               Up3OnRestTremAmpSum.1YearDelta = NA,
+               Up3OfTotal.1YearDelta = NA,
+               Up3OnTotal.1YearDelta = NA,
                MultipleSessions = 0)
 
 for(n in 1:nrow(dataframe)){
         if(dataframe$timepoint[n] == 'V2' && dataframe$timepoint[n-1] == 'V1'){
-                dataframe$Up3OfSumOfTotalWithinRange.1YearROC[(n-1):n] <- ((dataframe$Up3OfSumOfTotalWithinRange[n] - dataframe$Up3OfSumOfTotalWithinRange[n-1]) / dataframe$Up3OfSumOfTotalWithinRange[n-1]) * 100
-                dataframe$Up3OnSumOfTotalWithinRange.1YearROC[(n-1):n] <- ((dataframe$Up3OnSumOfTotalWithinRange[n] - dataframe$Up3OnSumOfTotalWithinRange[n-1]) / dataframe$Up3OnSumOfTotalWithinRange[n-1]) * 100
                 dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]) / dataframe$Up3OfBradySum[n-1]) * 100
                 dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]) / dataframe$Up3OnBradySum[n-1]) * 100
                 dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]) / dataframe$Up3OfRestTremAmpSum[n-1]) * 100
                 dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]) / dataframe$Up3OnRestTremAmpSum[n-1]) * 100
                 dataframe$Up3OfTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]) / dataframe$Up3OfTotal[n-1]) * 100
                 dataframe$Up3OnTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]) / dataframe$Up3OnTotal[n-1]) * 100
+                dataframe$Up3OfBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
+                dataframe$Up3OnBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
+                dataframe$Up3OfRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
+                dataframe$Up3OnRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
+                dataframe$Up3OfTotal.1YearDelta[(n-1):n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
+                dataframe$Up3OnTotal.1YearDelta[(n-1):n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
 }
