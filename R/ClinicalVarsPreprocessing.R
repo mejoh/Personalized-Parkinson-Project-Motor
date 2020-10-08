@@ -209,28 +209,56 @@ dataframe <- dataframe %>%
 
                MultipleSessions = 0)
 
+alpha <- 0.5
+elble.change <- function(T1, T2, subscore.length, alpha=0.5, percent=TRUE){
+        if(!is.na(T1) & !is.na(T2)){
+                
+                T1 <- T1/subscore.length
+                T2 <- T2/subscore.length
+                diff <- T2-T1
+        
+                FC <- 10 ^ (alpha * diff) - 1
+                PC <- 100 * FC
+        
+                if(percent==TRUE){
+                        return(PC)
+                }else if(percent==FALSE){
+                        return(FC)
+                }
+        }else{
+                return(NA)
+        }
+}
 for(n in 1:nrow(dataframe)){
         if(dataframe$timepoint[n] == 'V2' && dataframe$timepoint[n-1] == 'V1'){
 
                 dataframe$Up3OfTotal.1YearDelta[(n-1):n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
                 dataframe$Up3OnTotal.1YearDelta[(n-1):n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
-                dataframe$Up3OfTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]) / dataframe$Up3OfTotal[n-1]) * 100
-                dataframe$Up3OnTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]) / dataframe$Up3OnTotal[n-1]) * 100
+                #dataframe$Up3OfTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]) / dataframe$Up3OfTotal[n-1]) * 100
+                #dataframe$Up3OnTotal.1YearROC[(n-1):n] <- ((dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]) / dataframe$Up3OnTotal[n-1]) * 100
+                dataframe$Up3OfTotal.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfTotal[n-1], dataframe$Up3OfTotal[n], length(list.TotalOff))
+                dataframe$Up3OnTotal.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnTotal[n-1], dataframe$Up3OnTotal[n], length(list.TotalOn))
 
                 dataframe$Up3OfBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
                 dataframe$Up3OnBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
-                dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]) / dataframe$Up3OfBradySum[n-1]) * 100
-                dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]) / dataframe$Up3OnBradySum[n-1]) * 100
+                #dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]) / dataframe$Up3OfBradySum[n-1]) * 100
+                #dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]) / dataframe$Up3OnBradySum[n-1]) * 100
+                dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfBradySum[n-1], dataframe$Up3OfBradySum[n], length(list.BradykinesiaOff))
+                dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnBradySum[n-1], dataframe$Up3OnBradySum[n], length(list.BradykinesiaOn))
                 
                 dataframe$Up3OfRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
                 dataframe$Up3OnRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
-                dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]) / dataframe$Up3OfRestTremAmpSum[n-1]) * 100
-                dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]) / dataframe$Up3OnRestTremAmpSum[n-1]) * 100
+                #dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]) / dataframe$Up3OfRestTremAmpSum[n-1]) * 100
+                #dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]) / dataframe$Up3OnRestTremAmpSum[n-1]) * 100
+                dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfRestTremAmpSum[n-1], dataframe$Up3OfRestTremAmpSum[n], length(list.RestTremorOff))
+                dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnRestTremAmpSum[n-1], dataframe$Up3OnRestTremAmpSum[n], length(list.RestTremorOn))
                 
                 dataframe$Up3OfRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]
                 dataframe$Up3OnRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]
-                dataframe$Up3OfRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]) / dataframe$Up3OfRigiditySum[n-1]) * 100
-                dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]) / dataframe$Up3OnRigiditySum[n-1]) * 100
+                #dataframe$Up3OfRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]) / dataframe$Up3OfRigiditySum[n-1]) * 100
+                #dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]) / dataframe$Up3OnRigiditySum[n-1]) * 100
+                dataframe$Up3OfRigiditySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfRigiditySum[n-1], dataframe$Up3OfRigiditySum[n], length(list.RigidityOff))
+                dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnRigiditySum[n-1], dataframe$Up3OnRigiditySum[n], length(list.RigidityOn))
                 
                 dataframe$MultipleSessions[(n-1):n] = 1
         }
