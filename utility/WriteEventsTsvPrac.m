@@ -17,7 +17,7 @@ for n = 1:numel(Sub)
     
     MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
     
-    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
+    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac3_logfile\.txt$']);
     if size(PracLog,1) ~= 1
 		Sel(n) = false;
     end
@@ -37,8 +37,8 @@ for n = 1:NSub
     
     MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
     
-    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac2_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-practice_run-2_events.tsv']);
+    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac3_logfile\.txt$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-practice_run-3_events.tsv']);
   
 end
 
@@ -65,7 +65,6 @@ for a = 1:NSub
 
     %% Read custom log file and extract trial data
     fileID = fopen(PracLog{a}, 'r');
-    Header = textscan(fileID, '%*s%*s%*s%f%*s%f%*s%*s%*s', 1, 'Delimiter','\t', 'ReturnOnError',false);
     Trials = textscan(fileID, '%f%s%f%f%f%f%f%f%s', 'Delimiter','\t', 'HeaderLines',2, 'ReturnOnError',false);
     fclose(fileID);
     NTrials = numel(Trials{1});                         % Number of trials
