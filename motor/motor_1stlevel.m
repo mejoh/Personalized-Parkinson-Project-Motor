@@ -1,4 +1,4 @@
-function Inputs = motor_1stlevel(Force, ParkinsonOpMaat, Subset)
+function Inputs = motor_1stlevel(Force, Subset)
 
 % No arguments: Runs 1st-level for PIT participants who have not been processed
 % Force: Reruns 1st-levels
@@ -22,134 +22,108 @@ end
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 
-PIT = '3024006.01';
-POM = '3022026.01';
-
-if nargin <1 || isempty(ParkinsonOpMaat)
-    Project = PIT;
-else
-    Project = POM;
-end
+Project = '3022026.01';
 fprintf('Processing data in project: %s\n', Project)
 Root = strcat('/project/', Project);
-BIDSDir  = fullfile(Root, 'bids');
+BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/fMRI_EventRelated_Main');  %<< DurAvg, ReAROMA, no time der, no PMOD, no BPreg
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/fMRI_EventRelated_BPCtrl');  %<< DurAvg, ReAROMA, BPreg, no time der, no PMOD
-BIDS     = spm_BIDS(BIDSDir);
-Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor');
+ANALYSESDir   = strcat('/project/', Project, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer');  
+%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer_BPCtrl');
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
 fprintf('Found %i subjects with task=motor\n', numel(Sub))
 
-CurrentDir = pwd;
-cd(ANALYSESDir);
-
-% Account for subjects with multiple runs (maximum of 3 runs, check whether this is appropriate beforehand)
-Run = num2str(ones(numel(Sub),1));
-for MultRunSub = spm_BIDS(BIDS, 'subjects', 'run','2', 'task','motor')
-    if ~isempty(MultRunSub)
-        fprintf('Altering run-number for sub-%s with run-2 data\n', char(MultRunSub))
-        index = strcmp(Sub,MultRunSub);
-        Run(index,1) = '2';
-    else
-        fprintf('No subjects with run-2 data\n')
-    end
-end
-for MultRunSub = spm_BIDS(BIDS, 'subjects', 'run','3', 'task','motor')
-    if ~isempty(MultRunSub)
-        fprintf('Altering run-number for sub-%s with run-3 data\n', char(MultRunSub))
-        index = strcmp(Sub,MultRunSub);
-        Run(index,1) = '3';
-    else
-        fprintf('No subjects with run-3 data\n')
-    end
-end
-
-% % Skip ambiguous multiple runs/series cases (for now)
-% for AmbigSub = spm_BIDS(BIDS, 'subjects', 'run','2', 'task','motor')
-% 	fprintf('Skipping sub-%s with ambiguous run-2 data\n', char(AmbigSub))
-% 	Sub(strcmp(char(AmbigSub), Sub)) = [];
-% end
-
-% Skip subs with missing events.tsv file
-Sel = true(size(Sub));
+% Check data for each subject's visits and exclude where necessary
+% TODO: Subjects with two sessions may be excluded based on missing data in
+% only one of the sessions
+Sel = true(size(Sub,1),1);
 for n = 1:numel(Sub)
-    
-    TaskDir = fullfile(BIDSDir, ['sub-' Sub{n}], 'func');
-    EventsTsvFile = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_events.tsv']);
-	
-    if size(EventsTsvFile,1) ~= 1
-		fprintf('Skipping sub-%s with %i events.tsv files:\n', Sub{n}, size(EventsTsvFile,1))
-		disp(EventsTsvFile)
-		Sel(n) = false;
-    end
-    
-end
+    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
+    for v = 1:numel(Visit)
+        
+        % Preprocessed functional image
+        dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
+        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.gz']));
+        FuncImg = cellstr(FuncImg{size(FuncImg,1)});
+        % Events file
+        dBeh = fullfile(BIDSDir, Sub{n}, Visit{v}, 'beh');
+        EventsTsv = cellstr(spm_select('FPList', dBeh, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_events.tsv']));
+        EventsTsv = cellstr(EventsTsv{size(EventsTsv,1)});
+        % Preexisting 1st level results
+        FirstLevelCon = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^con.*\.nii$');
+        
+        % Exclude participants
+        TaskID = extractBetween(EventsTsv{1}, '_task-', '_acq');
+        if ~isempty(EventsTsv{1}) && contains(TaskID, 'motor')      % Select participants with motor task and existing events.tsv file
+            fileID = EventsTsv{1};
+            fID = fopen(fileID, 'r');
+            Trials = textscan(fID, '%f%f%d%s%s%f%s%s%s%*s%*s%*s', 'HeaderLines', 1, 'Delimiter', '\t', 'TreatAsEmpty', 'n/a');
+            fclose(fID);
+            onsets{1}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Catch') .* strcmp(Trials{1,9}, 'Hit')))';
+            onsets{2}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))';
+            onsets{3}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))';
+            onsets{4}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))';
+            CheckMissing = cellfun(@isempty, onsets);
+            if sum(CheckMissing) > 0
+                fprintf('%s excluded: %s lacks onsets in at least one task condition \n', Sub{n}, Visit{v})
+                Sel(n) = false;
+            end
+            if isempty(FuncImg{1})       % Participants with motor task but no preprocessed image
+                fprintf('%s excluded: %s lacks preprocessed functional image \n', Sub{n}, Visit{v})
+                Sel(n) = false;
+            end
+            if ~isempty(FuncImg{1})         % Participants whose runs of task and fmri do not correspond with each other
+                taskRunID = extractBetween(EventsTsv{1}, '_run-', '_events');
+                fmriRunID = extractBetween(FuncImg{1}, '_run-', '_space');
+                if ~strcmp(taskRunID{1}, fmriRunID{1})
+                    fprintf('%s excluded: %s run of task events does not match run of functional image \n', Sub{n}, Visit{v})
+                    Sel(n) = false;
+                end
+            end
+            if ~isempty(FirstLevelCon) && ~istrue(Force)        % Participants who have already been processed
+                fprintf('%s excluded: %s has preexisting 1st level data \n', Sub{n}, Visit{v})
+                Sel(n) = false;
+            end
+        else
+            fprintf('%s excluded: %s lacks motor task data \n', Sub{n}, Visit{v})
+            Sel(n) = false;
+        end
 
-% Skip unfinished frmiprep jobs
-for n = 1:numel(Sub)
-	Report = spm_select('FPList', FMRIPrep, ['sub-' Sub{n} '.*\.html$']);
-	if size(Report,1)~=1
-		fprintf('Skipping sub-%s with no fmriprep output\n', Sub{n})
-		disp(Report)
-		Sel(n) = false;
     end
-	
-	SourceNii = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_space-MNI152NLin6Asym_desc-preproc_bold.nii$']);
-	if size(SourceNii,1)~=1
-		fprintf('Skipping sub-%s with no fmriprep images\n', Sub{n})
-		Sel(n) = false;
-    end
-    
-%     ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors.tsv$']);
-    ConfFile = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_desc-confounds_regressors2.tsv$']);
-	if size(ConfFile,1)~=1
-		fprintf('Skipping sub-%s with no (customized) fmriprep confounds\n', Sub{n})
-		Sel(n) = false;
-	end
-end
-
-% Skip already processed jobs
-if ~Force
-	for n = 1:numel(Sub)
-		if spm_select('List', fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level'), '^con.*\.nii$')
-			fprintf('Skipping sub-%s with previous SPM output\n', Sub{n})
-			Sel(n) = false;
-		end
-	end
 end
 Sub = Sub(Sel);
-Run = Run(Sel);
+NrSub = Subset;
+fprintf('%i participants included for further processing \n', NrSub)
 
-Files   = spm_BIDS(BIDS, 'data', 'sub', Sub, 'task', 'motor', 'type', 'bold');
-Meta	= spm_BIDS(BIDS, 'metadata', 'sub', Sub, 'task', 'motor', 'type', 'bold');
+% Collect all functional images
+Files = {};
+for n = 1:NrSub
+    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
+    for v = 1:numel(Visit)
+        dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
+        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.gz']));
+        Files = [Files; cellstr(FuncImg{size(FuncImg,1)})];
+    end
+end
 
 Inputs	= cell(6,1);
 JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
-
-NrSub	= numel(Sub);
-if ~isempty(Subset)
-    if Subset > NrSub
-        fprintf('Subset > Total nr participants. Processing total nr participants instead\n')
-    else
-        NrSub = Subset;
-    end
-end
-
-fprintf('Analyzing %i subjects\n', NrSub)
-for n = 1:NrSub
-
-	% Collect files
-%     ConfFile        = strrep(strrep(Files{n}, BIDSDir, FMRIPrep), '_bold.nii.gz', '_desc-confounds_regressors.tsv');
-	ConfFile        = strrep(strrep(Files{n}, BIDSDir, FMRIPrep), '_bold.nii.gz', '_desc-confounds_regressors2.tsv');
-    SourceNii	    = strrep(strrep(Files{n}, BIDSDir, FMRIPrep), '_bold.nii.gz', '_space-MNI152NLin6Asym_desc-preproc_bold.nii');
-    SPMDir          = fullfile(ANALYSESDir, ['sub-' Sub{n}]);
-    SPMStatDir      = fullfile(ANALYSESDir, ['sub-' Sub{n}], '1st_level');
-    TaskDir         = fullfile(BIDSDir, ['sub-' Sub{n}], 'func');
-    EventsTsvFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_events.tsv']);
-    EventsJsonFile   = spm_select('FPList', TaskDir, ['sub-' Sub{n} '_task-motor_acq-MB6_run-' Run(n) '_events.json']);
-	InMat           = spm_file(EventsTsvFile, 'path',SPMDir, 'ext','.mat');
-
-	% Start with a clean stats output directory
+%JobFile = {'/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/motor/motor_1stlevel_job.m'};
+% Specify inputs to 1st-level analyses
+for n = 1:numel(Files)
+    s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
+    v = char(extractBetween(Files{n}, '_', '_task'));           % Visit
+    r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
+    ConfFile            = strrep(Files{n}, 'space-MNI152NLin6Asym_desc-preproc_bold.nii.gz', 'desc-confounds_regressors.tsv');
+    %ConfFile            = strrep(Files{n}, 'space-MNI152NLin6Asym_desc-preproc_bold.nii.gz', 'desc-confounds_regressors2.tsv');
+    SourceNii           = Files{n};
+    SPMDir              = fullfile(ANALYSESDir, s, v);
+    SPMStatDir          = fullfile(ANALYSESDir, s, v, '1st_level');
+    TaskDir             = fullfile(BIDSDir, s, v, 'beh');
+    EventsTsvFile       = spm_select('FPList', TaskDir, [s, '_', v, '_task-motor_acq-MB6_run-', r, '_events.tsv']);
+    EventsJsonFile      = spm_select('FPList', TaskDir, [s, '_', v, '_task-motor_acq-MB6_run-', r, '_events.json']);
+    InMat               = spm_file(EventsTsvFile, 'path', SPMDir, 'ext', '.mat');
+    
+    % Start with a clean stats output directory
     if ~exist(SPMStatDir,'dir')
  		mkdir(SPMStatDir)
  	else
@@ -158,7 +132,10 @@ for n = 1:NrSub
     
     % Copy functional image
     copyfile(SourceNii, SPMDir)
-    InputNii = strrep(SourceNii, strcat(FMRIPrep, ['/sub-' Sub{n}], '/func'), SPMDir);
+    InputNii = strrep(SourceNii, strcat(FMRIPrep, ['/' s '/' v], '/func'), SPMDir);
+    gunzip(InputNii)
+    delete(InputNii)
+    InputNii = strrep(InputNii, 'nii.gz', 'nii');
 	
 	% Change Directory: Directory - cfg_files
     Inputs{1}{n} = {SPMStatDir};
@@ -170,10 +147,10 @@ for n = 1:NrSub
     Inputs{3}{n} = {SPMStatDir};
 
 	% fMRI model specification: Interscan interval - cfg_entry
-    Inputs{4}{n} = Meta{n}.RepetitionTime;
+    Inputs{4}{n} = 1;
 	
 	% fMRI model specification: Multiple conditions - cfg_files
-    InMat		 = extract_onsets_and_duration_pm(EventsTsvFile, InMat, Meta{n}.RepetitionTime);
+    InMat		 = extract_onsets_and_duration_pm(EventsTsvFile, InMat, 1);
     Inputs{5}{n} = {InMat};
 	
 	% fMRI model specification: Multiple regressors - cfg_files
@@ -184,29 +161,33 @@ for n = 1:NrSub
     
 end
 
-for n = 1:NrSub
-    spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
-end
+% Run jobs interactively
+%for n = 1:numel(Files)
+%    spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
+%end
 
-if NrSub==1
+% Submit to cluster
+if numel(Files)==1
 	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
 else
-  	qsubcellfun('spm_jobman', repmat({'run'},[1 NrSub]), repmat(JobFile,[1 NrSub]), Inputs{:}, 'memreq',4*1024^3, 'timreq',3*60*60);%, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
+  	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',4*1024^3, 'timreq',3*60*60);%, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
 end
 
 % Clean up copied functional images
-for n = 1:NrSub
-    Orig = cell2mat(Inputs{2}{n});
-    Smoothed = cell2mat(strrep(Inputs{2}{n}, strcat(['sub-', Sub{n}], '_task-motor_acq-MB6'), strcat(['ssub-', Sub{n}], '_task-motor_acq-MB6')));
-    if exist(Orig, 'file') || exist(Smoothed, 'file')
-        delete(Orig)
-        delete(Smoothed)
+for n = 1:numel(Inputs{2})
+    dImg = cell2mat(Inputs{2}{n});
+    ImagesToDelete = cellstr(spm_select('FPList', fileparts(dImg), '.*.nii'));
+    if ~isempty(ImagesToDelete)
+        for i = 1:numel(ImagesToDelete)
+            delete(ImagesToDelete{i})
+        end
     end
 end
 
+end
 
 function NrPulses = getnrpulses(EventsJsonFile)
-
-Json = fileread(EventsJsonFile);
-DecodedJson = jsondecode(Json);
-NrPulses = DecodedJson.NPulses.Value;
+    Json = fileread(EventsJsonFile);
+    DecodedJson = jsondecode(Json);
+    NrPulses = DecodedJson.NPulses.Value;
+end
