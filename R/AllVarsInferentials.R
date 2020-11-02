@@ -1,4 +1,4 @@
-source('M:/scripts/Personalized-Parkinson-Project-Motor/R/CombinedDatabase.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/initialize_funcs.R')
 df <- CombinedDatabase()
 
 ##### Libraries #####
@@ -8,15 +8,18 @@ library(lme4)
 library(lmerTest)
 library(lattice)
 library(reshape2)
+library(splines)
 
 #####
 
 ##### BASELINE: Motor task, response time #####
 
 # Data preparation
-dat <- df %>%
+dat <- reshape_by_task(df, lengthen=TRUE)
+dat <- dat %>%
         filter(timepoint == 'V1') %>%
-        select(pseudonym, Condition, Response.Time, Percentage.Correct, Age, Gender, EstDisDurYears, Responding.Hand, PrefHand) %>%
+        select(pseudonym, Condition, Response.Time, Percentage.Correct, Age, Gender, EstDisDurYears, Responding.Hand,
+               PrefHand, TremorDominant.cutoff1) %>%
         na.omit %>%
         mutate(Condition=as.factor(Condition),
                Age=scale(Age, scale = FALSE, center = TRUE),
@@ -45,8 +48,11 @@ dat <- dat %>%
 
 # Null model
 fm00 <- lmer(log(Response.Time) ~ 1 + (1|pseudonym), data = dat)
-summary(fm01)
+summary(fm00)
 ggplot(dat, aes(x=Response.Time)) +
+        geom_density() +
+        facet_grid(. ~ Condition)
+ggplot(dat, aes(x=log(Response.Time))) +
         geom_density() +
         facet_grid(. ~ Condition)
 
@@ -55,7 +61,6 @@ fm01 <- lmer(log(Response.Time) ~ 1 + Condition + (1|pseudonym), data = dat)
 summary(fm01)
 ggplot(dat, aes(x=Condition,y=Response.Time)) +
         geom_boxplot()
-
 anova(fm00,fm01)
 
 # Collapse Int2 and Int3
@@ -132,25 +137,22 @@ WinningModel <- fm09
 
 # Data preparation
 
-        # Unbalanced: MultipleSessions == 'No'
-#dat <- df %>%
-#        filter(timepoint == 'V1' | timepoint == 'V2') %>%
-#        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age, EstDisDurYears) %>%
-#        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint', 'EstDisDurYears'), variable.name = 'Medication', value.name = 'y') %>%
-#        tibble %>%
-#        mutate(pseudonym = as.factor(pseudonym)) %>%
-#        arrange(pseudonym, timepoint)
-
-        # Balanced: MultipleSession=='Yes'
 dat <- df %>%
+        select(pseudonym, timepoint, Gender, Age, EstDisDurYears, TremorDominant.cutoff1, MultipleSessions,
+               Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta,
+               Up3OfBradySum, Up3OnBradySum, Up3OfBradySum.1YearDelta, Up3OnBradySum.1YearDelta,
+               Up3OfRestTremAmpSum, Up3OnRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta, Up3OnRestTremAmpSum.1YearDelta,
+               Up3OfRigiditySum, Up3OnRigiditySum, Up3OfRigiditySum.1YearDelta, Up3OnRigiditySum.1YearDelta)
+
+dat <- reshape_by_medication(dat, lengthen = TRUE)
+dat <- dat %>% pivot_wider(names_from='Subscore',
+                     names_prefix='Up3',
+                     values_from = 'Severity')
+
+dat <- dat %>%
         filter(MultipleSessions=='Yes') %>%
-        filter(timepoint == 'V1' | timepoint == 'V2') %>%
-        filter(Condition == 'Ext') %>%
-        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Gender, Age, EstDisDurYears) %>%
-        melt(id.vars = c('pseudonym', 'Gender', 'Age', 'timepoint', 'EstDisDurYears'), variable.name = 'Medication', value.name = 'y') %>%
-        tibble %>%
-        mutate(pseudonym = as.factor(pseudonym)) %>%
-        arrange(pseudonym, timepoint) %>%
+        mutate(pseudonym=as.factor(pseudonym),
+               y=Up3Total) %>%
         na.omit
 
 dat$timepoint <- factor(dat$timepoint)
@@ -233,13 +235,13 @@ summary(fm07)
 ggplot(dat, aes(x=EstDisDurYears, y=y)) +
         geom_point() +
         geom_smooth(method='lm', color='blue') +
-        geom_smooth(method='lm', formula = y ~ poly(x, 2), color='red') +
-        geom_smooth(method='lm', formula = y ~ poly(x, 3), color='green') +
+        geom_smooth(method='lm', formula = y ~ bs(x, degree=2), color='red') +
+        geom_smooth(method='lm', formula = y ~ bs(x, degree=3), color='green') +
         facet_grid(. ~ timepoint)
 anova(fm04, fm07, refit = TRUE)
 
         # Second-order polynomial
-fm07b <- lmer(y ~ 1 + timepoint + Medication + poly(EstDisDurYears, 2) + (1 + timepoint + Medication|pseudonym), data = dat, REML = TRUE)
+fm07b <- lmer(y ~ 1 + timepoint + Medication + bs(EstDisDurYears, degree = 2) + (1 + timepoint + Medication|pseudonym), data = dat, REML = TRUE)
 summary(fm07b)
 anova(fm07, fm07b, refit = TRUE)
 
@@ -256,12 +258,24 @@ WinningModel <- fm08
 
 # Data preparation
 dat <- df %>%
-        filter(timepoint == 'V1') %>%
-        select(pseudonym, Condition, Response.Time, Up3OfTotal, Up3OfTotal.1YearProg, Percentage.Correct, Age, Gender, EstDisDurYears) %>%
-        na.omit %>%
+        filter(timepoint == 'V1' & MultipleSessions == 'Yes') %>%
+        select(pseudonym, Age, Gender, EstDisDurYears,
+               starts_with('Response.Time'), starts_with('Percentage.Correct'),
+               Up3OfTotal, Up3OfTotal.1YearDelta, Up3OnTotal, Up3OnTotal.1YearDelta) %>%
+        na.omit
+
+dat <- reshape_by_medication(dat, lengthen = TRUE)
+dat <- reshape_by_task(dat, lengthen = TRUE)
+dat <- dat %>% pivot_wider(names_from='Subscore',
+                           names_prefix='Up3',
+                           values_from = 'Severity')
+
+levels(dat$Medication) <- c('Off','On')
+dat <- dat %>%
+        filter(Medication == 'On') %>%
         mutate(Condition = if_else(Condition == 'Ext', 'Ext','Int'),
-               Condition=as.factor(Condition),
-               Age=scale(Age, scale = FALSE, center = TRUE),
+               Condition = as.factor(Condition)) %>%
+        mutate(Age=scale(Age, scale = FALSE, center = TRUE),
                EstDisDurYears=scale(EstDisDurYears, scale = FALSE, center = TRUE))
 
 # Set up contrasts
@@ -269,7 +283,7 @@ contrasts(dat$Condition) <- cbind(IntVsExt=c(-1,1))
 contrasts(dat$Gender) <- cbind(MaleVsFemale=c(1,-1))
 
 # Exclusion
-# Accuracy
+        # Accuracy
 cutoff <- 0.25
 Excluded.Pseudos <- dat %>%
         mutate(Poor.Task.Performance = if_else(Percentage.Correct <= cutoff, TRUE, FALSE)) %>%
@@ -281,32 +295,41 @@ cat('Number of participants who had below 25% accuracy in any of the task condit
 dat <- dat %>%
         filter(!(pseudonym %in% Excluded.Pseudos))
 
+# Modelling
+
 fm00 <- lmer(Response.Time ~ 1 + (1|pseudonym), data = dat, REML = TRUE)
 summary(fm00)
 
-fm00b <- lmer(Response.Time ~ 1 + (1|pseudonym/Condition), data = dat, REML = TRUE)
-summary(fm00b)
-anova(fm00, fm00b, refit=TRUE)
-
 fm01 <- lmer(Response.Time ~ 1 + Condition + (1|pseudonym), data = dat, REML = TRUE)
 summary(fm01)
-anova(fm00b, fm01, refit=TRUE)
+anova(fm00, fm01, refit=TRUE)
 
-fm01b <- lmer(Response.Time ~ 1 + Condition + (1|pseudonym), data = dat, REML = TRUE)
-summary(fm01b)
-anova(fm01, fm01b, refit=TRUE)
-
-fm02 <- lmer(Response.Time ~ 1 + Condition + Up3OfTotal + Up3OfTotal.1YearProg + Age + Gender + EstDisDurYears + (1|pseudonym), data = dat, REML = TRUE)
+fm02 <- lmer(Response.Time ~ 1 + Condition + (1 + Condition|pseudonym), data = dat, REML = TRUE)
 summary(fm02)
-ggplot(dat, aes(x=Response.Time, y=Up3OfTotal)) + 
+anova(fm01, fm02, refit=TRUE)
+
+fm03 <- lmer(Response.Time ~ 1 + Condition + Age + Gender + EstDisDurYears + (1 + Condition|pseudonym), data = dat, REML = TRUE)
+summary(fm03)
+anova(fm02, fm03, refit=TRUE)
+
+fm03b <- lmer(Response.Time ~ 1 + Condition + Age + (1 + Condition|pseudonym), data = dat, REML = TRUE)
+summary(fm03)
+anova(fm02, fm03b, refit=TRUE)
+
+fm04 <- lmer(Response.Time ~ 1 + Condition + Up3OfTotal + Age + (1 + Condition|pseudonym), data = dat, REML = TRUE)
+summary(fm04)
+anova(fm03, fm04, refit=TRUE)
+
+fm04b <- lmer(Response.Time ~ 1 + Condition + Up3OnTotal + Age + (1 + Condition|pseudonym), data = dat, REML = TRUE)
+summary(fm04)
+anova(fm04, fm04b, refit=TRUE)
+
+fm05 <- lmer(Response.Time ~ 1 + Condition*Up3Total.1YearDelta + Age + (1 + Condition|pseudonym), data = dat, REML = TRUE)
+summary(fm05)
+ggplot(dat, aes(x=Up3OnTotal.1YearProg, y=Response.Time, color=Condition)) +
         geom_point() +
-        geom_smooth(method='lm') +
-        facet_grid(.~Condition)
-ggplot(dat, aes(x=Response.Time, y=Up3OfTotal.1YearProg)) + 
-        geom_point() +
-        geom_smooth(method='lm') +
-        facet_grid(.~Condition)
-anova(fm01b, fm02, refit=TRUE)
+        geom_smooth(method='lm')
+anova(fm04, fm05, refit=TRUE)
 
 #####
 
@@ -332,3 +355,17 @@ ggplot(dd, aes(y=grp,x=condval)) +
 confint.merMod(WinningModel, method = c('boot'), boot.type = c('basic'))
 
 #####
+
+##### Multivariate MCMCglmm #####
+
+
+
+#####
+
+
+
+
+
+
+
+
