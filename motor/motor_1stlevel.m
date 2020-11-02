@@ -30,7 +30,7 @@ FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 ANALYSESDir   = strcat('/project/', Project, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer');  
 %ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer_BPCtrl');
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
-fprintf('Found %i subjects with task=motor\n', numel(Sub))
+fprintf('Found %i subjects \n', numel(Sub))
 
 % Check data for each subject's visits and exclude where necessary
 % TODO: Subjects with two sessions may be excluded based on missing data in
@@ -64,7 +64,7 @@ for n = 1:numel(Sub)
             onsets{4}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))';
             CheckMissing = cellfun(@isempty, onsets);
             if sum(CheckMissing) > 0
-                fprintf('%s excluded: %s lacks onsets in at least one task condition \n', Sub{n}, Visit{v})
+                fprintf('%s excluded: %s lacks onsets in at least one task condition \n', Sub{n}, Visit{v})     % Participants with poor performance
                 Sel(n) = false;
             end
             if isempty(FuncImg{1})       % Participants with motor task but no preprocessed image
@@ -91,8 +91,16 @@ for n = 1:numel(Sub)
     end
 end
 Sub = Sub(Sel);
-NrSub = Subset;
-fprintf('%i participants included for further processing \n', NrSub)
+if Subset > numel(Sub)
+    fprintf('Subset has %i more participants than is available. Processing the remaining ones instead! \n', Subset - numel(Sub))
+    NrSub = numel(Sub);
+end
+if NrSub >0
+    fprintf('%i participants included for further processing \n', NrSub)
+else
+    fprintf('No more participants to process. Exiting... \n')
+    return
+end
 
 % Collect all functional images
 Files = {};
