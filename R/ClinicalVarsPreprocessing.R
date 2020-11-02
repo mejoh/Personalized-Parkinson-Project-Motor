@@ -112,12 +112,23 @@ list.TotalOff <- c('Up3OfSpeech', 'Up3OfFacial', 'Up3OfRigNec', 'Up3OfRigRue', '
 list.TotalOn <- str_replace(list.TotalOff, 'Of','On')
 list.BradykinesiaOff <- c('Up3OfFiTaYesDev', 'Up3OfFiTaNonDev', 'Up3OfHaMoYesDev', 'Up3OfHaMoNonDev', 'Up3OfProSYesDev',
                           'Up3OfProSNonDev', 'Up3OfToTaYesDev', 'Up3OfToTaNonDev', 'Up3OfLAgiYesDev', 'Up3OfLAgiNonDev',
-                          'Up3OfArise', 'Up3OfGait', 'Up3OfFreez', 'Up3OfSpont')
+                          'Up3OfArise', 'Up3OfSpont')
 list.BradykinesiaOn <- str_replace(list.BradykinesiaOff, 'Of', 'On')
 list.RestTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfConstan')
+                        # 'Updrs2It17')
 list.RestTremorOn <- str_replace(list.RestTremorOff, 'Of', 'On')
 list.RigidityOff <- c('Up3OfRigNec', 'Up3OfRigRue', 'Up3OfRigLue', 'Up3OfRigRle', 'Up3OfRigLle')
 list.RigidityOn <- str_replace(list.RigidityOff, 'Of','On')
+list.PIGDOff <- c('Up3OfGait', 'Up3OfFreez', 'Up3OfStaPos')
+                  # 'Updrs2It25', 'Updrs2It26')
+list.PIGDOn <- str_replace(list.PIGDOff, 'Of', 'On')
+list.ActionTremorOff <- c('Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev')
+                          # 'Updrs2It17')
+list.ActionTremorOn <- str_replace(list.RigidityOff, 'Of', 'On')
+list.CompositeTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev',
+                             'Up3OfConstan','Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev')
+                             # 'Updrs2It17') 
+list.CompositeTremorOn <- str_replace(list.CompositeTremorOff, 'Of', 'On')
 
 # Variable selection
 # Definition of bradykinesia subscore
@@ -152,11 +163,15 @@ dataframe <- dataframe %>%
                Up3OnRestTremAmpSum = rowSums(.[list.RestTremorOn])) %>%
         mutate(Up3OfRigiditySum = rowSums(.[list.RigidityOff]),
                Up3OnRigiditySum = rowSums(.[list.RigidityOn])) %>%
+        mutate(Up3OfPIGDSum = rowSums(.[list.PIGDOff]),
+               Up3OnPIGDSum = rowSums(.[list.PIGDOn])) %>%
+        mutate(Up3OfActionTremorSum = rowSums(.[list.ActionTremorOff]),
+               Up3OnActionTremorSum = rowSums(.[list.ActionTremorOn])) %>%
+        mutate(Up3OfCompositeTremorSum = rowSums(.[list.CompositeTremorOff]),
+               Up3OnCompositeTremorSum = rowSums(.[list.CompositeTremorOn])) %>%
         mutate(Up3TotalOnOffDelta = Up3OfTotal - Up3OnTotal,
                Up3BradySumOnOffDelta = Up3OfBradySum - Up3OnBradySum,
-               Up3RestTremAmpSumOnOffDelta = Up3OfRestTremAmpSum - Up3OnRestTremAmpSum) %>%
-        mutate(TremorDominant.cutoff1 = Up3OfRestTremAmpSum >= 1,
-               TremorDominant.cutoff2 = Up3OfRestTremAmpSum >= 2)
+               Up3RestTremAmpSumOnOffDelta = Up3OfRestTremAmpSum - Up3OnRestTremAmpSum)
 
 #####
 
@@ -179,8 +194,6 @@ dataframe$ParkinMedUser <- as.factor(dataframe$ParkinMedUser)                 # 
 levels(dataframe$ParkinMedUser) <- c('No','Yes')
 dataframe$NpsEducYears <- as.numeric(dataframe$NpsEducYears)                  # Education years
 dataframe$timepoint <- as.factor(dataframe$timepoint)                         # Timepoint
-dataframe$TremorDominant.cutoff1 <- as.factor(dataframe$TremorDominant.cutoff1)   # Tremor dominance
-dataframe$TremorDominant.cutoff2 <- as.factor(dataframe$TremorDominant.cutoff2)
 
 #####
 
