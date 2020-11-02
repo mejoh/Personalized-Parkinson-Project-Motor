@@ -1,4 +1,4 @@
-source('M:/scripts/Personalized-Parkinson-Project-Motor/R/CombinedDatabase.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/initialize_funcs.R')
 df <- CombinedDatabase()
 
 ##### Libraries #####
@@ -8,9 +8,9 @@ library(cowplot)
 #####
 
 ##### Summary stats #####
-
+df.rt <- reshape_by_task(df, lengthen = TRUE)
 # Response times by timepoint and condition
-df %>%
+df.rt %>%
         filter(timepoint == 'V1' || timepoint == 'V3') %>%
         group_by(timepoint, Condition) %>%
         summarise(n=n(),
@@ -22,7 +22,7 @@ df %>%
                   missing=sum(is.na(Response.Time)))
 
 # Percentage correct by timepoint and condition
-df %>%
+df.rt %>%
         filter(timepoint == 'V1' || timepoint == 'V3') %>%
         group_by(timepoint, Condition) %>%
         summarise(n=n(),
@@ -34,44 +34,36 @@ df %>%
                   missing=sum(is.na(Percentage.Correct)))
 
 # Up3OfTotal by timepoint and medication
-df %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Response.Time, Percentage.Correct)) %>%
-        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal) %>%
-        pivot_longer(cols = 3:4,
-                     names_to = 'medication',
-                     values_to = 'score') %>%
-        mutate(medication=ifelse(medication=='Up3OfTotal', 'Off', 'On'),
-               medication=as.factor(medication)) %>%
+df.clin  <- df %>% 
+        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta)
+df.clin <- reshape_by_medication(df.clin, lengthen = TRUE)
+df.clin <- df.clin %>%
+        pivot_wider(names_from='Subscore',
+                    names_prefix='Up3',
+                    values_from = 'Severity')
+levels(df.clin$Medication) <- c('Off','On')
+df.clin %>%
         filter(timepoint != 'V3') %>%
-        group_by(timepoint, medication) %>%
+        group_by(timepoint, Medication) %>%
         summarise(n=n(),
-                  avg=mean(score, na.rm = TRUE),
-                  sd=sd(score, na.rm = TRUE),
+                  avg=mean(Up3Total, na.rm = TRUE),
+                  sd=sd(Up3Total, na.rm = TRUE),
                   se=sd/(sqrt(n)),
                   lowerCI=(avg-(1.96*se)),
                   upperCI=(avg+(1.96*se)),
-                  missing=sum(is.na(score)))
+                  missing=sum(is.na(Up3Total)))
 
 # 1-year delta(Up3OfTotal) by medication
-df %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Response.Time, Percentage.Correct)) %>%
-        select(pseudonym, timepoint, Up3OfTotal.1YearProg, Up3OnTotal.1YearProg) %>%
-        pivot_longer(cols = 3:4,
-                     names_to = 'medication',
-                     values_to = 'delta') %>%
-        mutate(medication=ifelse(medication=='Up3OfTotal.1YearProg', 'Off', 'On'),
-               medication=as.factor(medication)) %>%
+df.clin %>%
         filter(timepoint == 'V2') %>%
-        group_by(timepoint, medication) %>%
+        group_by(timepoint, Medication) %>%
         summarise(n=n(),
-                  avg=mean(delta, na.rm = TRUE),
-                  sd=sd(delta, na.rm = TRUE),
+                  avg=mean(Up3Total.1YearDelta, na.rm = TRUE),
+                  sd=sd(Up3Total.1YearDelta, na.rm = TRUE),
                   se=sd/(sqrt(n)),
                   lowerCI=(avg-(1.96*se)),
                   upperCI=(avg+(1.96*se)),
-                  missing=sum(is.na(delta)))
+                  missing=sum(is.na(Up3Total.1YearDelta)))
 
 # Brain activity
 # IN PROGRESS
@@ -81,9 +73,8 @@ df %>%
 ##### Demographics #####
 
 df.demo <- df %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Response.Time, Percentage.Correct)) %>%
-        select(pseudonym, timepoint, 
+        select(pseudonym,
+               timepoint, 
                Age, 
                Gender, 
                EstDisDurYears, 
@@ -97,7 +88,9 @@ df.demo <- df %>%
 
 categorical.vars <- c(2,4,7,8,9,10,12)
 for(i in categorical.vars){
+        cat(colnames(df.demo)[i])
         print(table(df.demo[,i]))
+        cat('\n')
 }
 continuous.vars <- c(3,5,6)
 for(i in continuous.vars){
@@ -120,17 +113,9 @@ for(i in continuous.vars){
 
 #####
 
-##### Widen data frame to accomodate plotting of motor task performance #####
-
-df.wide <- df %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Response.Time, Percentage.Correct))
-
-#####
-
 ##### Collection of plotting functions #####
 
-# Box plots for exploring Time x Group interactions (e.g. effect of medication)
+# Box and density plots for exploring Time x Group interactions (e.g. effect of medication)
 SessionByGroupBoxPlots <- function(dataframe, x, x.ticks, groups){
         
         library(reshape2)
@@ -167,7 +152,23 @@ x.ticks <- c('V1','V3')
 #groups <- c('Up3OfTotal', 'Up3OnTotal')
 #SessionByGroupBoxPlots(df, x, x.ticks, groups)
 groups <- c('Response.Time_Ext', 'Response.Time_Int2', 'Response.Time_Int3')
-SessionByGroupBoxPlots(df.wide, x, x.ticks, groups)
+SessionByGroupBoxPlots(df, x, x.ticks, groups)
+
+# 
+df %>%
+        filter(timepoint=='V1') %>%
+        select(pseudonym, TremorDominant, Condition, Response.Time) %>%
+        na.omit %>% 
+        ggplot(aes(x=TremorDominant, y=Response.Time)) +
+                geom_boxplot(notch = TRUE) +
+                facet_grid(. ~ Condition)
+
+df %>%
+        filter(timepoint=='V2', Condition=='Ext') %>%
+        select(pseudonym, TremorDominant, Up3OfTotal.1YearProg, Up3OfBradySum.1YearProg) %>%
+        na.omit %>% 
+        ggplot(aes(x=TremorDominant, y=Up3OfBradySum.1YearProg)) +
+        geom_boxplot(notch = TRUE)
 
 # Box and density plots for exploring variables from multiple sessions
 MultipleSessionBoxDensPlots <- function(dataframe, x, y){
@@ -428,10 +429,10 @@ visit1 = c('V1')
 outlier.pseudo1 <- c()
 for(n in unique(y)){
         
-        g <- SingleSessionBoxDensPlots(df.wide, n, visit1)
+        g <- SingleSessionBoxDensPlots(df, n, visit1)
         print(g)
         
-        outliers.visit1 <- df.wide %>% 
+        outliers.visit1 <- df %>% 
                 select(pseudonym, one_of(n), timepoint) %>% 
                 filter(timepoint==visit1) %>% 
                 na.omit %>%
@@ -446,17 +447,17 @@ for(n in unique(y)){
 #Visit2
 y <- c('Up3OfTotal', 'Up3OnTotal',
        'Up3OfBradySum', 'Up3OnBradySum',
-       'Up3OfTotal.1YearProg', 'Up3OfBradySum.1YearProg',
-       'Up3OnTotal.1YearProg', 'Up3OnBradySum.1YearProg',
+       'Up3OfTotal.1YearDelta', 'Up3OfBradySum.1YearDelta',
+       'Up3OnTotal.1YearDelta', 'Up3OnBradySum.1YearDelta',
        'TimeToFUYears')
 visit2 = c('V2')
 outlier.pseudo2 <- c()
 for(n in unique(y)){
         
-        g <- SingleSessionBoxDensPlots(df.wide, n, visit2)
+        g <- SingleSessionBoxDensPlots(df, n, visit2)
         print(g)
         
-        outliers.visit2 <- df.wide %>% 
+        outliers.visit2 <- df %>% 
                 select(pseudonym, one_of(n), timepoint) %>% 
                 filter(timepoint==visit2) %>% 
                 na.omit %>%
@@ -476,10 +477,10 @@ visit3 = c('V3')
 outlier.pseudo3 <- c()
 for(n in unique(y)){
         
-        g <- SingleSessionBoxDensPlots(df.wide, n, visit3)
+        g <- SingleSessionBoxDensPlots(df, n, visit3)
         print(g)
         
-        outliers.visit3 <- df.wide %>% 
+        outliers.visit3 <- df %>% 
                 select(pseudonym, one_of(n), timepoint) %>% 
                 filter(timepoint==visit3) %>% 
                 na.omit %>%
@@ -496,19 +497,73 @@ cat('Total number of outliers among selected variables:', length(outlier.pseudo.
 
 #####
 
-##### Clustering #####
+##### Clustering on motor symptoms and their progression #####
 
-## KMEANS ##
-# Kmeans with intention to separate tremor dominant from non-dominant
-# Method does not work
-# Gives a straight split into low and high bradykinesia
-# Tremor is not being weighed high enough. Probably due to low amount of
-# participants with noticable tremor.
-df_kmeans <- df %>%
-        select(BradySum, RestTremAmpSum)
-kmeansObj <- kmeans(df_kmeans, centers = 2)
-plot(df_kmeans$BradySum, df_kmeans$RestTremAmpSum, col = kmeansObj$cluster, pch = 19, cex = 2)
-points(kmeansObj$centers, col = 1:2, pch = 3, cex = 3, lwd = 3)
+## K-medoids ##
+
+library(fpc)
+library(cluster)
+library(factoextra)
+
+# Data preparation
+dat <- df %>%
+        filter(timepoint == 'V1' & MultipleSessions == 'Yes') %>%
+        select(pseudonym,
+               Up3OfTotal, Up3OfBradySum, Up3OfRestTremAmpSum, Up3OfRigiditySum,
+               Up3OfTotal.1YearDelta, Up3OfBradySum.1YearDelta, Up3OfRestTremAmpSum.1YearDelta, Up3OfRigiditySum.1YearDelta,
+               EstDisDurYears, Gender, Age) %>%
+        na.omit
+
+dat.scaled <- dat %>%
+        select(-c(pseudonym, Up3OfTotal, Up3OfTotal.1YearDelta, EstDisDurYears, Gender, Age)) %>%
+        mutate(Up3OfBradySum = scale(Up3OfBradySum),
+               Up3OfRestTremAmpSum = scale(Up3OfRestTremAmpSum),
+               Up3OfRigiditySum = scale(Up3OfRigiditySum),
+               Up3OfBradySum.1YearDelta = scale(Up3OfBradySum.1YearDelta),
+               Up3OfRestTremAmpSum.1YearDelta = scale(Up3OfRestTremAmpSum.1YearDelta),
+               Up3OfRigiditySum.1YearDelta = scale(Up3OfRigiditySum.1YearDelta))
+
+# K-medoids
+clust <- pamk(dat.scaled, metric = 'manhattan', stand = FALSE)
+fviz_nbclust(dat.scaled, FUNcluster = pam)
+clust.res <- pam(dat.scaled, 2, metric = 'manhattan', stand = FALSE)
+fviz_cluster(clust.res)
+dat.clust <- bind_cols(dat, cluster = clust.res$clustering)
+
+# Descriptives
+dat.clust %>%
+        group_by(cluster, Gender) %>%
+        summarise(Avg=mean(Up3OfTotal), SD=sd(Up3OfTotal),
+                  AvgDelta=mean(Up3OfTotal.1YearDelta), SDDelta=sd(Up3OfTotal.1YearDelta),
+                  DisDur=mean(EstDisDurYears), Age=mean(Age))
+
+ggplot(dat.clust, aes( x= cluster, y = Up3OfTotal, group = cluster)) + 
+        geom_boxplot()
+ggplot(dat.clust, aes( x= cluster, y = Up3OfBradySum, group = cluster)) + 
+        geom_boxplot()
+ggplot(dat.clust, aes( x= cluster, y = Up3OfRestTremAmpSum, group = cluster)) + 
+        geom_boxplot()
+ggplot(dat.clust, aes( x= cluster, y = Up3OfRigiditySum, group = cluster)) + 
+        geom_boxplot()
+ggplot(dat.clust, aes( x= cluster, y = Up3OfTotal.1YearDelta, group = cluster)) + 
+        geom_boxplot()
+ggplot(dat.clust, aes( x= cluster, y = Up3OfBradySum.1YearDelta, group = cluster)) + 
+        geom_boxplot()
+ggplot(dat.clust, aes( x= cluster, y = Up3OfRestTremAmpSum.1YearDelta, group = cluster)) + 
+        geom_boxplot()
+ggplot(dat.clust, aes( x= cluster, y = Up3OfRigiditySum.1YearDelta, group = cluster)) + 
+        geom_boxplot()
+
+ggplot(dat.clust, aes(x=Up3OfTotal,y=Up3OfTotal.1YearDelta)) + 
+        geom_smooth(method='lm') + 
+        geom_point() +
+        facet_grid(.~cluster)
+
+dat.clust %>%
+        select(Up3OfTotal, Up3OfBradySum, Up3OfRestTremAmpSum, Up3OfRigiditySum,
+               Up3OfTotal.1YearDelta, Up3OfBradySum.1YearDelta, Up3OfRestTremAmpSum.1YearDelta, Up3OfRigiditySum.1YearDelta) %>%
+        pairs
+        
 
 #####
 
