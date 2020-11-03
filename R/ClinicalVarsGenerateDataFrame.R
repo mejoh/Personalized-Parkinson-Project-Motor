@@ -8,9 +8,9 @@ if(rerun == TRUE){
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinicalVarsDatabase.R')
 df_v1 <- ClinicalVarsDatabase('ses-Visit1')
 df_v2 <- ClinicalVarsDatabase('ses-Visit2')
-save.image("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment4.RData")
+save(df_v1, df_v2, file = "M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinVars.RData")
 }else{
-load("M:/scripts/Personalized-Parkinson-Project-Motor/R/visit1_visit2_environment4.RData")
+load("M:/scripts/Personalized-Parkinson-Project-Motor/R/ClinVars.RData")
 }
 #####
 
@@ -38,9 +38,9 @@ df2 <- ClinicalVarsPreprocessing(df2)
 #####
 
 # Export data
-#pth <- "P:/3022026.01/analyses/nina/"
-#fname <- paste(pth, "CastorData.csv", sep = '')
-#write_csv(df2, fname)
+pth <- "P:/3022026.01/analyses/nina/"
+fname <- paste(pth, "CastorData2.csv", sep = '')
+write_csv(df2, fname)
 
 print(df2)
 
