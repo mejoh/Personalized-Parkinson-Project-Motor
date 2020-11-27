@@ -20,7 +20,7 @@ for n = 1:ndum
 end
 
 allconfnames = fieldnames(Confounds);
-substrings = {'framewise_displacement', 'std_dvars', 'trans_', 'rot_', 'a_comp_cor_01', 'a_comp_cor_02', 'a_comp_cor_03', 'a_comp_cor_04', 'a_comp_cor_05', 'a_comp_cor_06', 'a_comp_cor_07', 'a_comp_cor_08', 'aroma2_', 'cosine', 'Tremor'};
+substrings = {'TremorLog', 'framewise_displacement', 'std_dvars', 'trans_', 'rot_', 'a_comp_cor_01', 'a_comp_cor_02', 'a_comp_cor_03', 'a_comp_cor_04', 'a_comp_cor_05', 'a_comp_cor_06', 'a_comp_cor_07', 'a_comp_cor_08', 'aroma2_', 'cosine'};
 names={};
 for i = 1:length(substrings)                % Finds all instances of substrings in confounds file (multiple instances of trans/rot/t_comp_cor/aroma)
     filterednames = rmfield(Confounds, allconfnames(find(cellfun(@isempty, strfind(allconfnames, substrings{i})))));
