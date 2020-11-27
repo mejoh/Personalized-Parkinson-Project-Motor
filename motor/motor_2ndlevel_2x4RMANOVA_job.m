@@ -130,17 +130,23 @@ matlabbatch{3}.spm.stats.con.consess{20}.tcon.sessrep = 'none';
 matlabbatch{3}.spm.stats.con.consess{21}.tcon.name = 'HC > PD (Catch > IntExt)';
 matlabbatch{3}.spm.stats.con.consess{21}.tcon.weights = [-1 -1 -1 3 1 1 1 -3];
 matlabbatch{3}.spm.stats.con.consess{21}.tcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{22}.fcon.name = 'Group x Cond (ExtInt)';
-matlabbatch{3}.spm.stats.con.consess{22}.fcon.weights = [1 -1 0 0 -1 1 0 0
+matlabbatch{3}.spm.stats.con.consess{22}.tcon.name = 'HC > PD (Int3 > Int2)';
+matlabbatch{3}.spm.stats.con.consess{22}.tcon.weights = [0 -1 1 0 0 1 -1 0];
+matlabbatch{3}.spm.stats.con.consess{22}.tcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{23}.tcon.name = 'PD > HC (Int3 > Int2)';
+matlabbatch{3}.spm.stats.con.consess{23}.tcon.weights = [0 1 -1 0 0 -1 1 0];
+matlabbatch{3}.spm.stats.con.consess{23}.tcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{24}.fcon.name = 'Group x Cond (ExtInt)';
+matlabbatch{3}.spm.stats.con.consess{24}.fcon.weights = [1 -1 0 0 -1 1 0 0
                                                          0 1 -1 0 0 -1 1 0];
-matlabbatch{3}.spm.stats.con.consess{22}.fcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{23}.fcon.name = 'Group (ExtInt)';
-matlabbatch{3}.spm.stats.con.consess{23}.fcon.weights = [1 1 1 0 -1 -1 -1 0];
-matlabbatch{3}.spm.stats.con.consess{23}.fcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{24}.fcon.name = 'Condition (ExtInt)';
-matlabbatch{3}.spm.stats.con.consess{24}.fcon.weights = [1 -1 0 0 1 -1 0 0
-                                                         0 1 -1 0 0 1 -1 0];
 matlabbatch{3}.spm.stats.con.consess{24}.fcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{25}.fcon.name = 'Group (ExtInt)';
+matlabbatch{3}.spm.stats.con.consess{25}.fcon.weights = [1 1 1 0 -1 -1 -1 0];
+matlabbatch{3}.spm.stats.con.consess{25}.fcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{26}.fcon.name = 'Condition (ExtInt)';
+matlabbatch{3}.spm.stats.con.consess{26}.fcon.weights = [1 -1 0 0 1 -1 0 0
+                                                         0 1 -1 0 0 1 -1 0];
+matlabbatch{3}.spm.stats.con.consess{26}.fcon.sessrep = 'none';
 matlabbatch{3}.spm.stats.con.delete = 0;
 %matlabbatch{4}.spm.tools.tfce_estimate.spmmat(1) = cfg_dep('Contrast Manager: SPM.mat File', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
 %matlabbatch{4}.spm.tools.tfce_estimate.mask = '';
