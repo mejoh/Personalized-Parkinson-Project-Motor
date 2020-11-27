@@ -35,7 +35,7 @@ df.rt %>%
 
 # Up3OfTotal by timepoint and medication
 df.clin  <- df %>% 
-        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta)
+        select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta, Up3OfTotal.1YearROC, Up3OnTotal.1YearROC)
 df.clin <- reshape_by_medication(df.clin, lengthen = TRUE)
 df.clin <- df.clin %>%
         pivot_wider(names_from='Subscore',
@@ -58,12 +58,12 @@ df.clin %>%
         filter(timepoint == 'V2') %>%
         group_by(timepoint, Medication) %>%
         summarise(n=n(),
-                  avg=mean(Up3Total.1YearDelta, na.rm = TRUE),
-                  sd=sd(Up3Total.1YearDelta, na.rm = TRUE),
+                  avg=mean(Up3Total.1YearROC, na.rm = TRUE),
+                  sd=sd(Up3Total.1YearROC, na.rm = TRUE),
                   se=sd/(sqrt(n)),
                   lowerCI=(avg-(1.96*se)),
                   upperCI=(avg+(1.96*se)),
-                  missing=sum(is.na(Up3Total.1YearDelta)))
+                  missing=sum(is.na(Up3Total.1YearROC)))
 
 # Brain activity
 # IN PROGRESS
@@ -82,11 +82,9 @@ df.demo <- df %>%
                Up3OfHoeYah, 
                MostAffSide, 
                PrefHand, 
-               Responding.Hand, 
-               Up3OfRestTremAmpSum) %>%
-        mutate(Resting.Tremor=as.factor(ifelse(Up3OfRestTremAmpSum >= 1, 'Yes','No')))
+               Responding.Hand)
 
-categorical.vars <- c(2,4,7,8,9,10,12)
+categorical.vars <- c(2,4,7,8,9,10)
 for(i in categorical.vars){
         cat(colnames(df.demo)[i])
         print(table(df.demo[,i]))
@@ -154,7 +152,7 @@ x.ticks <- c('V1','V3')
 groups <- c('Response.Time_Ext', 'Response.Time_Int2', 'Response.Time_Int3')
 SessionByGroupBoxPlots(df, x, x.ticks, groups)
 
-# 
+##### DEPRECATED: Tremor #####
 df %>%
         filter(timepoint=='V1') %>%
         select(pseudonym, TremorDominant, Condition, Response.Time) %>%
@@ -169,6 +167,7 @@ df %>%
         na.omit %>% 
         ggplot(aes(x=TremorDominant, y=Up3OfBradySum.1YearProg)) +
         geom_boxplot(notch = TRUE)
+#####
 
 # Box and density plots for exploring variables from multiple sessions
 MultipleSessionBoxDensPlots <- function(dataframe, x, y){
@@ -222,8 +221,8 @@ SingleSessionBoxDensPlots <- function(dataframe, y, visit){
         plot_grid(title, plots, ncol=1, rel_heights=c(0.1, 1))
         
 }
-y <- c('Up3OfTotal.1YearProg', 'Up3OfBradySum.1YearProg',
-       'Up3OfTotal.1YearProg.Perc', 'Up3OfBradySum.1YearProg.Perc')
+y <- c('Up3OfTotal.1YearDelta', 'Up3OfTotal.1YearROC',
+       'Up3OnTotal.1YearDelta', 'Up3OnTotal.1YearROC')
 visit = c('V1')
 for(n in unique(y)){
         g <- SingleSessionBoxDensPlots(df, n, visit)
@@ -259,16 +258,18 @@ ScatterPlotsComplex <- function(dataframe, y, x, group){
                 ggplot(aes_string(x = x, y = y, colour = group)) + 
                 geom_point(size = 3) +
                 geom_line(aes(group = pseudonym), color = 'darkgrey', lwd = 1, alpha = 0.7) +
+                geom_smooth(method = 'lm', color = 'black', se = FALSE, lwd = 1, alpha = 0.7) +
                 theme_cowplot(font_size = 25)
         
-        progvar <- paste(y, '.1YearProg', sep = '')
+        progvar <- paste(y, '.1YearDelta', sep = '')
         
         g_scatter2 <- dataframe %>%
                 ggplot(aes_string(x = x, y = y)) + 
                 geom_point(size = 3) +
                 geom_line(aes_string(group = 'pseudonym', color=progvar), lwd = 1, alpha = 0.7) +
                 theme_cowplot(font_size = 25) +
-                scale_color_gradient2(low = 'blue', high = 'red')
+                scale_color_gradient2(low = 'blue', high = 'red') + 
+                geom_smooth(method = 'lm', color = 'black', se = FALSE, lwd = 1, alpha = 0.7)
         
         mean_progression <- mean(unlist(dataframe[, colnames(dataframe) == progvar]), na.rm = TRUE)
         
@@ -277,13 +278,14 @@ ScatterPlotsComplex <- function(dataframe, y, x, group){
                 geom_point(size = 3) +
                 theme_cowplot(font_size = 25) +
                 scale_color_gradient(low = 'blue', high = 'red') +
-                geom_hline(yintercept = mean_progression, linetype = 3, lwd = 1)
+                geom_hline(yintercept = mean_progression, linetype = 3, lwd = 1) +
+                geom_smooth(method = 'lm', color = 'black', se = FALSE, lwd = 1, alpha = 0.7)
         
-        plots <- plot_grid(g_scatter1, g_scatter2, g_scatter3, labels = 'AUTO', nrow = 3, ncol = 1)
+        plots <- plot_grid(g_scatter1, g_scatter2, g_scatter3, labels = 'AUTO', nrow = 2, ncol = 2)
         plot_grid(plots, ncol=1, rel_heights=c(0.1, 1))
         
 }
-y <- c('Up3OfTotal', 'Up3OfBradySum')
+y <- c('Up3OnTotal')
 x <- c('EstDisDurYears')
 group <- c('timepoint')
 for(n in unique(y)){
@@ -298,13 +300,13 @@ ScatterPlotsSimple <- function(dataframe, y, x, visit){
         
         g_scatter <- dataframe %>%
                 ggplot(aes_string(x = x, y = y)) +
-                geom_point(size = 3) +
-                geom_smooth(method = 'lm') +
+                geom_point(size = 3, alpha = 1/3) +
+                geom_smooth(method = 'lm', se = FALSE, color='darkred') +
                 theme_cowplot(font_size = 25)
         g_scatter + labs(title = paste(y, ' ~ ', x, '   Timepoint =', visit))
 }
-y <- c('Up3OfTotal', 'Up3OfBradySum')
-x <- c('EstDisDurYears')
+y <- c('Up3OnTotal.1YearDelta', 'Up3OnTotal.1YearROC')
+x <- c('Up3OnTotal')
 visit <- c('V1')
 for(n in unique(y)){
         g <- ScatterPlotsSimple(df, n, x, visit)
@@ -314,17 +316,31 @@ for(n in unique(y)){
 # Lineplots for lmer
 TimeSlopesBySubjectPlots <- function(dataframe, y, x, group){
         dataframe <- dataframe %>%
-                filter(MultipleSessions == 'Yes')
+                filter(MultipleSessions == 'Yes') %>%
+                filter(timepoint != 'V3')
         
-        progvar <- paste(y, '.1YearProg', sep = '')
-        g_line <- ggplot(dataframe, aes_string(x=x, y=y, group=group)) +
-                geom_line(aes_string(color=progvar), lwd = 1.2,  alpha = .7) + 
+        var1 <- paste('Up3Of', y, sep = '')
+        progvar1 <- paste('Up3Of', y, '.1YearDelta', sep = '')
+        g_line1 <- ggplot(dataframe, aes_string(x=x, y=var1, group=group)) +
+                geom_line(aes_string(color=progvar1), lwd = 1.2,  alpha = .7) + 
                 scale_color_gradient2(low = 'blue', high = 'red') +
                 geom_jitter(width=0.01, size=2, shape=21, fill='white') +
                 theme_cowplot(font_size = 25)
-        g_line
+        g_line1
+        
+        var2 <- paste('Up3Of', y, sep = '')
+        progvar2 <- paste('Up3On', y, '.1YearDelta', sep = '')
+        g_line2 <- ggplot(dataframe, aes_string(x=x, y=var2, group=group)) +
+                geom_line(aes_string(color=progvar2), lwd = 1.2,  alpha = .7) + 
+                scale_color_gradient2(low = 'blue', high = 'red') +
+                geom_jitter(width=0.01, size=2, shape=21, fill='white') +
+                theme_cowplot(font_size = 25)
+        g_line2
+        
+        library(ggpubr)
+        ggarrange(g_line1, g_line2, ncol=2)
 }
-y <- c('Up3OfTotal')
+y <- c('Total')
 x <- c('timepoint')
 group <- c('pseudonym')
 for(n in unique(y)){
@@ -336,7 +352,8 @@ MedSlopesMeanPlots <- function(dataframe){
         dataframe <- dataframe %>%
                 select(pseudonym, timepoint, Up3OfTotal, Up3OnTotal) %>%
                 pivot_longer(!c(pseudonym, timepoint), names_to='Medication', values_to='Up3Total') %>%
-                group_by(timepoint, Medication)
+                group_by(timepoint, Medication) %>%
+                na.omit
         dataframe$Medication <- factor(dataframe$Medication, levels = c('Up3OfTotal','Up3OnTotal'), labels = c('Off','On'))
         
         dataframe.summary <- dataframe %>%
