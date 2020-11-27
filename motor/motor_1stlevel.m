@@ -1,9 +1,9 @@
-function Inputs = motor_1stlevel(Force, Subset)
+function Inputs = motor_1stlevel(Force, Subset, preAROMA)
 
-% No arguments: Runs 1st-level for PIT participants who have not been processed
-% Force: Reruns 1st-levels
-% POM: Leave empty to process PIT, fill to process POM
+% No arguments: Runs 1st-level for participants who have not been processed
+% Force: Reruns 1st-levelsM
 % Subset: Number of jobs to send to the cluster
+% preAROMA: Run 1st-levels to prepare for AROMA reclassification
 
 if nargin<1 || isempty(Force)
 	Force = false;
@@ -42,7 +42,7 @@ for n = 1:numel(Sub)
         
         % Preprocessed functional image
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.gz']));
+        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.*']));
         FuncImg = cellstr(FuncImg{size(FuncImg,1)});
         % Events file
         dBeh = fullfile(BIDSDir, Sub{n}, Visit{v}, 'beh');
@@ -89,9 +89,17 @@ for n = 1:numel(Sub)
         end
 
     end
+    if strcmp(Sub{n}, 'sub-POMUDAD07284172C0428')       % fmriprep fails for this subject
+        Sel(n) = false;
+    end
 end
 Sub = Sub(Sel);
-if Subset > numel(Sub)
+if isempty(Subset)
+    fprintf('Subset not specified, processing all %i subjects! \n', numel(Sub))
+    NrSub = numel(Sub);
+elseif ~isempty(Subset)
+    NrSub = Subset;
+elseif Subset > numel(Sub)
     fprintf('Subset has %i more participants than is available. Processing the remaining ones instead! \n', Subset - numel(Sub))
     NrSub = numel(Sub);
 end
@@ -108,8 +116,8 @@ for n = 1:NrSub
     Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
     for v = 1:numel(Visit)
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.gz']));
-        Files = [Files; cellstr(FuncImg{size(FuncImg,1)})];
+        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.*']));
+        Files = [Files; cellstr(FuncImg{size(FuncImg,1)})]; % Selects the last run if there are multiple ones!
     end
 end
 
@@ -119,10 +127,16 @@ JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
 % Specify inputs to 1st-level analyses
 for n = 1:numel(Files)
     s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
-    v = char(extractBetween(Files{n}, '_', '_task'));           % Visit
+    v = char(extractBetween(Files{n}, [s '_'], '_task'));           % Visit
     r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
-    ConfFile            = strrep(Files{n}, 'space-MNI152NLin6Asym_desc-preproc_bold.nii.gz', 'desc-confounds_regressors.tsv');
-    %ConfFile            = strrep(Files{n}, 'space-MNI152NLin6Asym_desc-preproc_bold.nii.gz', 'desc-confounds_regressors2.tsv');
+    if isempty(preAROMA)
+        ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor..*desc-confounds_regressors3.tsv');
+        if isempty(ConfFile)
+            ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor..*desc-confounds_regressors2.tsv');
+        end
+    else
+        ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor.*desc-confounds_regressors.tsv');
+    end
     SourceNii           = Files{n};
     SPMDir              = fullfile(ANALYSESDir, s, v);
     SPMStatDir          = fullfile(ANALYSESDir, s, v, '1st_level');
@@ -141,9 +155,13 @@ for n = 1:numel(Files)
     % Copy functional image
     copyfile(SourceNii, SPMDir)
     InputNii = strrep(SourceNii, strcat(FMRIPrep, ['/' s '/' v], '/func'), SPMDir);
-    gunzip(InputNii)
-    delete(InputNii)
-    InputNii = strrep(InputNii, 'nii.gz', 'nii');
+    
+    [~, ~, Ext] = fileparts(SourceNii);
+    if strcmp(Ext, '.gz')
+        gunzip(InputNii)
+        delete(InputNii)
+        InputNii = strrep(InputNii, 'nii.gz', 'nii');
+    end
 	
 	% Change Directory: Directory - cfg_files
     Inputs{1}{n} = {SPMStatDir};
