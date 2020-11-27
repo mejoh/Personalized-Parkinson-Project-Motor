@@ -11,6 +11,7 @@ SPMdir=/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer
 FSLdir=/opt/fsl/6.0.0/etc/luts/renderhot.lut
 
 cd ${SPMdir}
+mkdir -p ${SPMdir}/QC
 input_list=`ls -d sub-*`					# Create input list with all participants in SPMdir
 #input_list=sub-POMU8067BDE54D1B1B4A
 subs_analyzed=( $input_list )					# Print how many, and which, subjects are listed
