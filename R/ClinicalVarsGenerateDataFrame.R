@@ -38,9 +38,9 @@ df2 <- ClinicalVarsPreprocessing(df2)
 #####
 
 # Export data
-pth <- "P:/3022026.01/analyses/nina/"
-fname <- paste(pth, "CastorData2.csv", sep = '')
-write_csv(df2, fname)
+#pth <- "P:/3022026.01/analyses/nina/"
+#fname <- paste(pth, "CastorData2.csv", sep = '')
+#write_csv(df2, fname)
 
 print(df2)
 
