@@ -138,7 +138,7 @@ WinningModel <- fm09
 # Data preparation
 
 dat <- df %>%
-        select(pseudonym, timepoint, Gender, Age, EstDisDurYears, TremorDominant.cutoff1, MultipleSessions,
+        select(pseudonym, timepoint, Gender, Age, EstDisDurYears, MultipleSessions,
                Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta,
                Up3OfBradySum, Up3OnBradySum, Up3OfBradySum.1YearDelta, Up3OnBradySum.1YearDelta,
                Up3OfRestTremAmpSum, Up3OnRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta, Up3OnRestTremAmpSum.1YearDelta,
@@ -246,7 +246,7 @@ summary(fm07b)
 anova(fm07, fm07b, refit = TRUE)
 
 # Full covariate model
-fm08 <- lmer(y ~ 1 + timepoint + Medication + poly(Age, 2) + Gender + EstDisDurYears + (1 + timepoint + Medication|pseudonym), data = dat, REML = TRUE)
+fm08 <- lmer(scale(y) ~ 1 + timepoint + Medication + poly(Age, 2) + Gender + EstDisDurYears + (1 + timepoint + Medication|pseudonym), data = dat, REML = TRUE)
 summary(fm08)
 anova(fm04,fm08, refit = TRUE)
 
@@ -358,13 +358,242 @@ confint.merMod(WinningModel, method = c('boot'), boot.type = c('basic'))
 
 ##### Multivariate MCMCglmm #####
 
+library(MCMCglmm)
+library(lme4)
+library(brms)
+library(tidyverse)
+library(corrplot)
+library(broom.mixed)
+library(dotwhisker)
+library(lattice)
+library(splines)
 
+# Load data
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/initialize_funcs.R')
+tb <- CombinedDatabase()
+
+# Subset data
+tb2 <- tb %>%
+        filter(MriNeuroPsychTask == 'Motor') %>%
+        filter(ParkinMedUser == 'Yes') %>%
+        filter(MultipleSessions == 'Yes') %>%
+        select(pseudonym, Gender, Age, EstDisDurYears, timepoint, TimeToFUYears,
+               Up3OfTotal, Up3OnTotal,
+               Up3OfBradySum, Up3OnBradySum,
+               Up3OfRigiditySum, Up3OnRigiditySum,
+               Up3OfRestTremAmpSum, Up3OnRestTremAmpSum,
+               Up3OfActionTremorSum, Up3OnActionTremorSum,
+               Up3OfPIGDSum, Up3OnPIGDSum,
+               Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta) %>%
+        mutate(pseudonym=as.factor(pseudonym)) %>%
+        na.omit
+
+# Scale confounding variables (DO THIS WITHIN THE MODEL INSTEAD FOR CLARITY)
+#scale.vars <- c('Age', 'EstDisDurYears')
+#for (i in 1:length(scale.vars)){
+#        scaled_var <- tb.reduced %>%
+#                select(one_of(scale.vars[i])) %>%
+#                scale(center = TRUE, scale = TRUE)
+#        scaled_var <- c(scaled_var)
+#        tb.reduced <- tb.reduced %>%
+#                mutate('{scale.vars[i]}_sc' := scaled_var)
+#}
+#tb.reduced_sc  <- tb.reduced %>%
+#        select(-c(any_of(scale.vars)))
+
+# Lengthen by medication
+tb2.long <- tb2 %>%
+        pivot_longer(cols = starts_with('Up3'), names_to = c('Medication', '.value'), names_sep = 5) %>%
+        mutate(Medication = if_else(Medication == 'Up3Of', 'Off', 'On'),
+               Medication = as.factor(Medication))
+
+# Set levels of factor so that 0 is clear
+tb3.long <- tb2.long %>%
+        mutate(Gender = if_else(Gender == 'Male',0,1),
+               Medication = if_else(Medication == 'Off',0,1),
+               timepoint = if_else(timepoint == 'V1',0,1))
+
+# Set prior (weak)
+prior1 = list(R = list(V = diag(2)/2, nu = 0.002),
+              G = list(G1 = list(V = diag(3)/3,
+                                 nu = 0.002,
+                                 alpha.mu = rep(0,3),
+                                 alpha.V = diag(3)/3)))
+
+# Estimate primary model
+FitModel <- function(){
+        m <- MCMCglmm(cbind(scale(Total), scale(BradySum)) ~ 0 + trait +
+                              trait:scale(Age) +
+                              trait:scale(EstDisDurYears) + 
+                              trait:Gender +
+                              trait:Medication + 
+                              trait:timepoint,
+                      random = ~us(trait + timepoint):pseudonym,
+                      rcov = ~us(trait):units,
+                      prior = prior1,
+                      family = c('gaussian', 'gaussian'),
+                      nitt = 90000,
+                      burnin = 40000,
+                      thin = 50,
+                      data = as.data.frame(tb3.long),
+                      verbose = TRUE) 
+        return(m)
+}
+mcmc1 <- FitModel()
+summary(mcmc1)
+
+# Fit the model again to enable usage of the Gelman diagnostic
+#mcmc2 <- FitModel()
+#mcmc3 <- FitModel()
+#mcmc4 <- FitModel()
+
+# Diagnostics
+pairs(tb3.long)
+# Correlation plots for random effects (not sure if this works properly)
+VarCorr.MCMCglmm <- function(object, ...) {
+        s <- summary(object$VCV)$statistics[,"Mean"]
+        grps <- gsub("^[^.]+\\.([[:alnum:]]+)$","\\1",names(s))
+        ss <- split(s,grps)
+        getVC <- function(x) {
+                nms <- gsub("^([^.]+)\\.[[:alnum:]]+$","\\1",names(x))
+                n <- length(nms)
+                L <- round(sqrt(n))
+                dimnms <- gsub("^([^:]+):.*$","\\1",nms[1:L])
+                return(matrix(x,dimnames=list(dimnms,dimnms),
+                              nrow=L))
+        }
+        r <- setNames(lapply(ss,getVC),unique(grps))
+        return(r)
+}
+vv <- VarCorr(mcmc1)
+corrplot.mixed(cov2cor(vv$pseudonym),upper="ellipse")
+corrplot.mixed(cov2cor(vv$units),upper="ellipse")
+# Fixed effects
+tt <- tidy(mcmc1)
+tt <- bind_rows(MCMCglmm=tt,.id="model") %>%
+        filter(effect=="fixed")
+dwplot(tt)+geom_vline(xintercept=0,lty=2)
+# QQplot
+
+# Mixing, burn-in
+plot(mcmc1)
+# Autocorrelation
+acSol <- autocorr(mcmc1$Sol)    # Fixed effects
+view(acSol)
+acVCV <- autocorr(mcmc1$VCV)    # Random effects
+view(acVCV)
+autocorr.plot(mcmc1$Sol)       # acf() also works
+autocorr.plot(mcmc1$VCV)
+# Model convergence
+geweke.plot(mcmc1$Sol)    # Fixed effects
+gelman.plot(mcmc.list(mcmc1$Sol, mcmc2$Sol))
+geweke.plot(mcmc1$VCV)    # Random effects
+gelman.plot(mcmc.list(mcmc1$VCV, mcmc2$VCV))
+# Robustness to different priors
+mcmc1_DefPrior <- MCMCglmm(cbind(scale(BradySum), scale(RigiditySum), scale(RestTremAmpSum)) ~ 0 + trait +
+                                   trait:scale(Age) +
+                                   trait:scale(EstDisDurYears) + 
+                                   trait:Gender +
+                                   trait:Medication + 
+                                   trait:timepoint,
+                           random = ~us(trait + timepoint):pseudonym,
+                           rcov = ~us(trait):units,
+                           family = c('gaussian', 'gaussian', 'gaussian'),
+                           nitt = 75000,
+                           burnin = 50000,
+                           thin = 50,
+                           data = as.data.frame(tb3.long),
+                           verbose = TRUE)
+summary(mcmc1_DefPrior)
+# In progress
+# Default prior?
+# Stronger prio?
+# Is there a prior which makes sense for us?
+
+
+# Correlate individual differences
+#cor_intslope <- posterior.mode(posterior.cor(mcmc1$VCV[,c(1,4,13,16)]))[2]
+#HPDinterval(posterior.cor(mcmc1$VCV[,c(1,4,13,16)]))[2,]
+cor_intslope <- mcmc1$VCV[,'timepoint:traitBradySum.pseudonym']/
+        (sqrt(mcmc1$VCV[,'traitBradySum:traitBradySum.pseudonym'])* 
+                 sqrt(mcmc1$VCV[,'timepoint:timepoint.pseudonym']))
+posterior.mode(cor_intslope)
+HPDinterval(cor_intslope)
+plot(cor_intslope)
+
+#####
+
+##### Multivariate lme4 #####
+
+tb2 <- df %>%
+        filter(MriNeuroPsychTask == 'Motor') %>%
+        filter(ParkinMedUser == 'Yes') %>%
+        filter(timepoint == 'V1') %>%
+        select(pseudonym, Gender, Age, EstDisDurYears, TimeToFUYears,
+               Up3OfTotal, Up3OnTotal,
+               Up3OfBradySum, Up3OnBradySum) %>%
+        mutate(pseudonym=as.factor(pseudonym))
+
+# Lengthen by medication
+tb2.long <- tb2 %>%
+        pivot_longer(cols = starts_with('Up3'), names_to = c('Medication', '.value'), names_sep = 5) %>%
+        mutate(Medication = if_else(Medication == 'Up3Of', 'Off', 'On'),
+               Medication = as.factor(Medication))
+
+# Set levels of factor so that 0 is clear
+tb3.long <- tb2.long %>%
+        mutate(Gender = if_else(Gender == 'Male',0,1),
+               Medication = if_else(Medication == 'Off',0,1))
+
+# Turn variable names to levels in a single factor to enable multivariate lme4
+tb3.longer <- tb3.long %>%
+        pivot_longer(c('Total', 'BradySum'), names_to='Score', values_to='Severity') %>%
+        mutate(Score=as.factor(Score))
+
+# Fit multivariate lme4
+lmer01 <- lmer(Severity ~ 0 + Score +
+                       Score:Medication + 
+                       Score:scale(Age, scale=FALSE) + 
+                       Score:Gender + 
+                       Score:scale(EstDisDurYears, scale=FALSE) +
+                       (0 + Score|pseudonym), data = na.omit(tb3.longer))
+summary(lmer01)
+VarCorr(lmer01)
+cov2cor(vcov(lmer01))
 
 #####
 
 
+##### Test of delta #####
+tb2 <- df %>%
+        filter(MriNeuroPsychTask == 'Motor') %>%
+        filter(ParkinMedUser == 'Yes') %>%
+        filter(timepoint == 'V2') %>%
+        select(pseudonym, Gender, Age, EstDisDurYears, TimeToFUYears,
+               Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta,
+               Up3OfTotal.1YearROC, Up3OnTotal.1YearROC) %>%
+        mutate(pseudonym=as.factor(pseudonym))
 
+# Lengthen by medication
+tb2.long <- tb2 %>%
+        pivot_longer(cols = starts_with('Up3'), names_to = c('Medication', '.value'), names_sep = 5) %>%
+        mutate(Medication = if_else(Medication == 'Up3Of', 'Off', 'On'),
+               Medication = as.factor(Medication))
 
+# Set levels of factor so that 0 is clear
+tb3.long <- tb2.long %>%
+        mutate(Gender = if_else(Gender == 'Male',0,1),
+               Medication = if_else(Medication == 'Off',0,1))
+
+#
+lm_d1 <- lmer(Total.1YearDelta ~ Medication +
+                      Gender +
+                      scale(Age, scale=FALSE) +
+                      scale(EstDisDurYears, scale=FALSE) +
+                      scale(TimeToFUYears, scale=FALSE) + 
+                      (1 | pseudonym),
+              data = na.omit(tb3.long))
+summary(lm_d1)
 
 
 
