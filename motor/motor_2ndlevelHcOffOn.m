@@ -70,6 +70,7 @@ for n = 1:numel(SubInfo.Sub)
     end
 end
 fprintf('%i Visit3 excluded \n', sum(Sel == 0))
+
 SubInfo.Sub = SubInfo.Sub(Sel);
 SubInfo.Session = SubInfo.Session(Sel);
 SubInfo.Run = SubInfo.Run(Sel);
@@ -95,6 +96,7 @@ end
 
 Group = strings(size(SubInfo.Sub));
 RespondingHand = strings(size(SubInfo.Sub));
+PercentageCorrect = strings(size(SubInfo.Sub));
 
 for n = 1:numel(SubInfo.Sub)
     Json = fileread(JsonFiles{n});
@@ -107,6 +109,7 @@ for n = 1:numel(SubInfo.Sub)
         Group(n) = 'PD_POM';
     end
     RespondingHand(n) = DecodedJson.RespondingHand.Value;
+    PercentageCorrect(n) = DecodedJson.ExtCorrResp.Value;
 end
 
 %% Framewise displacement
@@ -121,17 +124,32 @@ end
 
 %% Exclusion
 
-Sel = false(size(SubInfo.Sub));
+% FD
+Sel = true(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
-    if FD(n) < FDThresh
-        Sel(n) = true;
-    else
-        sprintf('Excluding %s (%s) due to %f mean framewise displacement (Threshold = %f)', SubInfo.Sub{n}, Group(n), FD(n), FDThresh)
+    if FD(n) > FDThresh
+        Sel(n) = false;
+        sprintf('Excluding %s (%s) due to %f mean framewise displacement (Threshold = %f) \n', SubInfo.Sub{n}, Group(n), FD(n), FDThresh)
     end
 end
-FDexcluded = sum(Sel == 0);
-fprintf('%i participants excluded due to excessive motion \n', FDexcluded)
+fprintf('%i participants excluded due to excessive motion \n', sum(Sel == 0))
+SubInfo.Sub = SubInfo.Sub(Sel);
+SubInfo.Session = SubInfo.Session(Sel);
+SubInfo.Run = SubInfo.Run(Sel);
+Group = Group(Sel);
+RespondingHand = RespondingHand(Sel);
+FD = FD(Sel);
+PercentageCorrect = PercentageCorrect(Sel);
 
+% Percentage correct responses in external
+Sel = true(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    if double(PercentageCorrect(n)) <= 0.25
+        Sel(n) = false;
+        sprintf('Excluding %s (%s) due to %f percentage correct responses in External (Threshold = 25%) \n', SubInfo.Sub{n}, Group(n), PercentageCorrect(n))
+    end
+end
+fprintf('%i participants excluded due to poor performance \n', sum(Sel == 0))
 SubInfo.Sub = SubInfo.Sub(Sel);
 SubInfo.Session = SubInfo.Session(Sel);
 SubInfo.Run = SubInfo.Run(Sel);
@@ -208,6 +226,7 @@ Inputs{13,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchPd.name}');
 FD_HC_PIT = FD(strcmp(Group, 'HC_PIT'))';
 FD_PD_PIT = FD(strcmp(Group, 'PD_PIT'))';
 FD_PD_POM = FD(strcmp(Group, 'PD_POM'))';
+
 Inputs{14,1} = [FD_HC_PIT FD_HC_PIT  FD_HC_PIT FD_HC_PIT FD_PD_PIT FD_PD_PIT FD_PD_PIT FD_PD_PIT FD_PD_POM FD_PD_POM FD_PD_POM FD_PD_POM]';
 
 %% Run
