@@ -1,35 +1,29 @@
-function DistributionsMeanStd(ParkinsonOpMaat)
+function DistributionsMeanStd()
 
-PIT = '3024006.01';
-POM = '3022026.01';
-if nargin <1 || isempty(ParkinsonOpMaat)
-    Project = PIT;
-else
-    Project = POM;
-end
-
-fprintf('Processing data in project: %s\n', Project)
-Root     = strcat('/project/', Project);
-BIDSDir  = fullfile(Root, 'bids');
+fprintf('Processing data in project: %s\n', '3022026.01')
+Root     = '/project/3022026.01/pep';
+BIDSDir  = fullfile(Root, 'bids_PIT');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 QCDir    = fullfile(Root, 'users/marjoh/QC');
-BIDS     = spm_BIDS(BIDSDir);
-Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor');
-Sel = true(size(Sub));
+Sub = cellstr(spm_select('List', BIDSDir, 'dir', '^sub-POM.*'));
 
+Sel = true(size(Sub));
 % Skip unfinished frmiprep jobs
 for n = 1:numel(Sub)
-	Report = spm_select('FPList', FMRIPrep, ['sub-' Sub{n} '.*\.html$']);
-	if size(Report,1)~=1
-		fprintf('Skipping sub-%s with no fmriprep output\n', Sub{n})
-		disp(Report)
-		Sel(n) = false;
+    Report = spm_select('List', FMRIPrep, [Sub{n} '.*\.html$']);
+    if size(Report,1)~=1
+        fprintf('Skipping sub-%s with no fmriprep output\n', Sub{n})
+        disp(Report)
+        Sel(n) = false;
     end
 	
-	SrcNii = spm_select('FPList', fullfile(FMRIPrep, ['sub-' Sub{n}], 'func'), ['sub-' Sub{n} '.*task-motor.*_space-MNI152NLin6Asym_desc-preproc_bold.nii$']);
-	if size(SrcNii,1)~=1
-		fprintf('Skipping sub-%s with no fmriprep images\n', Sub{n})
-		Sel(n) = false;
+    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
+    for v = 1:numel(Visit)
+        SrcNii = spm_select('List', fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func'), [Sub{n} '.*task-motor.*_space-MNI152NLin6Asym_desc-preproc_bold.nii$']);
+        if size(SrcNii,1)~=1
+            fprintf('Skipping sub-%s %s with no fmriprep images\n', Sub{n}, Visit{v})
+            Sel(n) = false;
+        end
     end
 end
 
