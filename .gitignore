@@ -26,3 +26,4 @@ R/MotorTaskData_environment1.RData
 R/temp.RData
 R/MotorTaskData_environment2.RData
 *.RData
+motor/Contrasts.xlsx
