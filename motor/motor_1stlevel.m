@@ -25,6 +25,7 @@ addpath('/home/common/matlab/spm12');
 Project = '3022026.01';
 fprintf('Processing data in project: %s\n', Project)
 Root = strcat('/project/', Project);
+% BIDSDir  = fullfile(Root, 'pep', 'bids_PIT');
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 ANALYSESDir   = strcat('/project/', Project, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer');  
@@ -138,6 +139,8 @@ for n = 1:numel(Files)
         ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor.*desc-confounds_regressors.tsv');
     end
     SourceNii           = Files{n};
+%     SPMDir              = fullfile(ANALYSESDir, s, [v '_PIT']);
+%     SPMStatDir          = fullfile(ANALYSESDir, s, [v '_PIT'], '1st_level'); %<<<<<<< REMOVE PIT WHEN APPROPRIATE
     SPMDir              = fullfile(ANALYSESDir, s, v);
     SPMStatDir          = fullfile(ANALYSESDir, s, v, '1st_level');
     TaskDir             = fullfile(BIDSDir, s, v, 'beh');
