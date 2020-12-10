@@ -15,7 +15,7 @@ spm('defaults', 'FMRI');
 
 %% Directories
 
-FDThresh = 0.3;
+FDThresh = 1;
 ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer';
 % ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_BRCtrl';
 BIDSDir = '/project/3022026.01/pep/bids';
