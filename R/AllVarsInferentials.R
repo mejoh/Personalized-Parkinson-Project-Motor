@@ -19,7 +19,7 @@ dat <- reshape_by_task(df, lengthen=TRUE)
 dat <- dat %>%
         filter(timepoint == 'V1') %>%
         select(pseudonym, Condition, Response.Time, Percentage.Correct, Age, Gender, EstDisDurYears, Responding.Hand,
-               PrefHand, TremorDominant.cutoff1) %>%
+               PrefHand) %>%
         na.omit %>%
         mutate(Condition=as.factor(Condition),
                Age=scale(Age, scale = FALSE, center = TRUE),
@@ -138,7 +138,7 @@ WinningModel <- fm09
 # Data preparation
 
 dat <- df %>%
-        select(pseudonym, timepoint, Gender, Age, EstDisDurYears, MultipleSessions,
+        select(pseudonym, timepoint, TimeToFUYears, Gender, Age, EstDisDurYears, MultipleSessions,
                Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta,
                Up3OfBradySum, Up3OnBradySum, Up3OfBradySum.1YearDelta, Up3OnBradySum.1YearDelta,
                Up3OfRestTremAmpSum, Up3OnRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta, Up3OnRestTremAmpSum.1YearDelta,
@@ -152,7 +152,8 @@ dat <- dat %>% pivot_wider(names_from='Subscore',
 dat <- dat %>%
         filter(MultipleSessions=='Yes') %>%
         mutate(pseudonym=as.factor(pseudonym),
-               y=Up3Total) %>%
+               y=Up3Total,
+               EstDisDurYears_time = EstDisDurYears + TimeToFUYears) %>%
         na.omit
 
 dat$timepoint <- factor(dat$timepoint)
@@ -411,7 +412,8 @@ tb2.long <- tb2 %>%
 tb3.long <- tb2.long %>%
         mutate(Gender = if_else(Gender == 'Male',0,1),
                Medication = if_else(Medication == 'Off',0,1),
-               timepoint = if_else(timepoint == 'V1',0,1))
+               timepoint = if_else(timepoint == 'V1',0,1),
+               EstDisDurYears2 = EstDisDurYears + TimeToFUYears)
 
 # Set prior (weak)
 prior1 = list(R = list(V = diag(2)/2, nu = 0.002),
@@ -571,7 +573,9 @@ tb2 <- df %>%
         filter(timepoint == 'V2') %>%
         select(pseudonym, Gender, Age, EstDisDurYears, TimeToFUYears,
                Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta,
-               Up3OfTotal.1YearROC, Up3OnTotal.1YearROC) %>%
+               Up3OfTotal.1YearROC, Up3OnTotal.1YearROC,
+               Up3OfRestTremAmpSum.1YearDelta, Up3OnRestTremAmpSum.1YearDelta,
+               Up3OfRestTremAmpSum.1YearROC, Up3OnRestTremAmpSum.1YearROC) %>%
         mutate(pseudonym=as.factor(pseudonym))
 
 # Lengthen by medication
@@ -586,15 +590,23 @@ tb3.long <- tb2.long %>%
                Medication = if_else(Medication == 'Off',0,1))
 
 #
-lm_d1 <- lmer(Total.1YearDelta ~ Medication +
+lmer_d1 <- lmer(RestTremAmpSum.1YearDelta ~ Medication +
                       Gender +
                       scale(Age, scale=FALSE) +
                       scale(EstDisDurYears, scale=FALSE) +
                       scale(TimeToFUYears, scale=FALSE) + 
                       (1 | pseudonym),
               data = na.omit(tb3.long))
-summary(lm_d1)
-
-
+summary(lmer_d1)
+plot(lmer_d1)
+lmer_d2 <- lmer(RestTremAmpSum.1YearROC ~ Medication +
+                      Gender +
+                      scale(Age, scale=FALSE) +
+                      scale(EstDisDurYears, scale=FALSE) +
+                      scale(TimeToFUYears, scale=FALSE) + 
+                      (1 | pseudonym),
+              data = na.omit(tb3.long))
+summary(lmer_d2)
+plot(lmer_d2)
 
 
