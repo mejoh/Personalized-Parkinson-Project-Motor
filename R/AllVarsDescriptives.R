@@ -305,8 +305,8 @@ ScatterPlotsSimple <- function(dataframe, y, x, visit){
                 theme_cowplot(font_size = 25)
         g_scatter + labs(title = paste(y, ' ~ ', x, '   Timepoint =', visit))
 }
-y <- c('Up3OnTotal.1YearDelta', 'Up3OnTotal.1YearROC')
-x <- c('Up3OnTotal')
+y <- c('Up3OfTotal.1YearDelta')
+x <- c('Up3OfTotal')
 visit <- c('V1')
 for(n in unique(y)){
         g <- ScatterPlotsSimple(df, n, x, visit)
