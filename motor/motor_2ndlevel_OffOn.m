@@ -10,7 +10,7 @@ end
 addpath('/home/common/matlab/spm12');
 spm('defaults', 'FMRI');
 
-FDThresh = 0.3;
+FDThresh = 1;
 ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer';
 BIDSDir = '/project/3022026.01/pep/bids';
 BIDSDir_PIT = '/project/3022026.01/pep/bids_PIT';
