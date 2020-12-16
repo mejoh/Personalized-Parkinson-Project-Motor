@@ -147,9 +147,9 @@ fprintf('%i participants excluded due to excessive motion \n', sum(Sel == 0))
 SubInfo.Sub = SubInfo.Sub(Sel);
 SubInfo.Session = SubInfo.Session(Sel);
 SubInfo.Run = SubInfo.Run(Sel);
-Group = Group(Sel);
-RespondingHand = RespondingHand(Sel);
-FD = FD(Sel);
+SubInfo.Group = Group(Sel);
+SubInfo.RespondingHand = RespondingHand(Sel);
+SubInfo.FD = FD(Sel);
 PercentageCorrect = PercentageCorrect(Sel);
 
 % Percentage correct responses in external
@@ -157,7 +157,7 @@ Sel = true(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     if double(PercentageCorrect(n)) <= 0.25
         Sel(n) = false;
-        sprintf('Excluding %s (%s) due to %f percentage correct responses in External (Threshold = 25%) \n', SubInfo.Sub{n}, Group(n), PercentageCorrect(n))
+        sprintf('Excluding %s (%s) due to %f percentage correct responses in External (Threshold = 25%) \n', SubInfo.Sub{n}, SubInfo.Group(n), PercentageCorrect(n))
     end
 end
 fprintf('%i participants excluded due to poor performance \n', sum(Sel == 0))
@@ -165,9 +165,9 @@ fprintf('%i participants excluded due to poor performance \n', sum(Sel == 0))
 SubInfo.Sub = SubInfo.Sub(Sel);
 SubInfo.Session = SubInfo.Session(Sel);
 SubInfo.Run = SubInfo.Run(Sel);
-Group = Group(Sel);
-RespondingHand = RespondingHand(Sel);
-FD = FD(Sel);
+SubInfo.Group = SubInfo.Group(Sel);
+SubInfo.RespondingHand = SubInfo.RespondingHand(Sel);
+SubInfo.FD = SubInfo.FD(Sel);
 
 %% Copy and flip
 
@@ -186,9 +186,9 @@ for c = 1:numel(ConList)
             if strcmp(SessionList{s}, SubInfo.Session{n})
                 InputConFile = fullfile(ANALYSESDir, SubInfo.Sub{n}, SubInfo.Session{n}, '1st_level', [ConList{c} '.nii']);
                 if exist(InputConFile, 'file')
-                    OutputConFile = fullfile(ConDir, [char(Group(n)) '_' SubInfo.Sub{n} '_' SubInfo.Session{1} '_' ConList{c} '.nii']);
+                    OutputConFile = fullfile(ConDir, [char(SubInfo.Group(n)) '_' SubInfo.Sub{n} '_' SubInfo.Session{1} '_' ConList{c} '.nii']);
                     copyfile(InputConFile, OutputConFile)
-                            if strcmp(RespondingHand(n), 'Left') && Swap
+                            if strcmp(SubInfo.RespondingHand(n), 'Left') && Swap
                                 fprintf('LR-swapping: %s\n', OutputConFile)
                                 Hdr		  = spm_vol(OutputConFile);
                                 Vol		  = spm_read_vols(Hdr);
@@ -218,15 +218,15 @@ for n = 1:numel(ConList)
         PdIms = dir(fullfile(ConDir, 'PD_PIT*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
         inputs{5,1} = {'/project/3022026.01/analyses/motor/Masks/standard/group_mask.nii,1'};
-        FD2 = [FD(strcmp(Group, 'HC_PIT')); FD(strcmp(Group, 'PD_PIT'))];
+        FD2 = [SubInfo.FD(strcmp(SubInfo.Group, 'HC_PIT')); SubInfo.FD(strcmp(SubInfo.Group, 'PD_PIT'))];
     else
-        inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'IndependentTtests_HcVsOn', ConNames{n})};
+        inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOn', ConNames{n})};
         HcIms = dir(fullfile(ConDir, 'HC_PIT*'));
         inputs{2,1} = fullfile(ConDir, {HcIms.name}');
         PdIms = dir(fullfile(ConDir, 'PD_POM*'));
         inputs{3,1} = fullfile(ConDir, {PdIms.name}');
         inputs{5,1} = {'/project/3022026.01/analyses/motor/Masks/standard/group_mask.nii,1'};
-        FD2 = [FD(strcmp(Group, 'HC_PIT')); FD(strcmp(Group, 'PD_POM'))];
+        FD2 = [SubInfo.FD(strcmp(SubInfo.Group, 'HC_PIT')); SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'))];
     end
     inputs{4,1} = FD2';%(FD2 - mean(FD2) / std(FD2))';       %Normalize FD
     
@@ -238,17 +238,47 @@ for n = 1:numel(ConList)
     end
     
 %     spm_jobman('run', JobFile, inputs{:});
-    jobs{n} =  qsubfeval('spm_jobman','run',JobFile, inputs{:},'memreq',5*1024^3,'timreq',16*60*60);
+    jobs{n} =  qsubfeval('spm_jobman','run',JobFile, inputs{:},'memreq',15*1024^3,'timreq',20*60*60);
 end
 
+%% Write output files
+
+% File for jobs
 task.jobs = jobs;
 task.submittime = datestr(clock);
 task.mfile = mfilename;
 task.mfiletext = fileread([task.mfile '.m']);
-if isempty(Offstate)
+
+% File for analyzed subjects
+AnalyzedSubs = extractBetween(inputs{2,1}, 'HC_PIT_', '_ses');      % Check for pseudonyms included in analysis
+if ~istrue(Offstate)
+    AnalyzedSubs = [AnalyzedSubs; extractBetween(inputs{3,1}, 'PD_POM_', '_ses')];
+else
+    AnalyzedSubs = [AnalyzedSubs; extractBetween(inputs{3,1}, 'PD_PIT_', '_ses')];
+end
+SubInfo.Analyzed = contains(SubInfo.Sub, AnalyzedSubs);         % Write to SubInfo
+SubInfo2 = struct2table(SubInfo);                               % Create a second SubInfo to store only analyzed subjects
+SubInfo2 = SubInfo2(SubInfo2.Analyzed,:);
+if ~istrue(Offstate)                                            % Remove duplicates depending on 'Offstate'
+    SubInfo2 = SubInfo2(SubInfo2.Group ~= "PD_PIT",:);
+else
+    SubInfo2 = SubInfo2(SubInfo2.Group ~= "PD_POM",:);
+end
+SubInfo2 = SubInfo2(~contains(SubInfo2.Session, "Visit3"),:);   % Remove Visit3 subjects
+
+% Write files
+if ~istrue(Offstate)
     save([fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOn') '/jobs___' task.mfile  '___' datestr(clock) '.mat'],'task');
+    save([fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOn') '/AllSubs___' task.mfile  '___' datestr(clock) '.mat'],'SubInfo');
+    save([fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOn') '/AnalyzedSubs___' task.mfile  '___' datestr(clock) '.mat'],'SubInfo2');
+    writetable(struct2table(SubInfo), [fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOn') '/AllSubs___' task.mfile  '___' datestr(clock) '.csv'])
+    writetable(SubInfo2, [fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOn') '/AnalyzedSubs___' task.mfile  '___' datestr(clock) '.csv'])
 else
     save([fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOff') '/jobs___' task.mfile  '___' datestr(clock) '.mat'],'task');
+    save([fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOff') '/AllSubs___' task.mfile  '___' datestr(clock) '.mat'],'SubInfo');
+    save([fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOff') '/AnalyzedSubs___' task.mfile  '___' datestr(clock) '.mat'],'SubInfo2');
+    writetable(struct2table(SubInfo), [fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOff') '/AllSubs___' task.mfile  '___' datestr(clock) '.csv'])
+    writetable(SubInfo2, [fullfile(ANALYSESDir, 'Group', 'IndependentTtest_HcVsOff') '/AnalyzedSubs___' task.mfile  '___' datestr(clock) '.csv'])
 end
 
 cd(CurrentDir)
