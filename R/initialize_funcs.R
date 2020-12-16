@@ -1,3 +1,5 @@
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/CombinedDatabase.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/reshape_by_medication.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/reshape_by_task.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/generate_motor_task_csv.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/generate_castor_csv.R')
