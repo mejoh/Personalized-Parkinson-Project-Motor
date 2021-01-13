@@ -1,12 +1,11 @@
-
-bidsdir <- 'P:/3022026.01/pep/ClinVars/'
+# This script generates a single csv file that summarizes the clinical variables
+# of all subjects in the specified bids-directory
+# The output file is in person-period format
 
 generate_castor_csv <- function(bidsdir){
         
         library(tidyverse)
         library(jsonlite)
-        library(readtext)
-        library(assertthat)
         library(stringr)
         library(lubridate)
         
@@ -466,9 +465,11 @@ generate_castor_csv <- function(bidsdir){
                 cat(nrow(BelowZeroFU), ' participants have negative time to follow-up, check so that visit 1 data is available.', '\n',
                     'Data entry mistake may have been made. Setting TimeToFUYears to positive for: ', '\n', sep = '')
                 print(BelowZeroFU$pseudonym)
-                dataframe$TimeToFUYears[dataframe$TimeToFUYears < 0] <- dataframe$TimeToFUYears[dataframe$TimeToFUYears < 0]*(-1)   
+                idx <- dataframe$TimeToFUYears[dataframe$TimeToFUYears < 0 & !is.na(dataframe$TimeToFUYears)]
+                dataframe$TimeToFUYears[idx] <- dataframe$TimeToFUYears[idx]*(-1)  
+                return(dataframe)
         }
-        Check1(df7)
+        df8 <- Check1(df7)
         
         # EstDisDurYears: Negative values
         Check2 <- function(dataframe){
@@ -477,9 +478,11 @@ generate_castor_csv <- function(bidsdir){
                 cat(nrow(BelowZeroDisDur), ' participants have negative disease durations, check so that visit 1 data is available.', '\n',
                     'Data entry mistake may have been made. Setting EstDisDurYears to positive for: ', '\n', sep = '')
                 print(BelowZeroDisDur$pseudonym)
-                dataframe$EstDisDurYears[dataframe$EstDisDurYears < 0] <- dataframe$EstDisDurYears[dataframe$EstDisDurYears < 0]*(-1)
+                idx <- dataframe$EstDisDurYears[dataframe$EstDisDurYears < 0 & !is.na(dataframe$EstDisDurYears)]
+                dataframe$EstDisDurYears[idx] <- dataframe$EstDisDurYears[idx]*(-1)
+                return(dataframe)
         }
-        Check2(df7)
+        df9 <- Check2(df8)
         
         # Missing values
         Check3 <- function(dataframe){
@@ -494,7 +497,7 @@ generate_castor_csv <- function(bidsdir){
         
         ##### Write to csv #####
         
-        outputfile <- paste(bidsdir, 'derivatives/clinical_variables.csv', sep = '')
+        outputfile <- paste(bidsdir, 'derivatives/database_clinical_variables.csv', sep = '')
         if(!dir.exists(dirname(outputfile))){
                 dir.create(dirname(outputfile))
         }
