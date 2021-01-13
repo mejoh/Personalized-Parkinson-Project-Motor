@@ -131,7 +131,7 @@ generate_motor_task_csv <- function(bidsdir){
         Data <- na.omit(Data)
         
         # Write the data frame to csv
-        outputfile <- paste(bidsdir, 'derivatives/motor_task.csv', sep = '')
+        outputfile <- paste(bidsdir, 'derivatives/database_motor_task.csv', sep = '')
         if(file.exists(outputfile)){
                 file.remove(outputfile)
         }
