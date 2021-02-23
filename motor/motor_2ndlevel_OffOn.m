@@ -11,8 +11,8 @@ spm('defaults', 'FMRI');
 
 ses = 'ses-Visit1';
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
-ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer';
-% ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_BRCtrl';
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer';
+% ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', 'ses-Visit1'), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
