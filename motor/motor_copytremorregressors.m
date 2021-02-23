@@ -20,7 +20,7 @@ fprintf('Number of subjects processed: %i\n', numel(Sub))
 % Select patients
 Sel = false(size(Sub));
 for n = 1:numel(Sub)
-    if contains(Sub{n}, 'PD_P')
+    if contains(Sub{n}, 'PD_POM')
         Sel(n) = true;
     else
         fprintf('Excluding %s due to group\n', Sub{n})
@@ -34,12 +34,7 @@ SubInfo.Group = extractBetween(Sub, 1, 6);
 % Find SPM.mat files
 SubInfo.SPM = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
-    if contains(SubInfo.Group{n}, '_PIT')
-        Session = 'ses-Visit1_PIT';
-    else
-        Session = 'ses-Visit1';
-    end
-    SubInfo.SPM{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session, '1st_level'), '^SPM.mat$');
+    SubInfo.SPM{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, ses, '1st_level'), '^SPM.mat$');
 end
 
 % Find indices for tremor regressors and exclude participants without tremor regressors
@@ -66,10 +61,26 @@ SubInfo.TremNr = SubInfo.TremNr(Sel);
 SubInfo.TremDerivNr = SubInfo.TremDerivNr(Sel);
 
 % Exclude participants where tremor was absent
-Sel = false(size(SubInfo.Sub));
-for n = numel(SubInfo.Sub)
-    
+Classification = readtable('/project/3022026.01/analyses/EMG/motor/manually_checked/Martin/Tremor_check-09-Nov-2020.csv');
+Classification = Classification(:,[1,9]);
+for n = 1:size(Classification,1)
+    Classification.Var1(n) = erase(Classification.Var1(n),',');
+    Classification.Var9(n) = extractBefore(Classification.Var9(n),'-ses');
 end
+TremorAbsent = Classification.Var9(~ismember(Classification.Var1,'1'));
+
+Sel = true(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    if sum(contains(TremorAbsent, SubInfo.Sub{n})) > 0
+        Sel(n) = false;
+    end
+end
+
+SubInfo.Sub = SubInfo.Sub(Sel);
+SubInfo.Group = SubInfo.Group(Sel);
+SubInfo.SPM = SubInfo.SPM(Sel);
+SubInfo.TremNr = SubInfo.TremNr(Sel);
+SubInfo.TremDerivNr = SubInfo.TremDerivNr(Sel);
 
 % Start with clean directory
 if ~exist(OUTPUTDir, 'dir')
@@ -79,13 +90,9 @@ else
     mkdir(OUTPUTDir)
 end
 
+% Copy files
 for n = 1:numel(SubInfo.Sub)
-    if contains(SubInfo.Group{n}, '_PIT')
-        Session = 'ses-Visit1_PIT';
-    else
-        Session = 'ses-Visit1';
-    end
-    f_in = fullfile(ANALYSESDir, SubInfo.Sub{n}, Session, '1st_level', ['beta_00', num2str(SubInfo.TremNr{n}), '.nii']);
+    f_in = fullfile(ANALYSESDir, SubInfo.Sub{n}, ses, '1st_level', ['beta_00', num2str(SubInfo.TremNr{n}), '.nii']);
     f_out = fullfile(OUTPUTDir, [SubInfo.Group{n} '_' SubInfo.Sub{n} '_' 'beta_00' num2str(SubInfo.TremNr{n}) '.nii']);
     copyfile(f_in,f_out)
 end
