@@ -17,14 +17,17 @@
 %%%
 
 %% Collect existing log files and define output .tsv file
-project = '3024006.01';
-visit = 'ses-Visit1';
+% project = '3024006.01';
+% visit = 'ses-PITVisit1';
+% project = '3022026.01';
+% visit = 'ses-POMVisit1';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
 BIDS     = spm_BIDS(BIDSDir);
 
-Run = {'1', '2'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
+% Run = {'1'}; 
+% Run = {'1', '2', '3'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
 for r = 1:length(Run)
   Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
   NSub     = numel(Sub);
