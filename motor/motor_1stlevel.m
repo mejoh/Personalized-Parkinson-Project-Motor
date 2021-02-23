@@ -22,14 +22,12 @@ end
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 
-Project = '3022026.01';
-fprintf('Processing data in project: %s\n', Project)
-Root = strcat('/project/', Project);
+Root = '/project/3022026.01';
 % BIDSDir  = fullfile(Root, 'pep', 'bids_PIT');
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-ANALYSESDir   = strcat('/project/', Project, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer');  
-%ANALYSESDir   = strcat('/project/', POM, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer_BPCtrl');
+ANALYSESDir   = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer';  
+% ANALYSESDir   = strcat('/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl');
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
 fprintf('Found %i subjects \n', numel(Sub))
 
@@ -130,7 +128,7 @@ for n = 1:numel(Files)
     s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
     v = char(extractBetween(Files{n}, [s '_'], '_task'));           % Visit
     r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
-    if isempty(preAROMA)
+    if ~istrue(preAROMA)
         ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor..*desc-confounds_regressors3.tsv');
         if isempty(ConfFile)
             ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor..*desc-confounds_regressors2.tsv');
@@ -139,8 +137,10 @@ for n = 1:numel(Files)
         ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor.*desc-confounds_regressors.tsv');
     end
     SourceNii           = Files{n};
+    % Comment out for PIT %
 %     SPMDir              = fullfile(ANALYSESDir, s, [v '_PIT']);
 %     SPMStatDir          = fullfile(ANALYSESDir, s, [v '_PIT'], '1st_level'); %<<<<<<< REMOVE PIT WHEN APPROPRIATE
+    % Comment out for PIT %
     SPMDir              = fullfile(ANALYSESDir, s, v);
     SPMStatDir          = fullfile(ANALYSESDir, s, v, '1st_level');
     TaskDir             = fullfile(BIDSDir, s, v, 'beh');
