@@ -624,6 +624,11 @@ ggplot(dd, aes(y=grp,x=condval)) +
 df.clin.pom %>%
         filter(Timepoint == 'ses-Visit1',
                MriNeuroPsychTask == 'Motor') %>%
+        summarise(N = n())
+
+df.clin.pom %>%
+        filter(Timepoint == 'ses-Visit1',
+               MriNeuroPsychTask == 'Motor') %>%
         summarise(Age.avg = mean(Age, na.rm = TRUE), Age.sd = sd(Age, na.rm = TRUE))
 
 df.clin.pom %>%
