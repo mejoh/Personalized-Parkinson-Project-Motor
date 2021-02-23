@@ -19,7 +19,8 @@ fID = fopen(fileID, 'r');
 Trials = textscan(fID, '%f%f%d%s%s%f%s%s%s%*s%*s%*s', 'HeaderLines', 1, 'Delimiter', '\t', 'TreatAsEmpty', 'n/a');
 fclose(fID);
 
-names	  = {'Catch' 'Ext' 'Int2' 'Int3'};% 'ButtonPress'};					% Regressors of the SPM model (Int2 & Int3 can be combined with a SPM contrast)
+names	  = {'Catch' 'Ext' 'Int2' 'Int3'};				% Regressors of the SPM model (Int2 & Int3 can be combined with a SPM contrast)
+% names	  = {'Catch' 'Ext' 'Int2' 'Int3' 'ButtonPress'};
 onsets	  = cell(size(names));
 durations = cell(size(names));
 pmod      = struct('name',{''}, 'param', {}, 'poly', {});   % Parametric modulation: Task regressors are modulated by mean centered RTs
@@ -50,9 +51,11 @@ for n = 1:length(names)
                   pmod(4).name{1} = 'Int3';
                   pmod(4).param{1} = (RT - mean(RT)); %/ std(RT);
                   pmod(4).poly{1} = 1;
+%         Comment out section if you dont want button presses
 %         case 'ButtonPress'
 %                 onsets{n}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'response') .* strcmp(Trials{1,9}, 'Hit') .* ~strcmp(Trials{1,5}, 'Catch')))' - TR/2;
 %                 durations{n} = 0;   % Does not makes sense to have PMOD here
+%         Comment out section if you dont want button presses
         otherwise
                 error('Uknown condition: %s', names{n})
     end
