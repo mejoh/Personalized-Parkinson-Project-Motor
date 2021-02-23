@@ -1,15 +1,10 @@
 % Contrast one group against another
 
-function motor_2ndlevel_2x4RMANOVA(Swap,Offstate)
-%% Swap
-
-if nargin<1 || isempty(Swap)
-	Swap = false;               % A left-right swap of the con-images
-end
+function motor_2ndlevel_2x4RMANOVA(Offstate, exclude_outliers)
 
 %% Group to comapre against controls
 
-if isempty(Offstate)
+if nargin<1 || isempty(Offstate)
     Offstate = false;
 end
 
@@ -20,111 +15,68 @@ spm('defaults', 'FMRI');
 
 %% Directories
 
-FDThresh = 0.3;
-ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer_PIT';
-% ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_BRCtrl';
-BIDSDir = '/project/3022026.01/pep/bids_PIT';
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
+ses = 'ses-Visit1';
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer';
+% ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
+Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', ses), '.*sub-POM.*'));
+Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
 
 %% Selection
 
 Sel = false(size(Sub));
-
-% Exclude participants without 1st-level analyses
 for n = 1:numel(Sub)
-    if spm_select('List', fullfile(ANALYSESDir, Sub{n}, 'ses-Visit1', '1st_level'), '^con.*\.nii$')
-        fprintf('Including sub-%s with previous SPM output\n', Sub{n})
+    if istrue(Offstate) && (contains(Sub{n}, 'HC_PIT') || contains(Sub{n}, 'PD_PIT'))
+        Sel(n) = true;
+    elseif ~istrue(Offstate) && (contains(Sub{n}, 'HC_PIT') || contains(Sub{n}, 'PD_POM'))
         Sel(n) = true;
     else
-        fprintf('Excluding sub-%s without previous SPM output\n', Sub{n})
+        fprintf('Excluding %s due to group\n', Sub{n})
     end
 end
-
-% Take the last run for each participant if you're analzying POM data
-% Run = num2str(ones(numel(Sub),1));
-% if ~Offstate
-%     for MultRunSub = spm_BIDS(POMBIDSDir, 'subjects', 'run','2', 'task','motor')
-%         if ~isempty(MultRunSub)
-%             fprintf('Altering run-number for sub-%s with run-2 data\n', char(MultRunSub))
-%             index = strcmp(Sub,MultRunSub);
-%             Run(index,1) = '2';
-%         else
-%             fprintf('No subjects with run-2 data\n')
-%         end
-%     end
-%     for MultRunSub = spm_BIDS(POMBIDSDir, 'subjects', 'run','3', 'task','motor')
-%         if ~isempty(MultRunSub)
-%             fprintf('Altering run-number for sub-%s with run-3 data\n', char(MultRunSub))
-%             index = strcmp(Sub,MultRunSub);
-%             Run(index,1) = '3';
-%         else
-%             fprintf('No subjects with run-3 data\n')
-%         end
-%     end
-% end
-
-% Take the last run if there are multiple ones
-Run = num2str(ones(numel(Sub),1));
-for n = 1:numel(Sub)
-    Run(n) = num2str(FindLastRun(BIDSDir, char(Sub{n}), 'ses-Visit1', 'motor', 'MB6'));
-end
-
 Sub = Sub(Sel);
-Run = Run(Sel);
+
+SubInfo.Sub = extractBetween(Sub, 8, 31);
+SubInfo.Group = extractBetween(Sub, 1, 6);
+
+% Exclude outliers
+if istrue(exclude_outliers)
+    outliers = ["sub-POMU06C08BB18FE38A3B" "sub-POMU10D1CBD2A4EB7831" "sub-POMU1EC01A53575D7104" "sub-POMU242851EF4B22A600" "sub-POMU7AABE759AC531D35" "sub-POMU80C7D6A96AA13388" "sub-POMUA6BD4DCB8040A67B" "sub-POMUB0A6FB4D3AF0D3B5" "sub-POMUB24789880E112F8F" "sub-POMUD2870200E030B451" "sub-POMUE49FF489B8076A3E" "sub-POMU06664E2F91AA04E0" "sub-POMU10D1CBD2A4EB7831" "sub-POMUA6BD4DCB8040A67B" "sub-POMUB0B32692E1393605" "sub-POMUC80F15E9B41B3EE4" "sub-POMU10D1CBD2A4EB7831" "sub-POMU7AABE759AC531D35" "sub-POMU907470A979431AAF" "sub-POMUA6BD4DCB8040A67B" "sub-POMUB0B32692E1393605" "sub-POMUC80F15E9B41B3EE4" "sub-POMU020A9277DF9F5A83" "sub-POMU02C38D3DE0820685" "sub-POMU0E19B895DF700AB0" "sub-POMU12FA62414399DD8F" "sub-POMU1C7AEA3B0ADEB876" "sub-POMU1E7EF007D32758D4" "sub-POMU1E7EF007D32758D4" "sub-POMU1EDD7C2E9E8DF70C" "sub-POMU3227DABC7764ADB0" "sub-POMU4A7412A72D2973F1" "sub-POMU54503B880C9EB267" "sub-POMU566ED54BF23566B6" "sub-POMU58B6CDD53AD4049C" "sub-POMU7E16E08D6D3BD46C" "sub-POMU82E58ECC13773EA2" "sub-POMU86B947749A70E997" "sub-POMUA6F5671F320EA927" "sub-POMUAC2513F0E5E32349" "sub-POMUBA95A9F6A41E872C" "sub-POMUDEC90EA2FF4B337C" "sub-POMUE0EFDE0DD571E3A5" "sub-POMUEE16EA86913A5BEC"];
+    Sel = true(size(SubInfo.Sub));
+    for n = 1:numel(SubInfo.Sub)
+        if contains(SubInfo.Sub{n}, unique(outliers))
+           Sel(n) = false;
+        fprintf('Excluding outlier: %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n})
+        end
+    end
+    SubInfo.Sub = SubInfo.Sub(Sel);
+    SubInfo.Group = SubInfo.Group(Sel);
+end
 
 %% Collect events.json and confound files
 
-JsonFiles = cell(size(Sub));
-ConfFiles = cell(size(Sub));
-
-for n = 1:numel(Sub)
-    JsonFiles{n} = spm_select('FPList', fullfile(BIDSDir, Sub{n}, 'ses-Visit1', 'beh'), ['.*task-motor_acq-MB6_run-' Run(n) '_events\.json$']);
-    ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, Sub{n}, 'ses-Visit1'), ['^.*task-motor_acq-MB6_run-' Run(n) '.*desc-confounds_regressors3.mat$']);
-    if isempty(ConfFiles{n})
-        ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, Sub{n}, 'ses-Visit1'), ['^.*task-motor_acq-MB6_run-' Run(n) '.*desc-confounds_regressors2.mat$']);
+SubInfo.ConfFiles = cell(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    if contains(SubInfo.Group{n}, '_PIT')
+        Session = 'ses-Visit1_PIT';
+    else
+        Session = 'ses-Visit1';
     end
-end
-
-%% Group and handedness
-
-Group = strings(size(Sub));
-RespondingHand = strings(size(Sub));
-
-for n = 1:numel(Sub)
-    Json = fileread(JsonFiles{n});
-    DecodedJson = jsondecode(Json);
-    %Group(n) = DecodedJson.Group.Value;
-    Group(n) = FindGroup(BIDSDir, char(Sub{n}), 'ses-Visit1', 'dwi');
-    RespondingHand(n) = DecodedJson.RespondingHand.Value;
+    SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_regressors3.mat$');
+    if isempty(SubInfo.ConfFiles{n})
+        SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_regressors2.mat$');
+    end
 end
 
 %% Framewise displacement
 
-FD = zeros(size(Sub));
-for n = 1:numel(Sub)
-    Confounds = spm_load(ConfFiles{n});
+SubInfo.FD = zeros(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    Confounds = spm_load(SubInfo.ConfFiles{n});
     FrameDisp = Confounds.R(:,strcmp(Confounds.names, 'framewise_displacement'));
     FrameDisp(isnan(FrameDisp)) = 0;
-    FD(n) = mean(FrameDisp);
+    SubInfo.FD(n) = mean(FrameDisp);
 end
-
-%% Exclusion
-
-Sel = false(size(Sub));
-
-for n = 1:numel(Sub)
-    if FD(n) < FDThresh
-        Sel(n) = true;
-    else
-        sprintf('Excluding %s (%s) due to %f mean framewise displacement (Threshold = %f)', Sub{n}, Group(n), FD(n), FDThresh)
-    end
-end
-
-Sub = Sub(Sel);
-Group = Group(Sel);
-RespondingHand = RespondingHand(Sel);
-FD = FD(Sel);
 
 %% Examine correlation structure between relevant regressors
 
@@ -141,44 +93,8 @@ FD = FD(Sel);
 % AvgCorrMat = CorrMat / numel(Sub);
 % heatmap(AvgCorrMat)
 
-%% Copy and left-to-right swap
-
-ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
-InputFiles = cell(numel(Sub), numel(ConList));
-for c = 1:numel(ConList)
-    
-    ConDir = fullfile(ANALYSESDir, 'Group', ConList{c});
-    if ~exist(ConDir, 'dir')
-        mkdir(ConDir);
-    else
-        delete(fullfile(ConDir, '*.*'));
-    end
-    
-    for n = 1:numel(Sub)
-        InputConFile = fullfile(ANALYSESDir, Sub{n}, 'ses-Visit1', '1st_level', [ConList{c} '.nii']);
-        if strcmp(Group(n), 'PD_PIT')
-            OutputConFile = fullfile(ConDir, ['PD_PIT_' Sub{n} '_' ConList{c} '.nii']);
-        elseif strcmp(Group(n), 'PD_POM')
-            OutputConFile = fullfile(ConDir, ['PD_POM_' Sub{n} '_' ConList{c} '.nii']);
-        elseif (strcmp(Group(n), 'HC_PIT'))
-            OutputConFile = fullfile(ConDir, ['HC_PIT_' Sub{n} '_' ConList{c} '.nii']);
-        end
-        copyfile(InputConFile, OutputConFile)
-        if strcmp(RespondingHand(n), 'Left') && Swap
-            fprintf('LR-swapping: %s\n', OutputConFile)
-			Hdr		  = spm_vol(OutputConFile);
-			Vol		  = spm_read_vols(Hdr);
-			Hdr.fname = spm_file(OutputConFile, 'suffix', 'LRswap');
-			spm_write_vol(Hdr, flipdim(Vol,1));		% LR is the first dimension in MNI space
-            delete(OutputConFile);
-            InputFiles{n,c} = Hdr.fname;
-        else
-            InputFiles{n,c} = OutputConFile;
-        end
-    end
-end
-
 %% Assemble inputs
+ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};
 Inputs = cell(10,1);
 if Offstate
     Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff x ExtInt2Int3Catch')};
@@ -186,34 +102,60 @@ else
     Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn x ExtInt2Int3Catch')};
 end
 
-ExtHc = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, 'HC*'));
-Inputs{2,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, {ExtHc.name}');
-Int2Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, 'HC*'));
-Inputs{4,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, {Int2Hc.name}');
-Int3Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, 'HC*'));
-Inputs{6,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, {Int3Hc.name}');
-CatchHc = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, 'HC*'));
-Inputs{8,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchHc.name}');
+if ~istrue(exclude_outliers) && istrue(Offstate)
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff x ExtInt2Int3Catch')};
+elseif ~istrue(exclude_outliers) && ~istrue(Offstate)
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn x ExtInt2Int3Catch')};
+elseif istrue(exclude_outliers) && istrue(Offstate)
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff x ExtInt2Int3Catch_NoOutliers')};
+elseif istrue(exclude_outliers) && ~istrue(Offstate)
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn x ExtInt2Int3Catch_NoOutliers')};
+end
+
+ExtHc = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, ses, 'HC*'));
+ExtHc_files = {ExtHc.name}';
+ExtHc_files = ExtHc_files(contains({ExtHc.name}, SubInfo.Sub));
+Inputs{2,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, ses, ExtHc_files);
+Int2Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, ses, 'HC*'));
+Int2Hc_files = {Int2Hc.name}';
+Int2Hc_files = Int2Hc_files(contains({Int2Hc.name}, SubInfo.Sub));
+Inputs{4,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, ses, Int2Hc_files);
+Int3Hc = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, ses, 'HC*'));
+Int3Hc_files = {Int3Hc.name}';
+Int3Hc_files = Int3Hc_files(contains({Int3Hc.name}, SubInfo.Sub));
+Inputs{6,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, ses, Int3Hc_files);
+CatchHc = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, ses, 'HC*'));
+CatchHc_files = {CatchHc.name}';
+CatchHc_files = CatchHc_files(contains({CatchHc.name}, SubInfo.Sub));
+Inputs{8,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, ses, CatchHc_files);
 
 if Offstate
     Pd = 'PD_PIT*';
 else
-    Pd = 'On*';
+    Pd = 'PD_POM*';
 end
-ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, Pd));
-Inputs{3,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, {ExtPd.name}');
-Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, Pd));
-Inputs{5,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, {Int2Pd.name}');
-Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, Pd));
-Inputs{7,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, {Int3Pd.name}');
-CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, Pd));
-Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, {CatchPd.name}');
+ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, ses, Pd));
+ExtPd_files = {ExtPd.name}';
+ExtPd_files = ExtPd_files(contains({ExtPd.name}, SubInfo.Sub));
+Inputs{3,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, ses, ExtPd_files);
+Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, ses, Pd));
+Int2Pd_files = {Int2Pd.name}';
+Int2Pd_files = Int2Pd_files(contains({Int2Pd.name}, SubInfo.Sub));
+Inputs{5,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, ses, Int2Pd_files);
+Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, ses, Pd));
+Int3Pd_files = {Int3Pd.name}';
+Int3Pd_files = Int3Pd_files(contains({Int3Pd.name}, SubInfo.Sub));
+Inputs{7,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, ses, Int3Pd_files);
+CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, ses, Pd));
+CatchPd_files = {CatchPd.name}';
+CatchPd_files = CatchPd_files(contains({CatchPd.name}, SubInfo.Sub));
+Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, ses, CatchPd_files);
 
-FD_hc = FD(strcmp(Group, 'HC_PIT'));
+FD_hc = SubInfo.FD(strcmp(SubInfo.Group, 'HC_PIT'));
 if Offstate
-    FD_pd = FD(strcmp(Group, 'PD_PIT'));
+    FD_pd = SubInfo.FD(strcmp(SubInfo.Group, 'PD_PIT'));
 else
-    FD_pd = FD(strcmp(Group, 'PD_POM'));
+    FD_pd = SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'));
 end
 Inputs{10,1} = [FD_hc; FD_hc; FD_hc; FD_hc; FD_pd; FD_pd; FD_pd; FD_pd];
 
@@ -223,5 +165,8 @@ JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
 
 delete(fullfile(char(Inputs{1}), '*.*'))
 spm_jobman('run', JobFile, Inputs{:});
+
+filename = char(fullfile(Inputs{1,1}, 'Inputs.mat'));
+save(filename, 'Inputs')
 
 end
