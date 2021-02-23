@@ -15,10 +15,10 @@ spm('defaults', 'FMRI');
 %% Directories
 
 FDThresh = 1;
-ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005' 'con_0006'  'con_0007'  'con_0008'  'con_0009'  'con_0010' 'con_0011'};
+ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005' 'con_0006'};%  'con_0007'  'con_0008'  'con_0009'  'con_0010' 'con_0011'};
 SessionList = {'ses-Visit1' 'ses-Visit3'};
 % ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer';
-ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer_BPCtrl';
+ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
 BIDSDir = '/project/3022026.01/pep/bids';
 BIDSDir_PIT = '/project/3022026.01/pep/bids_PIT';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir), 'dir', '^sub-POM.*'));
