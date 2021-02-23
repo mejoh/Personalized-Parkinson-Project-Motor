@@ -96,7 +96,7 @@ for n = 1:numel(ConList)
         FD2 = [SubInfo.FD(strcmp(SubInfo.Group, 'HC_PIT')); SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'))];
     end
     inputs{4,1} = FD2';%(FD2 - mean(FD2) / std(FD2))';       %Normalize FD
-    inputs{5,1} = {'/project/3022026.01/analyses/motor/Masks/standard/group_mask.nii,1'};
+    inputs{5,1} = {'/project/3024006.02/Analyses/Masks/standard/group_mask.nii,1'};
     %Start with new directory
     if ~exist(char(inputs{1,1}), 'dir')
         mkdir(char(inputs{1,1}));
