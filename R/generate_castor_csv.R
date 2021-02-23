@@ -404,6 +404,11 @@ generate_castor_csv <- function(bidsdir){
                                Up3OfRigiditySum.1YearROC = NA,
                                Up3OnRigiditySum.1YearROC = NA,
                                
+                               Up3OfPIGDSum.1YearDelta = NA,
+                               Up3OnPIGDSum.1YearDelta = NA,
+                               Up3OfPIGDSum.1YearROC = NA,
+                               Up3OnPIGDSum.1YearROC = NA,
+                               
                                MultipleSessions = 0)
                 
                 alpha <- 0.5
@@ -437,6 +442,13 @@ generate_castor_csv <- function(bidsdir){
                                 #dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]) / dataframe$Up3OnRigiditySum[n-1]) * 100
                                 dataframe$Up3OfRigiditySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfRigiditySum[n-1], dataframe$Up3OfRigiditySum[n], length(list.RigidityOff), alpha = 0.5/length(list.RigidityOff))
                                 dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnRigiditySum[n-1], dataframe$Up3OnRigiditySum[n], length(list.RigidityOn), alpha = 0.5/length(list.RigidityOn))
+                                
+                                dataframe$Up3OfPIGDSum.1YearDelta[(n-1):n] <- dataframe$Up3OfPIGDSum[n] - dataframe$Up3OfPIGDSum[n-1]
+                                dataframe$Up3OnPIGDSum.1YearDelta[(n-1):n] <- dataframe$Up3OnPIGDSum[n] - dataframe$Up3OnPIGDSum[n-1]
+                                #dataframe$Up3OfPIGDSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfPIGDSum[n] - dataframe$Up3OfPIGDSum[n-1]) / dataframe$Up3OfPIGDSum[n-1]) * 100
+                                #dataframe$Up3OnPIGDSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnPIGDSum[n] - dataframe$Up3OnPIGDSum[n-1]) / dataframe$Up3OnPIGDSum[n-1]) * 100
+                                dataframe$Up3OfPIGDSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfPIGDSum[n-1], dataframe$Up3OfPIGDSum[n], length(list.PIGDOff), alpha = 0.5/length(list.PIGDOff))
+                                dataframe$Up3OnPIGDSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnPIGDSum[n-1], dataframe$Up3OnPIGDSum[n], length(list.PIGDOn), alpha = 0.5/length(list.PIGDOn))
                                 
                                 dataframe$MultipleSessions[(n-1):n] = 1
                         }
