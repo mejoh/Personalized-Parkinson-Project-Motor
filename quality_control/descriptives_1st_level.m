@@ -1,5 +1,6 @@
 % Images to summarize
-ImageList = {'con_0001' 'con_0002' 'con_0003' 'ResMS'};
+% ImageList = {'con_0001' 'con_0002' 'con_0003' 'ResMS'};
+ImageList = {'con_0001' 'con_0002'};
 
 % Generate a histogram of image intensities for each subject
 % Generate a boxplot + histogram of image intensities for the whole group
@@ -60,12 +61,12 @@ for i = 1:numel(ImageList)
     close(gcf)
     
     % Textfile of subject information
-    fileID = fopen(sprintf('%s/Group.txt', OutputDir), 'w');
-    fprintf(fileID, 'Subject \t\t Visit \t\t GrandMean \t\t Outlier \n');
-    for n = 1:numel(SubInfo.Sub)
-        fprintf(fileID, '%s \t %s \t %s \n', SubInfo.Sub{n}, SubInfo.Visit{n}, SubInfo.GrandMean(n), SubInfo.Outlier(n));
-    end
-    fclose(fileID);
-
+    SubInfo.Sub = SubInfo.Sub';
+    SubInfo.Visit = SubInfo.Visit';
+    SubInfo.GrandMean = SubInfo.GrandMean';
+    SubInfo.Outlier = SubInfo.Outlier';
+    SubInfoTable = struct2table(SubInfo);
+    writetable(SubInfoTable, sprintf('%s/Group.txt', OutputDir))
+    
 end
 
