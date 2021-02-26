@@ -5,16 +5,16 @@ library(lmerTest)
 
 ##### Load data #####
 # Write csv files
-bidsdir <- 'P:/3022026.01/pep/ClinVars/'
-bidsdir <- 'P:/3022026.01/pep/bids/'
+bidsdir_clin <- 'P:/3022026.01/pep/ClinVars/'
+bidsdir_POM <- 'P:/3022026.01/pep/bids/'
 bidsdir_PIT <- 'P:/3022026.01/pep/bids_PIT/'
-#generate_castor_csv(bidsdir)
-#generate_motor_task_csv(bidsdir)
+#generate_castor_csv(bidsdir_clin)
+#generate_motor_task_csv(bidsdir_POM)
 #generate_motor_task_csv(bidsdir_PIT)
 
 # Import data
         # Clin vars for POM
-df.clin.pom <- read_csv('P:/3022026.01/pep/ClinVars/derivatives/database_clinical_variables.csv')
+df.clin.pom <- read_csv('P:/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-02-23.csv')
         # Add LEDD, remove non-medusers
 df.ledd <- read_csv('P:/3024006.02/Data/LEDD/MedicationTable.csv')
 df.clin.pom <- left_join(df.clin.pom, df.ledd, by = c('pseudonym', 'Timepoint')) %>%
@@ -421,7 +421,9 @@ df.clin_corr <- df.clin.pom %>%
         select(pseudonym, Age, Gender, EstDisDurYears,
                Up3OfTotal, Up3OfTotal.1YearDelta,
                Up3OfBradySum, Up3OfBradySum.1YearDelta,
-               Up3OfRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta) %>%
+               Up3OfRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta,
+               Up3OfRigiditySum, Up3OfRigiditySum.1YearDelta,
+               Up3OfPIGDSum, Up3OfPIGDSum.1YearDelta) %>%
         mutate(Gender = if_else(Gender == 'Male', 1, 0))
 
 # Prepare task data
@@ -480,18 +482,18 @@ for(f in 2:length(fDat_ROI.Whole_Mean)){
         # Transformations
 df.Whole_Mean <- df.Whole_Mean %>%
         mutate(Age_c = scale(Age, center = TRUE, scale = FALSE),
-               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
-               Up3OfTotal_log = log(Up3OfTotal),
-               Up3OfBradySum_log = log(Up3OfBradySum),
-               Up3OfRestTremAmpSum_log = log(Up3OfRestTremAmpSum + 0.001),
-               Brain.Ext_log = log(Brain.Ext + abs(min(Brain.Ext)) + 0.001),
-               Brain.Int_log = log(Brain.Int + abs(min(Brain.Int)) + 0.001),
-               Brain.ExtInt_log = log(Brain.ExtInt + abs(min(Brain.ExtInt)) + 0.001),
-               Brain.DeltaIntExt_log = log(Brain.DeltaIntExt + abs(min(Brain.DeltaIntExt)) + 0.001),
-               RT.Ext_log = log(RT.Ext),
-               RT.Int_log = log(RT.Int),
-               RT.ExtInt_log = log(RT.ExtInt),
-               RT.DeltaIntExt_log = log(RT.DeltaIntExt + abs(min(RT.DeltaIntExt)) + 0.001))
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE))#,
+#               Up3OfTotal_log = log(Up3OfTotal),
+#               Up3OfBradySum_log = log(Up3OfBradySum),
+#               Up3OfRestTremAmpSum_log = log(Up3OfRestTremAmpSum + 0.001),
+#               Brain.Ext_log = log(Brain.Ext + abs(min(Brain.Ext)) + 0.001),
+#               Brain.Int_log = log(Brain.Int + abs(min(Brain.Int)) + 0.001),
+#               Brain.ExtInt_log = log(Brain.ExtInt + abs(min(Brain.ExtInt)) + 0.001),
+#               Brain.DeltaIntExt_log = log(Brain.DeltaIntExt + abs(min(Brain.DeltaIntExt)) + 0.001),
+#               RT.Ext_log = log(RT.Ext),
+#               RT.Int_log = log(RT.Int),
+#               RT.ExtInt_log = log(RT.ExtInt),
+#               RT.DeltaIntExt_log = log(RT.DeltaIntExt + abs(min(RT.DeltaIntExt)) + 0.001))
 
         # Add ROI names
 df.Whole_Mean <- df.Whole_Mean %>%
@@ -501,8 +503,8 @@ roinames <- tibble(ROI = rep(roinames, length(unique(df.Whole_Mean$pseudonym))))
 df.Whole_Mean <- bind_cols(df.Whole_Mean, roinames)
 df.Whole_Mean <- df.Whole_Mean %>%
         pivot_wider(names_from = ROI,
-                    values_from = c(Brain.Ext,Brain.Int,Brain.ExtInt,Brain.DeltaIntExt,
-                                    Brain.Ext_log,Brain.Int_log,Brain.ExtInt_log,Brain.DeltaIntExt_log))
+                    values_from = c(Brain.Ext,Brain.Int,Brain.ExtInt,Brain.DeltaIntExt))#,
+                                    #Brain.Ext_log,Brain.Int_log,Brain.ExtInt_log,Brain.DeltaIntExt_log))
 
         # Write csv
 OutputName <- paste(dirname(fDat_ROI.Whole_Mean[1]), '/VOI_ROI-Whole_Con-HCvPD_Mean_AllRois_ClinVars.csv', sep = '')
@@ -524,18 +526,18 @@ for(f in 2:length(fDat_ROI.Whole_EXTvINT)){
         # Transformations
 df.Whole_EXTvINT <- df.Whole_EXTvINT %>%
         mutate(Age_c = scale(Age, center = TRUE, scale = FALSE),
-               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
-               Up3OfTotal_log = log(Up3OfTotal),
-               Up3OfBradySum_log = log(Up3OfBradySum),
-               Up3OfRestTremAmpSum_log = log(Up3OfRestTremAmpSum + 0.001),
-               Brain.Ext_log = log(Brain.Ext + abs(min(Brain.Ext)) + 0.001),
-               Brain.Int_log = log(Brain.Int + abs(min(Brain.Int)) + 0.001),
-               Brain.ExtInt_log = log(Brain.ExtInt + abs(min(Brain.ExtInt)) + 0.001),
-               Brain.DeltaIntExt_log = log(Brain.DeltaIntExt + abs(min(Brain.DeltaIntExt)) + 0.001),
-               RT.Ext_log = log(RT.Ext),
-               RT.Int_log = log(RT.Int),
-               RT.ExtInt_log = log(RT.ExtInt),
-               RT.DeltaIntExt_log = log(RT.DeltaIntExt + abs(min(RT.DeltaIntExt)) + 0.001))
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE))#,
+#               Up3OfTotal_log = log(Up3OfTotal),
+#               Up3OfBradySum_log = log(Up3OfBradySum),
+#               Up3OfRestTremAmpSum_log = log(Up3OfRestTremAmpSum + 0.001),
+#               Brain.Ext_log = log(Brain.Ext + abs(min(Brain.Ext)) + 0.001),
+#               Brain.Int_log = log(Brain.Int + abs(min(Brain.Int)) + 0.001),
+#               Brain.ExtInt_log = log(Brain.ExtInt + abs(min(Brain.ExtInt)) + 0.001),
+#               Brain.DeltaIntExt_log = log(Brain.DeltaIntExt + abs(min(Brain.DeltaIntExt)) + 0.001),
+#               RT.Ext_log = log(RT.Ext),
+#               RT.Int_log = log(RT.Int),
+#               RT.ExtInt_log = log(RT.ExtInt),
+#               RT.DeltaIntExt_log = log(RT.DeltaIntExt + abs(min(RT.DeltaIntExt)) + 0.001))
 
         # Add ROI names
 df.Whole_EXTvINT <- df.Whole_EXTvINT %>%
@@ -545,8 +547,8 @@ roinames <- tibble(ROI = rep(roinames, length(unique(df.Whole_EXTvINT$pseudonym)
 df.Whole_EXTvINT <- bind_cols(df.Whole_EXTvINT, roinames)
 df.Whole_EXTvINT <- df.Whole_EXTvINT %>%
         pivot_wider(names_from = ROI,
-                    values_from = c(Brain.Ext,Brain.Int,Brain.ExtInt,Brain.DeltaIntExt,
-                                    Brain.Ext_log,Brain.Int_log,Brain.ExtInt_log,Brain.DeltaIntExt_log))
+                    values_from = c(Brain.Ext,Brain.Int,Brain.ExtInt,Brain.DeltaIntExt))#,
+                                    #Brain.Ext_log,Brain.Int_log,Brain.ExtInt_log,Brain.DeltaIntExt_log))
 
         # Write csv
 OutputName <- paste(dirname(fDat_ROI.Whole_EXTvINT[1]), '/VOI_ROI-Whole_Con-HCvPD_EXTvINT_AllRois_ClinVars.csv', sep = '')
@@ -568,18 +570,18 @@ for(f in 2:length(fDat_ROI.Put_Mean)){
         # Transformations
 df.Put_Mean <- df.Put_Mean %>%
         mutate(Age_c = scale(Age, center = TRUE, scale = FALSE),
-               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
-               Up3OfTotal_log = log(Up3OfTotal),
-               Up3OfBradySum_log = log(Up3OfBradySum),
-               Up3OfRestTremAmpSum_log = log(Up3OfRestTremAmpSum + 0.001),
-               Brain.Ext_log = log(Brain.Ext + abs(min(Brain.Ext)) + 0.001),
-               Brain.Int_log = log(Brain.Int + abs(min(Brain.Int)) + 0.001),
-               Brain.ExtInt_log = log(Brain.ExtInt + abs(min(Brain.ExtInt)) + 0.001),
-               Brain.DeltaIntExt_log = log(Brain.DeltaIntExt + abs(min(Brain.DeltaIntExt)) + 0.001),
-               RT.Ext_log = log(RT.Ext),
-               RT.Int_log = log(RT.Int),
-               RT.ExtInt_log = log(RT.ExtInt),
-               RT.DeltaIntExt_log = log(RT.DeltaIntExt + abs(min(RT.DeltaIntExt)) + 0.001))
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE))#,
+#               Up3OfTotal_log = log(Up3OfTotal),
+#               Up3OfBradySum_log = log(Up3OfBradySum),
+#               Up3OfRestTremAmpSum_log = log(Up3OfRestTremAmpSum + 0.001),
+#               Brain.Ext_log = log(Brain.Ext + abs(min(Brain.Ext)) + 0.001),
+#               Brain.Int_log = log(Brain.Int + abs(min(Brain.Int)) + 0.001),
+#               Brain.ExtInt_log = log(Brain.ExtInt + abs(min(Brain.ExtInt)) + 0.001),
+#               Brain.DeltaIntExt_log = log(Brain.DeltaIntExt + abs(min(Brain.DeltaIntExt)) + 0.001),
+#               RT.Ext_log = log(RT.Ext),
+#               RT.Int_log = log(RT.Int),
+#               RT.ExtInt_log = log(RT.ExtInt),
+#               RT.DeltaIntExt_log = log(RT.DeltaIntExt + abs(min(RT.DeltaIntExt)) + 0.001))
 
         # Add ROI names
 df.Put_Mean <- df.Put_Mean %>%
@@ -589,8 +591,8 @@ roinames <- tibble(ROI = rep(roinames, length(unique(df.Whole_EXTvINT$pseudonym)
 df.Put_Mean <- bind_cols(df.Put_Mean, roinames)
 df.Put_Mean <- df.Put_Mean %>%
         pivot_wider(names_from = ROI,
-                    values_from = c(Brain.Ext,Brain.Int,Brain.ExtInt,Brain.DeltaIntExt,
-                                    Brain.Ext_log,Brain.Int_log,Brain.ExtInt_log,Brain.DeltaIntExt_log))
+                    values_from = c(Brain.Ext,Brain.Int,Brain.ExtInt,Brain.DeltaIntExt))#,
+                                    #Brain.Ext_log,Brain.Int_log,Brain.ExtInt_log,Brain.DeltaIntExt_log))
 
         # Write csv
 OutputName <- paste(dirname(fDat_ROI.Put_Mean[1]), '/VOI_ROI-Putamen_Con-HCvPD_Mean_AllRois_ClinVars.csv', sep = '')
@@ -600,7 +602,90 @@ write_csv(df.Put_Mean, OutputName)
 
 ##### Subtyping comparisons #####
 
+# Response times
+        # Data
+df_subtype <- df.clin.pom %>%
+        filter(Timepoint == 'ses-Visit1') %>%
+        select(pseudonym, Subtype, Age, Gender, EstDisDurYears)
+df_t <- df.task %>%
+        filter(Group == 'PD_POM',
+               Timepoint == 'ses-Visit1')
+df_t <- left_join(df_t, df_subtype, by = 'pseudonym')
+PoorPerformanceIndex <- df_t$Percentage.Correct[df_t$Condition == 'Ext'] < 0.25
+PoorPerformancePseudos <- unique(df_t$pseudonym)[PoorPerformanceIndex]
+df_t_clean <- df_t %>%
+        filter(!pseudonym %in% PoorPerformancePseudos)
+df <- df_t_clean %>%
+        filter(Condition != 'Catch',
+               !is.na(Subtype)) %>%
+        mutate(Subtype = as.factor(Subtype),
+               Condition = as.factor(Condition),
+               Age_c = scale(Age, center = TRUE, scale = FALSE),
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
+               Response.Time_log = log(Response.Time))
+        # Descriptives
+df %>%
+        group_by(Subtype, Condition) %>%
+        summarise(N = n(), Mean=mean(Response.Time), SD = sd(Response.Time), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+df %>%
+        ggplot(aes(y=Response.Time, x=Subtype, group=pseudonym)) +
+        geom_point(alpha=0.3) +
+        facet_wrap(~Condition)
+df %>%
+        ggplot(aes(y=Response.Time, x=Condition, color=Subtype)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Response.Time, fill=Subtype)) +
+        geom_density(aes(color=Subtype), alpha = 0.5) +
+        facet_wrap(~Condition)
+        # Inferences
+contrasts(df$Condition) <- contr.helmert(3)[c(3:1), 2:1]
+m1 <- lmer(Response.Time_log ~ 1 + Condition*Subtype + Age_c + Gender + EstDisDurYears_c + (1|pseudonym), data = df, REML = TRUE)
+summary(m1)
+anova(m1)
 
+# Error rates
+
+# Disease progression
+df <- df.clin.pom %>%
+        filter(MultipleSessions == 'Yes',
+               !is.na(Subtype),
+               MriNeuroPsychTask == 'Motor') %>%
+        select(pseudonym, Timepoint, Age, Gender, EstDisDurYears, LEDD, ParkinMedUser, Subtype, TimeToFUYears,
+               Up3OfTotal, Up3OfBradySum, Up3OfRestTremAmpSum, Up3OfRigiditySum, Up3OfPIGDSum,
+               Up3OfTotal.1YearDelta, Up3OfBradySum.1YearDelta, Up3OfRestTremAmpSum.1YearDelta, Up3OfRigiditySum.1YearDelta, Up3OfPIGDSum.1YearDelta) %>%
+        mutate(Subtype = as.factor(Subtype),
+               Age_c = scale(Age, center = TRUE, scale = FALSE),
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
+               LEDD_c = scale(LEDD, center = TRUE, scale = FALSE))
+        # Descriptives
+df %>%
+        filter(Timepoint == 'ses-Visit1') %>%
+        group_by(Subtype) %>%
+        summarise(n = n(),
+                  Age.m = mean(Age), Age.sd = sd(Age),
+                  DisDur.m = mean(EstDisDurYears), DisDur.s = sd(EstDisDurYears),
+                  LEDD.m = mean(LEDD, na.rm = TRUE), LEDD.s = sd(LEDD, na.rm = TRUE),
+                  Total.m = mean(Up3OfTotal.1YearDelta, na.rm = TRUE), Total.s = sd(Up3OfTotal.1YearDelta, na.rm = TRUE),
+                  Brady.m = mean(Up3OfBradySum.1YearDelta, na.rm = TRUE), Brady.s = sd(Up3OfBradySum.1YearDelta, na.rm = TRUE),
+                  RestTrem.m = mean(Up3OfRestTremAmpSum.1YearDelta, na.rm = TRUE), RestTrem.s = sd(Up3OfRestTremAmpSum.1YearDelta, na.rm = TRUE),
+                  Rig.m = mean(Up3OfRigiditySum.1YearDelta, na.rm = TRUE), Rig.s = sd(Up3OfRigiditySum.1YearDelta, na.rm = TRUE),
+                  PIGD.m = mean(Up3OfPIGDSum.1YearDelta, na.rm = TRUE), PIGD.s = sd(Up3OfPIGDSum.1YearDelta, na.rm = TRUE))
+df %>%
+        ggplot(aes(y=Up3OfTotal, x=TimeToFUYears, group=pseudonym)) +
+        geom_point(alpha=0.3) +
+        facet_wrap(~Subtype)
+df %>%
+        ggplot(aes(y=Response.Time, x=Condition, color=Subtype)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Up3OfTotal, fill=Timepoint)) +
+        geom_density(aes(color=Timepoint), alpha = 0.5) +
+        facet_wrap(~Subtype)
+        # Inferences
+m1 <- lmer(Up3OfTotal ~ 1 + Subtype*TimeToFUYears + Age_c + Gender + EstDisDurYears_c + LEDD_c + (1|pseudonym), data = df, REML = TRUE)
+summary(m1)
+anova(m1)
 
 #####
 
