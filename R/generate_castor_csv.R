@@ -8,6 +8,7 @@ generate_castor_csv <- function(bidsdir){
         library(jsonlite)
         library(stringr)
         library(lubridate)
+        library(assertthat)
         
         # Define a list of subjects
         Subjects <- basename(list.dirs(bidsdir, recursive = FALSE)) 
@@ -262,7 +263,20 @@ generate_castor_csv <- function(bidsdir){
                                starts_with('ScopaAut'),
                                starts_with('Ess'),
                                starts_with('ScopaSlp'),
-                               starts_with('RemSbdq')) %>%
+                               starts_with('RemSbdq'),
+                               starts_with('Apat'),
+                               starts_with('Aes12'),
+                               starts_with('Sf12'),
+                               starts_with('Bdi2'),
+                               starts_with('Pdq39'),
+                               starts_with('Stai'),
+                               starts_with('Woq'),
+                               starts_with('TalkProb'),
+                               starts_with('VisualPr'),
+                               starts_with('FrOf'),
+                               starts_with('Fog'),
+                               starts_with('Pase'),
+                               starts_with('Fallen')) %>%
                         mutate(across(-c('pseudonym', 'Updrs2Cag', 'ScopaAut31b', 'ScopaAut32b', 'NpsMocBonus', 'Timepoint', 'ScopaAutCag',
                                          'ScopaAut29b', 'EssCag', 'ScopaSlpCag', 'RemSbdqCag'), as.numeric)) %>% 
                         mutate(Up3OfTotal = rowSums(.[list.TotalOff]),
@@ -284,6 +298,7 @@ generate_castor_csv <- function(bidsdir){
                                Up3RestTremAmpSumOnOffDelta = Up3OfRestTremAmpSum - Up3OnRestTremAmpSum)
                 
                 return(dataframe)
+                
         }
         df3 <- VariableSelectionConstruction(df2)
         
@@ -509,7 +524,7 @@ generate_castor_csv <- function(bidsdir){
         
         ##### Write to csv #####
         
-        outputfile <- paste(bidsdir, 'derivatives/database_clinical_variables.csv', sep = '')
+        outputfile <- paste(bidsdir, 'derivatives/database_clinical_variables_', today(),  '.csv', sep = '')
         if(!dir.exists(dirname(outputfile))){
                 dir.create(dirname(outputfile))
         }
