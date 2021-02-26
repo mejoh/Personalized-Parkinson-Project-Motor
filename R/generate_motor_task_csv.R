@@ -41,7 +41,7 @@ generate_motor_task_csv <- function(bidsdir){
         
         Subjects <- basename(list.dirs(bidsdir, recursive = FALSE)) # Define a list of subjects
         Subjects <- Subjects[str_starts(Subjects, 'sub-')]
-        Conditions <- c('Ext', 'Int2', 'Int3')    # Set conditions
+        Conditions <- c('Ext', 'Int2', 'Int3', 'Catch')    # Set conditions
         Data <- tribble(~pseudonym,
                         ~Timepoint,
                         ~Condition,
@@ -92,22 +92,38 @@ generate_motor_task_csv <- function(bidsdir){
                                                 Row <- filter(Events[[1]], event_type == 'response', trial_type == 'Ext')
                                         }else if(Conditions[i] == 'Int2'){
                                                 Row <- filter(Events[[1]], event_type == 'response', trial_type == 'Int2')
-                                        }else{
+                                        }else if(Conditions[i] == 'Int3'){
                                                 Row <- filter(Events[[1]], event_type == 'response', trial_type == 'Int3')
+                                        }else{
+                                                Row <- filter(Events[[1]], event_type == 'cue', trial_type == 'Catch')
                                         }
                                         
-                                        # Write row to data frame            
-                                        Data <- add_row(Data,
-                                                        pseudonym = Subjects[n],
-                                                        Timepoint = t,
-                                                        Condition = Conditions[i],
-                                                        Response.Time = filter(Row, correct_response == 'Hit') %>% pull(var = response_time) %>% mean,
-                                                        Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
-                                                        Button.Press.Mean = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% mean,
-                                                        Button.Press.Sd = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% sd,
-                                                        Button.Press.Repetitions = repetition_counter,
-                                                        Responding.Hand = Events[[2]]$RespondingHand.Value,
-                                                        Group = Events[[2]]$Group.Value)
+                                        # Write row to data frame    
+                                        if(Conditions[i] != 'Catch'){
+                                                Data <- add_row(Data,
+                                                                pseudonym = Subjects[n],
+                                                                Timepoint = t,
+                                                                Condition = Conditions[i],
+                                                                Response.Time = filter(Row, correct_response == 'Hit') %>% pull(var = response_time) %>% mean,
+                                                                Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
+                                                                Button.Press.Mean = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% mean,
+                                                                Button.Press.Sd = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% sd,
+                                                                Button.Press.Repetitions = repetition_counter,
+                                                                Responding.Hand = Events[[2]]$RespondingHand.Value,
+                                                                Group = Events[[2]]$Group.Value)
+                                        }else{
+                                                Data <- add_row(Data,
+                                                                pseudonym = Subjects[n],
+                                                                Timepoint = t,
+                                                                Condition = Conditions[i],
+                                                                Response.Time = NA,
+                                                                Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
+                                                                Button.Press.Mean = NA,
+                                                                Button.Press.Sd = NA,
+                                                                Button.Press.Repetitions = NA,
+                                                                Responding.Hand = Events[[2]]$RespondingHand.Value,
+                                                                Group = Events[[2]]$Group.Value)
+                                        }
                                 }else{
                                         
                                         # Write row to data frame. Fill with NAs if files are missing           
@@ -128,7 +144,7 @@ generate_motor_task_csv <- function(bidsdir){
         }
         
         # Omit rows without full data
-        Data <- na.omit(Data)
+        #Data <- na.omit(Data)
         
         # Write the data frame to csv
         outputfile <- paste(bidsdir, 'derivatives/database_motor_task.csv', sep = '')
