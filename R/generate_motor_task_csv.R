@@ -49,7 +49,11 @@ generate_motor_task_csv <- function(bidsdir){
                         ~Percentage.Correct,
                         ~Button.Press.Mean,
                         ~Button.Press.Sd,
+                        ~Button.Press.CoV,
                         ~Button.Press.Repetitions,
+                        ~Button.Press.Adjacent,
+                        ~Button.Press.NonAdjacent,
+                        ~Button.Press.AdjacencyRatio,
                         ~Responding.Hand,
                         ~Group)    # Generate data frame
         
@@ -64,22 +68,60 @@ generate_motor_task_csv <- function(bidsdir){
                         # Import data            
                         Events <- ImportEventsTsv(Subjects[n], t)
                         
-                        # Calculate button press repetitions
+                        # Calculate button press repetitions and adjacency
                         if(!is.na(Events[[1]]) && !is.na(Events[[2]])){
-                                reps.dat <- Events[[1]] %>%
-                                        filter(event_type=='response') %>%
-                                        filter(trial_type!='Catch') %>%
-                                        select(trial_type, button_pressed) %>%
-                                        filter(button_pressed > 0)
                                 
+                                press.dat <- Events[[1]] %>%
+                                        select(trial_number, trial_type, event_type, button_pressed, button_expected, correct_response)
+                                df_cue <- press.dat %>%
+                                        filter(event_type == 'cue') %>%
+                                        select(trial_number, trial_type, correct_response) %>%
+                                        mutate(trial_number = as.numeric(trial_number))
+                                df_resp <- press.dat %>%
+                                        filter(event_type == 'response') %>%
+                                        select(trial_number, button_pressed, button_expected) %>%
+                                        mutate(trial_number = as.numeric(trial_number),
+                                               button_pressed = as.numeric(button_pressed),
+                                               button_expected = as.numeric(button_expected))
+                                df_presses <- left_join(df_cue, df_resp, by = 'trial_number')
+                                df_presses <- df_presses %>%
+                                        separate(button_expected, c('Expected_1','Expected_2','Expected_3'), sep = c(1, 2), convert = TRUE)
+                                
+                                # Counter the number of times a button press is repeated from one trial to the next
                                 repetition_counter <- 0
-                                for(v in 1:length(reps.dat$trial_type)){
-                                        if(str_detect(reps.dat$trial_type[v],'Int') && v != 1){
-                                                if(reps.dat$button_pressed[v] == reps.dat$button_pressed[v-1]){
+                                for(v in 1:length(df_presses$trial_type)){
+                                        if(str_detect(df_presses$trial_type[v],'Int') & v != 1 & df_presses$correct_response[v] != 'Miss'){
+                                                if(df_presses$button_pressed[v] == df_presses$button_pressed[v-1] & !is.na(df_presses$button_pressed[v-1])){
                                                         repetition_counter <- repetition_counter + 1
                                                 }
                                         }
                                 }
+                                
+                                # Count the number of responses that were adjacent or non-adjacent to a previous response where either of these two types of responses were possible options
+                                adjacency_counter <- 0
+                                non_adjacency_counter <- 0
+                                for(v in 1:length(df_presses$trial_number)){
+                                        if(str_detect(df_presses$trial_type[v],'Int') & v != 1 & df_presses$correct_response[v] != 'Miss'){
+                                                preceding <- df_presses$button_pressed[v-1]
+                                                expected <- c(df_presses$Expected_1[v],df_presses$Expected_2[v],df_presses$Expected_3[v])
+                                                expected <- expected[!is.na(expected)]
+                                                pressed <- df_presses$button_pressed[v]
+                                                exp_pre_diff <- expected - preceding
+                                                if(!is.na(preceding) & !is.na(pressed)){
+                                                        if((preceding-1 %in% expected | preceding+1 %in% expected) & max(exp_pre_diff) > 1){
+                                                                if(pressed != preceding-1 & pressed != preceding+1){
+                                                                        non_adjacency_counter <- non_adjacency_counter+1
+                                                                }else{
+                                                                        adjacency_counter <- adjacency_counter+1
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                }
+                                
+                                
+                                
+                                
                         }
                         
                         for(i in 1:length(Conditions)){
@@ -108,7 +150,11 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
                                                                 Button.Press.Mean = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% mean,
                                                                 Button.Press.Sd = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% sd,
+                                                                Button.Press.CoV = Button.Press.Sd / Button.Press.Mean,
                                                                 Button.Press.Repetitions = repetition_counter,
+                                                                Button.Press.Adjacent = adjacency_counter,
+                                                                Button.Press.NonAdjacent = non_adjacency_counter,
+                                                                Button.Press.AdjacencyRatio = adjacency_counter / (adjacency_counter + non_adjacency_counter),
                                                                 Responding.Hand = Events[[2]]$RespondingHand.Value,
                                                                 Group = Events[[2]]$Group.Value)
                                         }else{
@@ -120,7 +166,11 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
                                                                 Button.Press.Mean = NA,
                                                                 Button.Press.Sd = NA,
+                                                                Button.Press.CoV = NA,
                                                                 Button.Press.Repetitions = NA,
+                                                                Button.Press.Adjacent = NA,
+                                                                Button.Press.NonAdjacent = NA,
+                                                                Button.Press.AdjacencyRatio = NA,
                                                                 Responding.Hand = Events[[2]]$RespondingHand.Value,
                                                                 Group = Events[[2]]$Group.Value)
                                         }
@@ -135,7 +185,11 @@ generate_motor_task_csv <- function(bidsdir){
                                                         Percentage.Correct = NA,
                                                         Button.Press.Mean = NA,
                                                         Button.Press.Sd = NA,
+                                                        Button.Press.CoV = NA,
                                                         Button.Press.Repetitions = NA,
+                                                        Button.Press.Adjacent = NA,
+                                                        Button.Press.NonAdjacent = NA,
+                                                        Button.Press.AdjacencyRatio = NA,
                                                         Responding.Hand = NA,
                                                         Group = NA)
                                 }
