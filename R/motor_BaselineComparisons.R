@@ -48,15 +48,14 @@ df.task <- full_join(df.task.pit, df.task.pom)
         # Data
 df <- df.task %>%
         filter(Timepoint == 'ses-Visit1') %>%
-        filter(Group == 'HC_PIT' | Group == 'PD_POM') %>%
-        select(-c(Button.Press.Mean,Button.Press.Sd,Button.Press.Repetitions)) %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Percentage.Correct, Response.Time)) %>%
-        filter(Percentage.Correct_Ext > 0.25) %>%
-        reshape_by_task %>%
+        filter(Group == 'HC_PIT' | Group == 'PD_POM') %>% 
+        filter(Condition != 'Catch') %>%
         mutate(Response.Time_log = log(Response.Time),
-               Group = as.factor(Group)) %>%
-        arrange(pseudonym)
+               Group = as.factor(Group))
+PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
+PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
+df <- df %>%
+        filter(!pseudonym %in% PoorPerformancePseudos)
         # Descriptives
 df %>%
         group_by(Group, Condition) %>%
@@ -78,7 +77,124 @@ contrasts(df$Group) <- contr.helmert(2)
 m1 <- lmer(Response.Time_log ~ 1 + Condition*Group + (1|pseudonym), data = df, REML = TRUE)
 summary(m1)
 plot(m1)
-confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 5000)
+#confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 5000)
+
+# Error rates on ExtInt
+        # Data: load the RT data above
+        # Descriptives
+df %>%
+        group_by(Group, Condition) %>%
+        summarise(N = n(), Mean=mean(Percentage.Correct), SD = sd(Percentage.Correct), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Group, group=pseudonym)) +
+        geom_point(alpha=0.3) +
+        facet_wrap(~Condition)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Condition, color=Group)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Percentage.Correct, fill=Group)) +
+        geom_density(aes(color=Group), alpha = 0.5) +
+        facet_wrap(~Condition)
+        # Inferences
+m1 <- lmer(Percentage.Correct ~ 1 + Group*Condition + (1|pseudonym), data = df)
+summary(m1)
+anova(m1)
+
+# Reptitions
+        #Data
+df <- df %>% filter(Condition == 'Ext')
+        #Descriptives
+df %>%
+        group_by(Group, Condition) %>%
+        summarise(N = n(), Mean=mean(Button.Press.Repetitions), SD = sd(Button.Press.Repetitions), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+df %>%
+        ggplot(aes(y=Button.Press.Repetitions, x=Group, group=pseudonym)) +
+        geom_point(alpha=0.3)
+df %>%
+        ggplot(aes(y=Button.Press.Repetitions, x=Condition, color=Group)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Button.Press.Repetitions, fill=Group)) +
+        geom_density(aes(color=Group), alpha = 0.5)
+        #Inferences
+m1 <- lm(Button.Press.Repetitions ~ 1 + Group, data = df)
+summary(m1)
+anova(m1)
+confint(m1)
+
+# CoV
+        #Descriptives
+df %>%
+        group_by(Group, Condition) %>%
+        summarise(N = n(), CoV=mean(Button.Press.CoV), CoV_sd = sd(Button.Press.CoV),
+                  Mean=mean(Button.Press.Mean), Mean_sd = sd(Button.Press.Mean))
+df %>%
+        ggplot(aes(y=Button.Press.CoV, x=Group, group=pseudonym)) +
+        geom_point(alpha=0.3)
+df %>%
+        ggplot(aes(y=Button.Press.CoV, x=Condition, color=Group)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Button.Press.CoV, fill=Group)) +
+        geom_density(aes(color=Group), alpha = 0.5)
+        #Inferences
+m1 <- lm(Button.Press.CoV ~ 1 + Group, data = df)
+summary(m1)
+anova(m1)
+confint(m1)
+
+# Adjacency
+        #Descriptives
+df %>%
+        group_by(Group, Condition) %>%
+        summarise(N = n(), AdjRat=mean(Button.Press.AdjacencyRatio, na.rm= TRUE), AdjRat_sd = sd(Button.Press.AdjacencyRatio, na.rm= TRUE),
+                  Adj=mean(Button.Press.Adjacent, na.rm= TRUE), Adj_sd = sd(Button.Press.Adjacent, na.rm= TRUE),
+                  NonAdj=mean(Button.Press.NonAdjacent, na.rm= TRUE), NonAdj_sd = sd(Button.Press.NonAdjacent, na.rm= TRUE))
+df %>%
+        ggplot(aes(y=Button.Press.AdjacencyRatio, x=Group, group=pseudonym)) +
+        geom_point(alpha=0.3)
+df %>%
+        ggplot(aes(y=Button.Press.AdjacencyRatio, x=Condition, color=Group)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Button.Press.AdjacencyRatio, fill=Group)) +
+        geom_density(aes(color=Group), alpha = 0.5)
+        #Inferences
+m1 <- lm(Button.Press.AdjacencyRatio ~ 1 + Group, data = df)
+summary(m1)
+anova(m1)
+confint(m1)
+
+# Error rates on Catch
+        # Data
+df <- df.task %>%
+        filter(Timepoint == 'ses-Visit1') %>%
+        filter(Group == 'HC_PIT' | Group == 'PD_POM') %>%
+        mutate(Group = as.factor(Group))
+PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
+PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
+df <- df %>%
+        filter(Condition == 'Catch')
+        # Descriptives
+df %>%
+        group_by(Group, Condition) %>%
+        summarise(N = n(), Mean=mean(Percentage.Correct), SD = sd(Percentage.Correct), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Group, group=pseudonym)) +
+        geom_point(alpha=0.3) +
+        facet_wrap(~Condition)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Condition, color=Group)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Percentage.Correct, fill=Group)) +
+        geom_density(aes(color=Group), alpha = 0.5) +
+        facet_wrap(~Condition)
+m1 <- lm(Percentage.Correct ~ 1 + Group, data = df)
+summary(m1)
+anova(m1)
+confint(m1)
 
 
 # HcOff x ExtInt2Int3
@@ -86,14 +202,12 @@ confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 5000)
 df <- df.task %>%
         filter(Timepoint == 'ses-Visit1') %>%
         filter(Group == 'HC_PIT' | Group == 'PD_PIT') %>%
-        select(-c(Button.Press.Mean,Button.Press.Sd,Button.Press.Repetitions)) %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Percentage.Correct, Response.Time)) %>%
-        filter(Percentage.Correct_Ext > 0.25) %>%
-        reshape_by_task %>%
         mutate(Response.Time_log = log(Response.Time),
-               Group = as.factor(Group)) %>%
-        arrange(pseudonym)
+               Group = as.factor(Group))
+PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
+PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
+df <- df %>%
+        filter(!pseudonym %in% PoorPerformancePseudos)
         # Descriptives
 df %>%
         group_by(Group, Condition) %>%
@@ -163,6 +277,68 @@ m1 <- lmer(Response.Time_log ~ 1 + Condition*Group + (1 + Group|pseudonym), data
 summary(m1)
 plot(m1)
 confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 500)
+
+
+#####
+
+##### Analysis of motor task behavioral data with tremor subtyping #####
+
+clinical <- df.clin.pom %>%
+        filter(MriNeuroPsychTask == 'Motor',
+               Timepoint == 'ses-Visit1') %>%
+        select(pseudonym, Age, Gender, EstDisDurYears, LEDD, Subtype,
+               Up3OfRestTremAmpSum, Up3OfRAmpJaw, Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev, Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev, Up3OfConstan) %>%
+        mutate(TremorDominant = NA)
+
+for(n in 1:nrow(clinical)){
+        RestTrem <- c(clinical$Up3OfRAmpArmYesDev[n], clinical$Up3OfRAmpArmNonDev[n], clinical$Up3OfRAmpLegYesDev[n], clinical$Up3OfRAmpLegNonDev[n])
+        RestTremMax <- max(RestTrem)
+        
+        if(is.na(RestTremMax)){
+                next
+        }
+        
+        if(RestTremMax < 1){
+                clinical$TremorDominant[n] <- 'No'
+        }else if(RestTremMax >= 2){
+                clinical$TremorDominant[n] <- 'Yes'
+        }else{
+                clinical$TremorDominant[n] <- 'Intermediate'
+        }
+}
+
+
+df <- df.task %>%
+        filter(Group == 'PD_POM')
+
+df <- left_join(df, clinical, by = 'pseudonym')
+
+df <- df %>%
+        filter(TremorDominant != 'Intermediate')
+
+df_nocatch <- df %>%
+        filter(Condition != 'Catch') %>%
+        mutate(Condition = as.factor(Condition),
+               TremorDominant = as.factor(TremorDominant),
+               Age_c = scale(Age, center = TRUE, scale = FALSE),
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
+               LEDD_c = scale(LEDD, center = TRUE, scale = FALSE),
+               Condition2 = if_else(Condition == 'Ext','Ext','Int'),
+               Condition2 = as.factor(Condition2))
+
+df_nocatch %>%
+        group_by(TremorDominant, Condition) %>%
+        summarise(n = n(), RT.mean = mean(Response.Time, na.rm = TRUE), RT.sd = sd(Response.Time, na.rm = TRUE),
+                  age = mean(Age), disdur = mean(EstDisDurYears, na.rm = TRUE), ledd = mean(LEDD, na.rm = TRUE))
+
+ggplot(df_nocatch, aes(x=Condition,y=Response.Time, color=TremorDominant)) + 
+        geom_boxplot()
+
+#contrasts(df_nocatch$Condition) <- contr.helmert(3)[c(3:1), 2:1]
+m1 <- lmer(Response.Time ~ 1 + Condition2*TremorDominant + Age_c + Gender + EstDisDurYears_c + (1+Condition2|pseudonym), data = df_nocatch)
+summary(m1)
+anova(m1)
+        
 
 #####
 
@@ -441,7 +617,7 @@ df.task_corr <- df.task.pom %>%
         select(-c(Ext,Int2,Int3))
 
 # Prepare VOIs
-dVOI <- 'P:/3024006.02/Analyses/VOIs'
+dVOI <- 'P:/3024006.02/Analyses/VOIs/NoTrem'
 fVOI <- dir(dVOI, 'VOI.*.csv', full.names = TRUE)
 fVOI <- fVOI[!mapply(grepl, 'ClinVars', fVOI)]
 
@@ -466,11 +642,14 @@ for(f in 1:length(fVOI)){
 # Write csv file in wide-format by brain region to enable clustering
 # Analysis: HC>ON Mean(ExtInt), ROI=Whole-brain
         # Data files
-fDat_ROI.Whole_Mean <- c('P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_LeftM1_ClinVars.csv',
-                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_LeftPutamen_ClinVars.csv',
-                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_RightCB_ClinVars.csv',
-                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_RightM1_ClinVars.csv',
-                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_SMA_ClinVars.csv')
+#fDat_ROI.Whole_Mean <- c('P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_LeftM1_ClinVars.csv',
+#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_LeftPutamen_ClinVars.csv',
+#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_RightCB_ClinVars.csv',
+#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_RightM1_ClinVars.csv',
+#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_SMA_ClinVars.csv')
+fDat_ROI.Whole_Mean <- c('P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_Mean_LeftM1_ClinVars.csv',
+                         'P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_Mean_LeftPut_ClinVars.csv',
+                         'P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_Mean_RightCB_ClinVars.csv')
 
         # Generate data frame
 df.Whole_Mean <- read_csv(fDat_ROI.Whole_Mean[1])
@@ -498,7 +677,7 @@ df.Whole_Mean <- df.Whole_Mean %>%
         # Add ROI names
 df.Whole_Mean <- df.Whole_Mean %>%
         arrange(pseudonym)
-roinames <- c('LeftM1', 'LeftPutamen', 'RightCB', 'RightM1', 'SMA')
+roinames <- c('LeftM1', 'LeftPutamen', 'RightCB')#, 'RightM1', 'SMA')
 roinames <- tibble(ROI = rep(roinames, length(unique(df.Whole_Mean$pseudonym))))
 df.Whole_Mean <- bind_cols(df.Whole_Mean, roinames)
 df.Whole_Mean <- df.Whole_Mean %>%
@@ -513,8 +692,10 @@ write_csv(df.Whole_Mean, OutputName)
 
 # Analysis: HC>ON, Ext>Int or Int>Ext, ROI=Whole-brain
         # Data files
-fDat_ROI.Whole_EXTvINT <- c('P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_EXTvINT_PreSMA_ClinVars.csv',
-                            'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD-EXTvINT_RightPFC_ClinVars.csv')
+#fDat_ROI.Whole_EXTvINT <- c('P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_EXTvINT_PreSMA_ClinVars.csv',
+#                            'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD-EXTvINT_RightPFC_ClinVars.csv')
+fDat_ROI.Whole_EXTvINT <- c('P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_EXTvINT_RightSFG_ClinVars.csv',
+                            'P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_INTvEXT_SMA_ClinVars.csv')
 
         # Generate data frame
 df.Whole_EXTvINT <- read_csv(fDat_ROI.Whole_EXTvINT[1])
@@ -542,7 +723,7 @@ df.Whole_EXTvINT <- df.Whole_EXTvINT %>%
         # Add ROI names
 df.Whole_EXTvINT <- df.Whole_EXTvINT %>%
         arrange(pseudonym)
-roinames <- c('PreSMA', 'RightPFC')
+roinames <- c('SMA', 'RightSFG')
 roinames <- tibble(ROI = rep(roinames, length(unique(df.Whole_EXTvINT$pseudonym))))
 df.Whole_EXTvINT <- bind_cols(df.Whole_EXTvINT, roinames)
 df.Whole_EXTvINT <- df.Whole_EXTvINT %>%
@@ -606,7 +787,7 @@ write_csv(df.Put_Mean, OutputName)
         # Data
 df_subtype <- df.clin.pom %>%
         filter(Timepoint == 'ses-Visit1') %>%
-        select(pseudonym, Subtype, Age, Gender, EstDisDurYears)
+        select(pseudonym, Subtype, Age, Gender, EstDisDurYears, LEDD)
 df_t <- df.task %>%
         filter(Group == 'PD_POM',
                Timepoint == 'ses-Visit1')
@@ -622,7 +803,9 @@ df <- df_t_clean %>%
                Condition = as.factor(Condition),
                Age_c = scale(Age, center = TRUE, scale = FALSE),
                EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
-               Response.Time_log = log(Response.Time))
+               LEDD_c = scale(LEDD, center = TRUE, scale = FALSE),
+               Response.Time_log = log(Response.Time),
+               Percentage.Correct_log = log(Percentage.Correct))
         # Descriptives
 df %>%
         group_by(Subtype, Condition) %>%
@@ -644,7 +827,68 @@ m1 <- lmer(Response.Time_log ~ 1 + Condition*Subtype + Age_c + Gender + EstDisDu
 summary(m1)
 anova(m1)
 
-# Error rates
+# Error rates on ExtInt
+        # Data: load the RT data above
+        # Descriptives
+df %>%
+        group_by(Subtype, Condition) %>%
+        summarise(N = n(), Mean=mean(Percentage.Correct), SD = sd(Percentage.Correct), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Subtype, group=pseudonym)) +
+        geom_point(alpha=0.3) +
+        facet_wrap(~Condition)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Condition, color=Subtype)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Percentage.Correct, fill=Subtype)) +
+        geom_density(aes(color=Subtype), alpha = 0.5) +
+        facet_wrap(~Condition)
+        # Inferences
+m1 <- lmer(Percentage.Correct_log ~ 1 + Subtype*Condition + Age_c + Gender + EstDisDurYears_c + LEDD_c + (1|pseudonym), data = df)
+summary(m1)
+anova(m1)
+
+# Error rates on Catch
+        # Data
+df_subtype <- df.clin.pom %>%
+        filter(Timepoint == 'ses-Visit1') %>%
+        select(pseudonym, Subtype, Age, Gender, EstDisDurYears, LEDD)
+df_t <- df.task %>%
+        filter(Group == 'PD_POM',
+               Timepoint == 'ses-Visit1')
+df_t <- left_join(df_t, df_subtype, by = 'pseudonym')
+PoorPerformanceIndex <- df_t$Percentage.Correct[df_t$Condition == 'Ext'] < 0.25
+PoorPerformancePseudos <- unique(df_t$pseudonym)[PoorPerformanceIndex]
+df_t_clean <- df_t %>%
+        filter(!pseudonym %in% PoorPerformancePseudos)
+df <- df_t_clean %>%
+        filter(Condition == 'Catch',
+               !is.na(Subtype)) %>%
+        mutate(Subtype = as.factor(Subtype),
+               Condition = as.factor(Condition),
+               Age_c = scale(Age, center = TRUE, scale = FALSE),
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
+               LEDD_c = scale(LEDD, center = TRUE, scale = FALSE),
+               Percentage.Correct_log = log(Percentage.Correct + 0.001))
+        # Descriptives
+df %>%
+        group_by(Subtype, Condition) %>%
+        summarise(N = n(), Mean=mean(Percentage.Correct), SD = sd(Percentage.Correct), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Subtype, group=pseudonym)) +
+        geom_point(alpha=0.3) +
+        facet_wrap(~Condition)
+df %>%
+        ggplot(aes(y=Percentage.Correct, x=Condition, color=Subtype)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Percentage.Correct, fill=Subtype)) +
+        geom_density(aes(color=Subtype), alpha = 0.5) +
+        facet_wrap(~Condition)
+m1 <- lm(Percentage.Correct_log ~ 1 + Subtype + Age_c + Gender + EstDisDurYears_c + LEDD_c, data = df)
+summary(m1)
+anova(m1)
 
 # Disease progression
 df <- df.clin.pom %>%
@@ -686,7 +930,6 @@ df %>%
 m1 <- lmer(Up3OfTotal ~ 1 + Subtype*TimeToFUYears + Age_c + Gender + EstDisDurYears_c + LEDD_c + (1|pseudonym), data = df, REML = TRUE)
 summary(m1)
 anova(m1)
-
 #####
 
 ##### Diagnostics #####
