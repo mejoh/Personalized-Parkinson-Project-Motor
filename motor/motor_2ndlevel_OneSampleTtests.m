@@ -21,7 +21,7 @@ spm('defaults', 'FMRI');
 %% Directories
 
 ses = 'ses-Visit1';
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer/';
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem';
 % ANALYSESDir = '/project/3022026.01/analyses/motor/fMRI_EventRelated_BRCtrl';
 ClinicalDataFile = '/project/3022026.01/pep/ClinVars/derivatives/database_clinical_variables.csv';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', 'ses-Visit1'), '.*sub-POM.*'));
