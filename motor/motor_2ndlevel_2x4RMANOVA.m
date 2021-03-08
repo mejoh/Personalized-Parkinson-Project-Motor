@@ -16,7 +16,7 @@ spm('defaults', 'FMRI');
 %% Directories
 
 ses = 'ses-Visit1';
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer';
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem';
 % ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', ses), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
