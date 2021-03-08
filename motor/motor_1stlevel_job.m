@@ -25,7 +25,7 @@ matlabbatch{3}.spm.stats.fmri_spec.bases.hrf.derivs = [1 0];
 matlabbatch{3}.spm.stats.fmri_spec.volt = 1;
 matlabbatch{3}.spm.stats.fmri_spec.global = 'None';
 matlabbatch{3}.spm.stats.fmri_spec.mthresh = 0.25;
-matlabbatch{3}.spm.stats.fmri_spec.mask = {'/home/common/matlab/spm12_r6470_20150506/tpm/mask_ICV.nii,1'};
+matlabbatch{3}.spm.stats.fmri_spec.mask = {'/home/common/matlab/spm12_r7487_20181114/tpm/mask_ICV.nii,1'};
 matlabbatch{3}.spm.stats.fmri_spec.cvi = 'FAST';
 matlabbatch{4}.spm.stats.fmri_est.spmmat(1) = cfg_dep('fMRI model specification: SPM.mat File', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
 matlabbatch{4}.spm.stats.fmri_est.write_residuals = 0;
@@ -62,9 +62,9 @@ matlabbatch{5}.spm.stats.con.consess{10}.tcon.name = 'Mean (ExtInt)';
 matlabbatch{5}.spm.stats.con.consess{10}.tcon.weights = [0 0 1 0 0 0 1 0 0 0 1];
 matlabbatch{5}.spm.stats.con.consess{10}.tcon.sessrep = 'none';
 matlabbatch{5}.spm.stats.con.consess{11}.fcon.name = 'EOI';
-matlabbatch{5}.spm.stats.con.consess{11}.fcon.weights = [0 0 1 0 0 0 0 0 0 
-                                                        0 0 0 0 0 1 0 0 0
-                                                        0 0 0 0 0 0 0 0 1];
+matlabbatch{5}.spm.stats.con.consess{11}.fcon.weights = [0 0 1 0 0 0 0 0 0 0 0
+                                                         0 0 0 0 0 0 1 0 0 0 0
+                                                         0 0 0 0 0 0 0 0 0 0 1];
 matlabbatch{5}.spm.stats.con.consess{11}.fcon.sessrep = 'none';
 % Contrasts for NoPMOD BRreg analyses
 % matlabbatch{5}.spm.stats.con.consess{1}.tcon.name = 'ext > 0';
