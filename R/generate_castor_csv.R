@@ -264,6 +264,8 @@ generate_castor_csv <- function(bidsdir){
                                starts_with('Ess'),
                                starts_with('ScopaSlp'),
                                starts_with('RemSbdq'),
+                               starts_with('Quip'),
+                               starts_with('test'),
                                starts_with('Apat'),
                                starts_with('Aes12'),
                                starts_with('Sf12'),
