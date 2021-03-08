@@ -26,7 +26,7 @@ Root = '/project/3022026.01';
 % BIDSDir  = fullfile(Root, 'pep', 'bids_PIT');
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-ANALYSESDir   = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer';  
+ANALYSESDir   = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem';  
 % ANALYSESDir   = strcat('/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl');
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
 fprintf('Found %i subjects \n', numel(Sub))
@@ -96,11 +96,11 @@ Sub = Sub(Sel);
 if isempty(Subset)
     fprintf('Subset not specified, processing all %i subjects! \n', numel(Sub))
     NrSub = numel(Sub);
-elseif ~isempty(Subset)
-    NrSub = Subset;
 elseif Subset > numel(Sub)
     fprintf('Subset has %i more participants than is available. Processing the remaining ones instead! \n', Subset - numel(Sub))
     NrSub = numel(Sub);
+else
+    NrSub = Subset;
 end
 if NrSub >0
     fprintf('%i participants included for further processing \n', NrSub)
@@ -185,7 +185,6 @@ for n = 1:numel(Files)
 	% fMRI model specification: Multiple regressors - cfg_files
 	NrPulses	 = getnrpulses(EventsJsonFile);
     Covar		 = non_gm_covariates_fmriprep(ConfFile, InMat, NrPulses);
-    
     Inputs{6}{n} = {Covar};
     
 end
