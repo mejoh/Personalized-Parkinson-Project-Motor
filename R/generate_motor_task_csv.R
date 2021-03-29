@@ -39,8 +39,18 @@ generate_motor_task_csv <- function(bidsdir){
                 
         }
         
-        Subjects <- basename(list.dirs(bidsdir, recursive = FALSE)) # Define a list of subjects
+        Subjects <- basename(list.dirs(bidsdir, recursive = FALSE)) # Define a list of subjects with motor task data
         Subjects <- Subjects[str_starts(Subjects, 'sub-')]
+        Sel <- rep(TRUE, length(Subjects))
+        for(n in 1:length(Subjects)){
+                filepth <- paste(bidsdir, Subjects[n], '/', 'ses-Visit1', '/beh/', sep='')
+                contents <- dir(filepth)
+                tsvfile <- contents[str_detect(contents, 'task-motor_acq-MB6_run.*.tsv')]
+                if(length(tsvfile) == 0){
+                        Sel[n] <- FALSE
+                }
+        }
+        Subjects <- Subjects[Sel]
         Conditions <- c('Ext', 'Int2', 'Int3', 'Catch')    # Set conditions
         Data <- tribble(~pseudonym,
                         ~Timepoint,
@@ -51,9 +61,14 @@ generate_motor_task_csv <- function(bidsdir){
                         ~Button.Press.Sd,
                         ~Button.Press.CoV,
                         ~Button.Press.Repetitions,
+                        ~Button.Press.NonRepetitions,
+                        ~Button.Press.RepetitionRatio,
                         ~Button.Press.Adjacent,
                         ~Button.Press.NonAdjacent,
                         ~Button.Press.AdjacencyRatio,
+                        ~Button.Press.Switch,
+                        ~Button.Press.non_switch,
+                        ~Button.Press.SwitchRatio,
                         ~Responding.Hand,
                         ~Group)    # Generate data frame
         
@@ -87,12 +102,21 @@ generate_motor_task_csv <- function(bidsdir){
                                 df_presses <- df_presses %>%
                                         separate(button_expected, c('Expected_1','Expected_2','Expected_3'), sep = c(1, 2), convert = TRUE)
                                 
-                                # Counter the number of times a button press is repeated from one trial to the next
+                                # Count the number of times a button press is repeated from one trial to the next
                                 repetition_counter <- 0
+                                non_repetition_counter <- 0
                                 for(v in 1:length(df_presses$trial_type)){
                                         if(str_detect(df_presses$trial_type[v],'Int') & v != 1 & df_presses$correct_response[v] != 'Miss'){
-                                                if(df_presses$button_pressed[v] == df_presses$button_pressed[v-1] & !is.na(df_presses$button_pressed[v-1])){
-                                                        repetition_counter <- repetition_counter + 1
+                                                preceding <- df_presses$button_pressed[v-1]
+                                                expected <- c(df_presses$Expected_1[v],df_presses$Expected_2[v],df_presses$Expected_3[v])
+                                                expected <- expected[!is.na(expected)]
+                                                pressed <- df_presses$button_pressed[v]
+                                                if(!is.na(preceding) & !is.na(pressed)){
+                                                        if(sum(preceding==expected)>0 & pressed == preceding){
+                                                                repetition_counter <- repetition_counter + 1
+                                                        }else if(sum(preceding==expected)>0 & pressed != preceding){
+                                                                non_repetition_counter <- non_repetition_counter + 1
+                                                        }
                                                 }
                                         }
                                 }
@@ -111,7 +135,7 @@ generate_motor_task_csv <- function(bidsdir){
                                                         if((preceding-1 %in% expected | preceding+1 %in% expected) & max(exp_pre_diff) > 1){
                                                                 if(pressed != preceding-1 & pressed != preceding+1){
                                                                         non_adjacency_counter <- non_adjacency_counter+1
-                                                                }else{
+                                                                }else if(pressed == preceding-1 | pressed == preceding+1){
                                                                         adjacency_counter <- adjacency_counter+1
                                                                 }
                                                         }
@@ -119,6 +143,26 @@ generate_motor_task_csv <- function(bidsdir){
                                         }
                                 }
                                 
+                                # (Switch) Count the number of responses that were repetitions when adjacent/non-adjacent responses were possible
+                                # For each int trial, check whether a repetition is possible. Compare the response with the preceding one. Increment
+                                # the switch counter if the two do not match
+                                switch_counter <- 0
+                                non_switch_counter <- 0
+                                for(v in 1:length(df_presses$trial_number)){
+                                        if(str_detect(df_presses$trial_type[v],'Int') & v != 1 & df_presses$correct_response[v] != 'Miss'){
+                                                preceding <- df_presses$button_pressed[v-1]
+                                                expected <- c(df_presses$Expected_1[v],df_presses$Expected_2[v],df_presses$Expected_3[v])
+                                                expected <- expected[!is.na(expected)]
+                                                pressed <- df_presses$button_pressed[v]
+                                                if(!is.na(preceding) & !is.na(pressed)){
+                                                        if(sum(preceding==expected)>0 & preceding != pressed){
+                                                                switch_counter <- switch_counter+1
+                                                        }else if(sum(preceding==expected)>0 & preceding == pressed){
+                                                                non_switch_counter <- non_switch_counter+1
+                                                        }
+                                                }
+                                        }
+                                }
                                 
                                 
                                 
@@ -152,9 +196,14 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Button.Press.Sd = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% sd,
                                                                 Button.Press.CoV = Button.Press.Sd / Button.Press.Mean,
                                                                 Button.Press.Repetitions = repetition_counter,
+                                                                Button.Press.NonRepetitions = non_repetition_counter,
+                                                                Button.Press.RepetitionRatio = repetition_counter / (repetition_counter + non_repetition_counter),
                                                                 Button.Press.Adjacent = adjacency_counter,
                                                                 Button.Press.NonAdjacent = non_adjacency_counter,
                                                                 Button.Press.AdjacencyRatio = adjacency_counter / (adjacency_counter + non_adjacency_counter),
+                                                                Button.Press.Switch = switch_counter,
+                                                                Button.Press.non_switch = non_switch_counter,
+                                                                Button.Press.SwitchRatio = switch_counter / (switch_counter + non_switch_counter),
                                                                 Responding.Hand = Events[[2]]$RespondingHand.Value,
                                                                 Group = Events[[2]]$Group.Value)
                                         }else{
@@ -168,9 +217,14 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Button.Press.Sd = NA,
                                                                 Button.Press.CoV = NA,
                                                                 Button.Press.Repetitions = NA,
+                                                                Button.Press.NonRepetitions = NA,
+                                                                Button.Press.RepetitionRatio = NA,
                                                                 Button.Press.Adjacent = NA,
                                                                 Button.Press.NonAdjacent = NA,
                                                                 Button.Press.AdjacencyRatio = NA,
+                                                                Button.Press.Switch = NA,
+                                                                Button.Press.non_switch = NA,
+                                                                Button.Press.SwitchRatio = NA,
                                                                 Responding.Hand = Events[[2]]$RespondingHand.Value,
                                                                 Group = Events[[2]]$Group.Value)
                                         }
@@ -187,9 +241,14 @@ generate_motor_task_csv <- function(bidsdir){
                                                         Button.Press.Sd = NA,
                                                         Button.Press.CoV = NA,
                                                         Button.Press.Repetitions = NA,
+                                                        Button.Press.NonRepetitions = NA,
+                                                        Button.Press.RepetitionRatio = NA,
                                                         Button.Press.Adjacent = NA,
                                                         Button.Press.NonAdjacent = NA,
                                                         Button.Press.AdjacencyRatio = NA,
+                                                        Button.Press.Switch = NA,
+                                                        Button.Press.non_switch = NA,
+                                                        Button.Press.SwitchRatio = NA,
                                                         Responding.Hand = NA,
                                                         Group = NA)
                                 }
