@@ -37,6 +37,7 @@ TremorVsTask.sub_corrtrem = cell(height(Tremor_check),1);
 TremorVsTask.ext_corrtrem = zeros(height(Tremor_check),1);
 TremorVsTask.int2_corrtrem = zeros(height(Tremor_check),1);
 TremorVsTask.int3_corrtrem = zeros(height(Tremor_check),1);
+TremorVsTask.catch_corrtrem = zeros(height(Tremor_check),1);
 TremorVsTask.bp_corrtrem = zeros(height(Tremor_check),1);
 for n = 1:height(Tremor_check)
     
@@ -48,20 +49,22 @@ for n = 1:height(Tremor_check)
         TremorVsTask.ext_corrtrem(n) = NaN;
         TremorVsTask.int2_corrtrem(n) = NaN;
         TremorVsTask.int3_corrtrem(n) = NaN;
+        TremorVsTask.catch_corrtrem(n) = NaN;
         TremorVsTask.bp_corrtrem(n) = NaN;
         continue
     end
     
-    clear ext int2 int3 bp
-    [ext, int2, int3, bp] = motor_tremorvtask(spmmat, tremreg);
+    clear ext int2 int3 cat bp
+    [ext, int2, int3, cat, bp] = motor_tremorvtask(spmmat, tremreg);
     TremorVsTask.ext_corrtrem(n) = ext;
     TremorVsTask.int2_corrtrem(n) = int2;
     TremorVsTask.int3_corrtrem(n) = int3;
+    TremorVsTask.catch_corrtrem(n) = cat;
     TremorVsTask.bp_corrtrem(n) = bp;
     
 end
 figure
-tiledlayout(2,2)
+tiledlayout(2,3)
 nexttile
 boxplot(TremorVsTask.ext_corrtrem)
 title('Tremor ~ Ext')
@@ -71,6 +74,9 @@ title('Tremor ~ Int2')
 nexttile
 boxplot(TremorVsTask.int3_corrtrem)
 title('Tremor ~ Int3')
+nexttile
+boxplot(TremorVsTask.cat_corrtrem)
+title('Tremor ~ Catch')
 nexttile
 boxplot(TremorVsTask.bp_corrtrem)
 title('Tremor ~ Button press')
