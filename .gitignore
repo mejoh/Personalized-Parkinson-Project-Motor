@@ -29,3 +29,4 @@ R/MotorTaskData_environment2.RData
 motor/Contrasts.xlsx
 R/motor_GenerateDataForNina.R
 motor/motor_MultipleFunctionCalls.m
+R/motor_GenerateDataForNina.R
