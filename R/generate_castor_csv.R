@@ -33,7 +33,7 @@ generate_castor_csv <- function(bidsdir){
                 
                 # Find subject's files and subset by pattern
                 # Visits and home questionnaires are collapsed (i.e. treated as one time point)
-                dSub <- paste(bidsdir, subject, '/', sep='')
+                dSub <- paste(bidsdir, subject, sep='')
                 fAllFiles <- dir(dSub, full.names = TRUE, recursive = TRUE)
                 fSubsetFiles <- fAllFiles[grep(visit, fAllFiles)]
                 if(visit=='ses-Visit1'){
@@ -140,10 +140,116 @@ generate_castor_csv <- function(bidsdir){
         df[df=='##USER_MISSING_98##'] <- NA
         df[df=='##USER_MISSING_99##'] <- NA
         
+        # FIX: BDI2 variables 16, 18, and 21 need to be altered. 
+        # 16/18 take on values 0-6 when they should take on values 0-3
+        # 21 takes on values 1-4 when it should take on values 0-3
+        msg <- 'Fixing BDI2 variables Bdi2It16, Bdi2It18, and Bdi2It21...'
+        print(msg)
+        df1 <- df %>%
+                mutate(Bdi2It16 = as.numeric(Bdi2It16),
+                       Bdi2It18 = as.numeric(Bdi2It18),
+                       Bdi2It21 = as.numeric(Bdi2It21))
+        for(v in 1:length(df1$Bdi2It16)){
+                if(is.na(df1$Bdi2It16[v])){
+                        next
+                }else if(df1$Bdi2It16[v] == 1 | df1$Bdi2It16[v] == 2){
+                        df1$Bdi2It16[v] = 1
+                }else if(df1$Bdi2It16[v] == 3 | df1$Bdi2It16[v] == 4){
+                        df1$Bdi2It16[v] = 2
+                }else if(df1$Bdi2It16[v] == 5 | df1$Bdi2It16[v] == 6){
+                        df1$Bdi2It16[v] = 3
+                }
+        }
+        for(v in 1:length(df1$Bdi2It18)){
+                if(is.na(df1$Bdi2It16[v])){
+                }else if(df1$Bdi2It18[v] == 1 | df1$Bdi2It18[v] == 2){
+                        df1$Bdi2It18[v] = 1
+                }else if(df1$Bdi2It18[v] == 3 | df1$Bdi2It18[v] == 4){
+                        df1$Bdi2It18[v] = 2
+                }else if(df1$Bdi2It18[v] == 5 | df1$Bdi2It18[v] == 6){
+                        df1$Bdi2It18[v] = 3
+                }
+        }
+        for(v in 1:length(df1$Bdi2It21)){
+                if(!is.na(df1$Bdi2It21[v])){
+                        df1$Bdi2It21[v] <- df1$Bdi2It21[v]-1
+                }
+        }
+        
+        # FIX: Apat variables Apat09-14 needs to be reversed
+        msg <- 'Reversing scoring for Apat variables Apat09-14...'
+        print(msg)
+        for(v in 1:length(df1$Apat09)){
+                if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 0){
+                        df1$Apat09[v] = 3
+                }else if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 1){
+                        df1$Apat09[v] = 2
+                }else if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 2){
+                        df1$Apat09[v] = 1
+                }else if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 3){
+                        df1$Apat09[v] = 0
+                }
+        }
+        for(v in 1:length(df1$Apat10)){
+                if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 0){
+                        df1$Apat10[v] = 3
+                }else if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 1){
+                        df1$Apat10[v] = 2
+                }else if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 2){
+                        df1$Apat10[v] = 1
+                }else if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 3){
+                        df1$Apat10[v] = 0
+                }
+        }
+        for(v in 1:length(df1$Apat11)){
+                if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 0){
+                        df1$Apat11[v] = 3
+                }else if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 1){
+                        df1$Apat11[v] = 2
+                }else if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 2){
+                        df1$Apat11[v] = 1
+                }else if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 3){
+                        df1$Apat11[v] = 0
+                }
+        }
+        for(v in 1:length(df1$Apat12)){
+                if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 0){
+                        df1$Apat12[v] = 3
+                }else if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 1){
+                        df1$Apat12[v] = 2
+                }else if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 2){
+                        df1$Apat12[v] = 1
+                }else if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 3){
+                        df1$Apat12[v] = 0
+                }
+        }
+        for(v in 1:length(df1$Apat13)){
+                if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 0){
+                        df1$Apat13[v] = 3
+                }else if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 1){
+                        df1$Apat13[v] = 2
+                }else if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 2){
+                        df1$Apat13[v] = 1
+                }else if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 3){
+                        df1$Apat13[v] = 0
+                }
+        }
+        for(v in 1:length(df1$Apat14)){
+                if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 0){
+                        df1$Apat14[v] = 3
+                }else if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 1){
+                        df1$Apat14[v] = 2
+                }else if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 2){
+                        df1$Apat14[v] = 1
+                }else if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 3){
+                        df1$Apat14[v] = 0
+                }
+        }
+        
         ##### Preprocessing #####
         
         # Sort data frame
-        df2 <- df %>%
+        df2 <- df1 %>%
                         arrange(pseudonym, Timepoint)
         
         # Define an approximate disease onset and estimated disease duration
@@ -237,6 +343,45 @@ generate_castor_csv <- function(bidsdir){
         list.CompositeTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev',
                                      'Up3OfConstan','Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev')
         list.CompositeTremorOn <- str_replace(list.CompositeTremorOff, 'Of', 'On')
+        list.STAITrait <- c('StaiTrait01', 'StaiTrait02', 'StaiTrait03', 'StaiTrait04', 'StaiTrait05', 'StaiTrait06', 'StaiTrait07',
+                               'StaiTrait08', 'StaiTrait09', 'StaiTrait10', 'StaiTrait11', 'StaiTrait12', 'StaiTrait13', 'StaiTrait14',
+                               'StaiTrait15', 'StaiTrait16', 'StaiTrait17', 'StaiTrait18', 'StaiTrait19', 'StaiTrait20')
+        list.STAIState <- c('StaiState01', 'StaiState02', 'StaiState03', 'StaiState04', 'StaiState05', 'StaiState06', 'StaiState07',
+                               'StaiState08', 'StaiState09', 'StaiState10', 'StaiState11', 'StaiState12', 'StaiState13', 'StaiState14',
+                               'StaiState15', 'StaiState16', 'StaiState17', 'StaiState18', 'StaiState19', 'StaiState20')
+        list.QUIP_gambling <- c('QuipIt01', 'QuipIt08', 'QuipIt15', 'QuipIt22')
+        list.QUIP_sex <- c('QuipIt02', 'QuipIt09', 'QuipIt16', 'QuipIt23')
+        list.QUIP_buying <- c('test', 'QuipIt10', 'QuipIt17', 'QuipIt24')
+        list.QUIP_eating <- c('QuipIt03', 'QuipIt05', 'QuipIt18', 'QuipIt25')
+        list.QUIP_hobbypund <- c('QuipIt04', 'QuipIt12', 'QuipIt19', 'QuipIt26', 'QuipIt05', 'QuipIt13', 'QuipIt20', 'QuipIt27')
+        list.QUIP_medication <- c('QuipIt06', 'QuipIt14', 'QuipIt21', 'QuipIt28')
+        list.QUIP_icd <- c(list.QUIP_gambling, list.QUIP_sex, list.QUIP_buying, list.QUIP_eating)
+        list.QUIP_rs <- c(list.QUIP_icd, list.QUIP_hobbypund, list.QUIP_medication)
+        list.AES12 <- c('Aes12Pd01', 'Aes12Pd02', 'Aes12Pd03', 'Aes12Pd04', 'Aes12Pd05', 'Aes12Pd06', 'Aes12Pd07', 'Aes12Pd08', 'Aes12Pd09',
+                        'Aes12Pd10', 'Aes12Pd11', 'Aes12Pd12')
+        list.Apat <- c('Apat01','Apat02','Apat03','Apat04','Apat05','Apat06','Apat07','Apat08','Apat09','Apat10','Apat11','Apat12',
+                       'Apat13','Apat14')
+        list.BDI2 <- c('Bdi2It01', 'Bdi2It02', 'Bdi2It03', 'Bdi2It04', 'Bdi2It05', 'Bdi2It06', 'Bdi2It07', 'Bdi2It08', 'Bdi2It09',  'Bdi2It10',
+                       'Bdi2It11', 'Bdi2It12', 'Bdi2It13', 'Bdi2It14', 'Bdi2It15', 'Bdi2It16', 'Bdi2It17', 'Bdi2It18', 'Bdi2It19', 'Bdi2It20', 'Bdi2It21')
+        list.TalkProb <- c('TalkProb01', 'TalkProb02', 'TalkProb03', 'TalkProb04', 'TalkProb05', 'TalkProb06', 'TalkProb07')
+        list.VisualProb23 <- c('VisualPr01', 'VisualPr02', 'VisualPr03', 'VisualPr04', 'VisualPr05', 'VisualPr06', 'VisualPr07', 'VisualPr08', 'VisualPr09',
+                              'VisualPr10', 'VisualPr11', 'VisualPr12', 'VisualPr13', 'VisualPr14', 'VisualPr15', 'VisualPr16', 'VisualPr17', 'VisualPr18',
+                              'VisualPr19', 'VisualPr20', 'VisualPr21', 'VisualPr22', 'VisualPr23')
+        list.VisualProb17_ocularsurface <- c('VisualPr01', 'VisualPr02', 'VisualPr03', 'VisualPr04')
+        list.VisualProb17_intraocular <- c('VisualPr08','VisualPr09','VisualPr15','VisualPr19')
+        list.VisualProb17_oculomotor <- c('VisualPr05', 'VisualPr06', 'VisualPr07', 'VisualPr23')
+        list.VisualProb17_opticnerve <- c('VisualPr11', 'VisualPr13', 'VisualPr14', 'VisualPr21', 'VisualPr22')
+        list.VisualProb17 <- c(list.VisualProb17_ocularsurface, list.VisualProb17_intraocular, list.VisualProb17_oculomotor, list.VisualProb17_opticnerve)
+        list.PDQ39_mobility <- c("Pdq39It01","Pdq39It02","Pdq39It03","Pdq39It04","Pdq39It05","Pdq39It06","Pdq39It07","Pdq39It08","Pdq39It09","Pdq39It10")
+        list.PDQ39_activities <- c("Pdq39It11","Pdq39It12","Pdq39It13","Pdq39It14","Pdq39It15","Pdq39It16")
+        list.PDQ39_emotional <- c("Pdq39It17","Pdq39It18","Pdq39It19","Pdq39It20","Pdq39It21","Pdq39It22")
+        list.PDQ39_stigma <- c("Pdq39It23","Pdq39It24","Pdq39It25","Pdq39It26")
+        list.PDQ39_socialsupport <- c("Pdq39It27","Pdq39It28b","Pdq39It29")
+        list.PDQ39_cognitions <- c("Pdq39It30","Pdq39It31","Pdq39It32","Pdq39It33")
+        list.PDQ39_communication <- c("Pdq39It34","Pdq39It35","Pdq39It36")
+        list.PDQ39_bodilydiscomfort <- c("Pdq39It37","Pdq39It38","Pdq39It39")
+        list.PDQ39_singleindex <-  c('PDQ39_mobilitySum', 'PDQ39_activitiesSum', 'PDQ39_emotionalSum', 'PDQ39_stigmaSum', 'PDQ39_socialsupportSum',
+                                     'PDQ39_cognitionsSum', 'PDQ39_communicationSum', 'PDQ39_bodilydiscomfortSum')
         
         
         # Variable selection / construction
@@ -295,9 +440,51 @@ generate_castor_csv <- function(bidsdir){
                                Up3OnActionTremorSum = rowSums(.[list.ActionTremorOn])) %>%
                         mutate(Up3OfCompositeTremorSum = rowSums(.[list.CompositeTremorOff]),
                                Up3OnCompositeTremorSum = rowSums(.[list.CompositeTremorOn])) %>%
-                        mutate(Up3TotalOnOffDelta = Up3OfTotal - Up3OnTotal,
-                               Up3BradySumOnOffDelta = Up3OfBradySum - Up3OnBradySum,
-                               Up3RestTremAmpSumOnOffDelta = Up3OfRestTremAmpSum - Up3OnRestTremAmpSum)
+                        mutate(Up3TotalOnOffDelta = Up3OnTotal - Up3OfTotal,
+                               Up3BradySumOnOffDelta = Up3OnBradySum - Up3OfBradySum,
+                               Up3RestTremAmpSumOnOffDelta = Up3OnRestTremAmpSum - Up3OfRestTremAmpSum,
+                               Up3RigidityOnOffDelta =  Up3OnRigiditySum- Up3OfActionTremorSum,
+                               Up3PIGDOnOffDelta = Up3OnPIGDSum - Up3OfPIGDSum,
+                               Up3PegRLBOnOffDelta = Up3OnPegRLBSum - Up3OfPegRLBSum) %>%
+                        mutate(STAITraitSum = rowSums(.[list.STAITrait]),
+                               STAIStateSum = rowSums(.[list.STAIState]),
+                               QUIPicdSum = rowSums(.[list.QUIP_icd]),
+                               QUIPrsSum = rowSums(.[list.QUIP_rs]),
+                               APATSum = rowSums(.[list.Apat]),
+                               AES12Sum = rowSums(.[list.AES12]),
+                               BDI2Sum = rowSums(.[list.BDI2]),
+                               TalkProbSum = rowSums(.[list.TalkProb]),
+                               VisualProb23Sum = rowSums(.[list.VisualProb23]),
+                               VisualProb17Sum = rowSums(.[list.VisualProb17]),
+                               PDQ39_mobilitySum = rowSums(.[list.PDQ39_mobility]) / (4*10) * 100,
+                               PDQ39_activitiesSum = rowSums(.[list.PDQ39_activities]) / (4*6) * 100,
+                               PDQ39_emotionalSum = rowSums(.[list.PDQ39_emotional]) / (4*6) * 100,
+                               PDQ39_stigmaSum = rowSums(.[list.PDQ39_stigma]) / (4*4) * 100,
+                               PDQ39_socialsupportSum = rowSums(.[list.PDQ39_socialsupport], na.rm = TRUE),
+                               PDQ39_cognitionsSum = rowSums(.[list.PDQ39_cognitions]) / (4*4) * 100,
+                               PDQ39_communicationSum = rowSums(.[list.PDQ39_communication]) / (4*3) * 100,
+                               PDQ39_bodilydiscomfortSum = rowSums(.[list.PDQ39_bodilydiscomfort]) / (4*3) * 100)
+                
+                
+                for(v in 1:length(dataframe$PDQ39_socialsupportSum)){
+                        if(is.na(dataframe$Pdq39It27[v]) | (dataframe$Pdq39It28a[v] == 1 && is.na(dataframe$Pdq39It28b[v])) | is.na(dataframe$Pdq39It29[v])){
+                                dataframe$PDQ39_socialsupportSum[v] <- NA
+                        }else
+                                
+                                nrvars <- length(na.omit(c(dataframe$Pdq39It27[v], dataframe$Pdq39It28a[v], dataframe$Pdq39It28b[v], dataframe$Pdq39It29[v])))
+                                dataframe$PDQ39_socialsupportSum[v] <- dataframe$PDQ39_socialsupportSum[v] / (4*nrvars) * 100
+                }
+                
+                
+                # Calculate a single sum from all PDQ39 domains
+                dataframe <- dataframe %>%
+                        rowwise() %>%
+                        mutate(PDQ39_SingleIndex = sum(c_across(c('PDQ39_mobilitySum', 'PDQ39_activitiesSum', 'PDQ39_emotionalSum',
+                                                                  'PDQ39_stigmaSum', 'PDQ39_socialsupportSum', 'PDQ39_cognitionsSum',
+                                                                  'PDQ39_communicationSum', 'PDQ39_bodilydiscomfortSum')), na.rm = FALSE),
+                               PDQ39_SingleIndex = PDQ39_SingleIndex / length(na.omit(c_across(c('PDQ39_mobilitySum', 'PDQ39_activitiesSum', 'PDQ39_emotionalSum',
+                                                                                                 'PDQ39_stigmaSum', 'PDQ39_socialsupportSum', 'PDQ39_cognitionsSum',
+                                                                                                 'PDQ39_communicationSum', 'PDQ39_bodilydiscomfortSum')))))
                 
                 return(dataframe)
                 
@@ -426,6 +613,11 @@ generate_castor_csv <- function(bidsdir){
                                Up3OfPIGDSum.1YearROC = NA,
                                Up3OnPIGDSum.1YearROC = NA,
                                
+                               Up3OfPegRLBSum.1YearDelta = NA,
+                               Up3OnPegRLBSum.1YearDelta = NA,
+                               Up3OfPegRLBSum.1YearROC = NA,
+                               Up3OnPegRLBSum.1YearROC = NA,
+                               
                                MultipleSessions = 0)
                 
                 alpha <- 0.5
@@ -467,6 +659,11 @@ generate_castor_csv <- function(bidsdir){
                                 dataframe$Up3OfPIGDSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfPIGDSum[n-1], dataframe$Up3OfPIGDSum[n], length(list.PIGDOff), alpha = 0.5/length(list.PIGDOff))
                                 dataframe$Up3OnPIGDSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnPIGDSum[n-1], dataframe$Up3OnPIGDSum[n], length(list.PIGDOn), alpha = 0.5/length(list.PIGDOn))
                                 
+                                dataframe$Up3OfPegRLBSum.1YearDelta[(n-1):n] = dataframe$Up3OfPegRLBSum[n] - dataframe$Up3OfPegRLBSum[n-1]
+                                dataframe$Up3OnPegRLBSum.1YearDelta[(n-1):n] = dataframe$Up3OnPegRLBSum[n] - dataframe$Up3OnPegRLBSum[n-1]
+                                dataframe$Up3OfPegRLBSum.1YearROC[(n-1):n] = elble.change(dataframe$Up3OfPegRLBSum[n-1], dataframe$Up3OfPegRLBSum[n], 1, alpha = 0.5/1)
+                                dataframe$Up3OnPegRLBSum.1YearROC[(n-1):n] = elble.change(dataframe$Up3OnPegRLBSum[n-1], dataframe$Up3OnPegRLBSum[n], 1, alpha = 0.5/1)
+                                
                                 dataframe$MultipleSessions[(n-1):n] = 1
                         }
                 }
@@ -481,7 +678,17 @@ generate_castor_csv <- function(bidsdir){
         df7 <- df6 %>%
                 relocate(pseudonym, Timepoint, Gender, Age, EstDisDurYears, TimeToFUYears, MultipleSessions, MriNeuroPsychTask,
                          Up3OfTotal, Up3OfTotal.1YearDelta, Up3OfTotal.1YearROC,
-                         Up3OnTotal, Up3OnTotal.1YearDelta, Up3OnTotal.1YearROC)
+                         Up3OnTotal, Up3OnTotal.1YearDelta, Up3OnTotal.1YearROC,
+                         Up3OfBradySum, Up3OfBradySum.1YearDelta, Up3OfBradySum.1YearROC,
+                         Up3OnBradySum, Up3OnBradySum.1YearDelta, Up3OnBradySum.1YearROC,
+                         Up3OfRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta, Up3OfRestTremAmpSum.1YearROC,
+                         Up3OnRestTremAmpSum, Up3OnRestTremAmpSum.1YearDelta, Up3OnRestTremAmpSum.1YearROC,
+                         Up3OfRigiditySum, Up3OfRigiditySum.1YearDelta, Up3OfRigiditySum.1YearROC,
+                         Up3OnRigiditySum, Up3OnRigiditySum.1YearDelta, Up3OnRigiditySum.1YearROC,
+                         Up3OfPIGDSum, Up3OfPIGDSum.1YearDelta, Up3OfPIGDSum.1YearROC,
+                         Up3OnPIGDSum, Up3OnPIGDSum.1YearDelta, Up3OnPIGDSum.1YearROC,
+                         Up3OfPegRLBSum, Up3OfPegRLBSum.1YearDelta, Up3OfPegRLBSum.1YearROC,
+                         Up3OnPegRLBSum, Up3OnPegRLBSum.1YearDelta, Up3OnPegRLBSum.1YearROC)
         
         #####
         
