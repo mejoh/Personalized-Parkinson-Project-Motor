@@ -30,3 +30,5 @@ motor/Contrasts.xlsx
 R/motor_GenerateDataForNina.R
 motor/motor_MultipleFunctionCalls.m
 R/motor_GenerateDataForNina.R
+R/motor_GenerateDataForNina.R
+motor/motor_organizeautomatictremorfiles.m
