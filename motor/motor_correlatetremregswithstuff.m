@@ -75,7 +75,7 @@ nexttile
 boxplot(TremorVsTask.int3_corrtrem)
 title('Tremor ~ Int3')
 nexttile
-boxplot(TremorVsTask.cat_corrtrem)
+boxplot(TremorVsTask.catch_corrtrem)
 title('Tremor ~ Catch')
 nexttile
 boxplot(TremorVsTask.bp_corrtrem)
