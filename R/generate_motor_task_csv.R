@@ -43,8 +43,9 @@ generate_motor_task_csv <- function(bidsdir){
         Subjects <- Subjects[str_starts(Subjects, 'sub-')]
         Sel <- rep(TRUE, length(Subjects))
         for(n in 1:length(Subjects)){
-                filepth <- paste(bidsdir, Subjects[n], '/', 'ses-Visit1', '/beh/', sep='')
-                contents <- dir(filepth)
+                filepth1 <- paste(bidsdir, Subjects[n], '/', 'ses-POMVisit1', '/beh/', sep='')
+                filepth2 <- paste(bidsdir, Subjects[n], '/', 'ses-PITVisit1', '/beh/', sep='')
+                contents <- c(dir(filepth1), dir(filepth2))
                 tsvfile <- contents[str_detect(contents, 'task-motor_acq-MB6_run.*.tsv')]
                 if(length(tsvfile) == 0){
                         Sel[n] <- FALSE
@@ -256,7 +257,7 @@ generate_motor_task_csv <- function(bidsdir){
                 }
         }
         
-        # Omit rows without full data
+        # Omit rows without full data (removes all catch trials. Probably dont want this...)
         #Data <- na.omit(Data)
         
         # Write the data frame to csv
