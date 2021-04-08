@@ -6,6 +6,9 @@
 % TremorClassification takes one of the two following string:
 % 1. 'TremorRegressors'
 % 2. 'ClinVars'
+% Classification takes on one of 4 values:
+% 1 = Healthy, 2 = Tremor<1, 3 = Tremor>=2, 4 = Tremor=1
+% Tremor is considered in the on-state, on the 'study watch side', whatever that means...
 
 function motor_2ndlevel_2x4RMANOVA_Tremor(Comparison, TremorClassification, exclude_outliers)
 
@@ -51,16 +54,20 @@ else
     msg = 'TremorClassification was not defined properly';
     error(msg)
 end
+
+fSubInfo = char(fullfile(ANALYSESDir, 'Group', 'SubInfo.csv'));
+tSubInfo = struct2table(SubInfo);
+writetable(tSubInfo, fSubInfo);
     
 
 Sel = false(size(SubInfo.Sub));
 for n = 1:numel(Sub)
     if strcmp(Comparison, 'TremorHc')
-        if SubInfo.Selection(n) == 1 || SubInfo.Selection(n) == 3
+        if SubInfo.Selection(n) == 3 || SubInfo.Selection(n) == 1
             Sel(n) = true;
         end
     elseif strcmp(Comparison, 'NonTremorHc')
-        if SubInfo.Selection(n) == 1 || SubInfo.Selection(n) == 2
+        if SubInfo.Selection(n) == 2 || SubInfo.Selection(n) == 1
             Sel(n) = true;
         end
     elseif strcmp(Comparison, 'TremorNonTremor')
@@ -182,8 +189,8 @@ JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
 delete(fullfile(char(Inputs{1}), '*.*'))
 spm_jobman('run', JobFile, Inputs{:});
 
-filename = char(fullfile(Inputs{1,1}, 'Inputs.mat'));
-save(filename, 'Inputs')
+fInputs = char(fullfile(Inputs{1,1}, 'Inputs.mat'));
+save(fInputs, 'Inputs')
 
 end
 
@@ -264,7 +271,7 @@ for n = 1:numel(SubInfo.Sub)
             
         end
         
-        idx_tremitems = find(contains(c.Properties.VariableNames,["Up3OfRAmpArmNonDev","Up3OfRAmpArmYesDev","Up3OfRAmpLegNonDev","Up3OfRAmpLegYesDev","Up3OfRAmpJaw"]));
+        idx_tremitems = find(contains(c.Properties.VariableNames,"Up3OnRAmpArmYesDev"));
         TremorSeverity = table2array(c(:, [idx_tremitems]));
         MaxTremorSeverity = max(TremorSeverity);
         
@@ -288,19 +295,19 @@ end
 fprintf('Outcome of tremor subtyping based on clinical assessment \n')
 tabulate(SubInfo.Selection)
 
-MeanAge.NonTremor = mean(Age(SubInfo.Selection == 2));
-MeanAge.Tremor = mean(Age(SubInfo.Selection == 3));
-[h,p,ci,stats] = ttest2(Age(SubInfo.Selection == 2), Age(SubInfo.Selection == 3));
-fprintf('Does age differ between tremor subgroups? H%i accepted, p = %f \n', h,p)
-
-MeanDisDur.NonTremor = mean(EstDisDurYears(SubInfo.Selection == 2));
-MeanDisDur.Tremor = mean(EstDisDurYears(SubInfo.Selection == 3));
-[h,p,ci,stats] = ttest2(EstDisDurYears(SubInfo.Selection == 2), EstDisDurYears(SubInfo.Selection == 3));
-fprintf('Does disease duration differ between tremor subgroups? H%i accepted, p = %f \n', h,p)
-
-MeanUp3OfTotal.NonTremor = mean(Up3OfTotal(SubInfo.Selection == 2), 'omitnan');
-MeanUp3OfTotal.Tremor = mean(Up3OfTotal(SubInfo.Selection == 3), 'omitnan');
-[h,p,ci,stats] = ttest2(Up3OfTotal(SubInfo.Selection == 2), Up3OfTotal(SubInfo.Selection == 3));
-fprintf('Does total UPDRS III score differ between tremor subgroups? H%i accepted, p = %f \n', h,p)
+% MeanAge.NonTremor = mean(Age(SubInfo.Selection == 2));
+% MeanAge.Tremor = mean(Age(SubInfo.Selection == 3));
+% [h,p,ci,stats] = ttest2(Age(SubInfo.Selection == 2), Age(SubInfo.Selection == 3));
+% fprintf('Does age differ between tremor subgroups? H%i accepted, p = %f \n', h,p)
+% 
+% MeanDisDur.NonTremor = mean(EstDisDurYears(SubInfo.Selection == 2));
+% MeanDisDur.Tremor = mean(EstDisDurYears(SubInfo.Selection == 3));
+% [h,p,ci,stats] = ttest2(EstDisDurYears(SubInfo.Selection == 2), EstDisDurYears(SubInfo.Selection == 3));
+% fprintf('Does disease duration differ between tremor subgroups? H%i accepted, p = %f \n', h,p)
+% 
+% MeanUp3OfTotal.NonTremor = mean(Up3OfTotal(SubInfo.Selection == 2), 'omitnan');
+% MeanUp3OfTotal.Tremor = mean(Up3OfTotal(SubInfo.Selection == 3), 'omitnan');
+% [h,p,ci,stats] = ttest2(Up3OfTotal(SubInfo.Selection == 2), Up3OfTotal(SubInfo.Selection == 3));
+% fprintf('Does total UPDRS III score differ between tremor subgroups? H%i accepted, p = %f \n', h,p)
 
 end
