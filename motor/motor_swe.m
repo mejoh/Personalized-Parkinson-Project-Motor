@@ -5,7 +5,7 @@ addpath('/home/common/matlab/spm12_r7487_20181114/toolbox/SwE-toolbox')
 spm('defaults', 'FMRI');
 
 % Load input
-% input = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer/Group/HcOff x ExtInt2Int3Catch/Inputs.mat';
+% input = '/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl/Group/HcOn x ExtInt2Int3Catch_Bp/Inputs.mat';
 % input = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer/Group/HcOn x ExtInt2Int3Catch/Inputs.mat';
 % input = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer/Group/OffOn x ExtInt2Int3Catch/Inputs.mat'; Doesn't work!
 dat = load(input);
