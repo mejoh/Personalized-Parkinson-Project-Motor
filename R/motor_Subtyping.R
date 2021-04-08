@@ -5,11 +5,12 @@
 
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/initialize_funcs.R')
 library(tidyverse)
+library(readxl)
         # Clinical vars
-fDat <- 'P:/3022026.01/pep/ClinVars/derivatives/database_clinical_variables.csv'
+fDat <- 'P:/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-04-06.csv'
 df.clin.pom <- read_csv(fDat)
 df <- df.clin.pom %>%
-        filter(Timepoint == 'ses-Visit1')
+        filter(Timepoint == 'ses-POMVisit1')
         # Age- and education-adjusted cognitive vars
 ANDI_scores <- read_excel('P:/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/ANDI_stacked_1-471.xlsx')
 SDMT_Benton_WAIS_scores <- read_csv('P:/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/POM_dataset SDMT and Benton JULO and WAIS-IV LNS z-norms.csv')
@@ -251,8 +252,8 @@ for(n in 1:length(df.Subtyping$Subtype)){
 table(df.Subtyping$Subtype)
 table(df.Subtyping$Above3)
 
-df.Subtyping <- df.Subtyping %>%
-        filter(MriNeuroPsychTask == 'Motor')
+#df.Subtyping <- df.Subtyping %>%
+#        filter(MriNeuroPsychTask == 'Motor')
 
 #####
 
@@ -330,7 +331,7 @@ df.Subtyping %>%
 
 df.Subtyping_only <- df.Subtyping %>%
         select(pseudonym, Subtype)
-OutputName <- 'P:/3024006.02/Data/Subtyping/Subtypes.csv'
+OutputName <- paste('P:/3024006.02/Data/Subtyping/Subtypes_', today(), '.csv', sep='')
 write_csv(df.Subtyping_only, OutputName)
 
 #####
