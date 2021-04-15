@@ -1,7 +1,11 @@
-function [ext, int2, int3, cat, fixtocue, cuetoresp] = motor_powerbycondition(seltremor, chan, freq, vmrkfile, events)
+function [ext, int2, int3, cat, fixtocue, cuetoresp] = motor_powerbycondition(seltremor, chan, freq, vmrkfile, events, logpower)
 
 if ~isnumeric(freq)
     freq = str2double(freq);
+end
+
+if isempty(logpower)
+    logpower = false;
 end
 
 % Load powerspectrum
@@ -9,6 +13,9 @@ load(seltremor);
 chanid = contains(data.label, ['acc_' chan]);
 freqid = round(data.freq, 1) == freq;
 powrspctrm = squeeze(data.powspctrm(chanid,freqid,:));
+if logpower
+    powrspctrm = log(powrspctrm);
+end
 time = data.time';
 
 % Load vmrk and remove potential sync on markers
@@ -68,23 +75,33 @@ vmrk = vmrk(stimulusids);
 % Calculate the average power spectrum within those intervals
 power.fixtocue = [];
 power.cuetoresp = [];
-for s = 1:length(vmrk)-1
+for s = 1:length(vmrk)-2
     
-    intervals.fixtocue = false(1, length(time));
-    intervals.cuetoresp = false(1, length(time));
-    first = [];
-    second = [];
+    intervals.fixtocue = false(1, length(time));        % Baseline
+    intervals.cuetoresp = false(1, length(time));       % Task
+    first_sample = [];
+    last_sample = [];
     
-    if strcmp(vmrk(s).value,'S  8') && strcmp(vmrk(s+1).value,'S  9')   % When fixation is followed by cue
-        first = (round(vmrk(s).timestamp,3) * 1000) - start;            % Time of fixation in ms. Shift backwards by 5 tr to match powerspectrum
-        second = (round(vmrk(s+1).timestamp,3) * 1000) - start;         % Time of cue in ms. Shift backwards by 5 tr to match powerspectrum
-        intervals.fixtocue(1,first:1:second) = true;                    % Define segment to take mean from
-        power.fixtocue = [power.fixtocue; mean(powrspctrm(intervals.fixtocue))];    % Calculate mean power
-    elseif strcmp(vmrk(s).value,'S  9') && (strcmp(vmrk(s+1).value,'S  1') || strcmp(vmrk(s+1).value,'S  2') || strcmp(vmrk(s+1).value,'S  3') || strcmp(vmrk(s+1).value,'S  4'))      % When cue is followed by response
-        first = (round(vmrk(s).timestamp,3) * 1000) - start;
-        second = (round(vmrk(s+1).timestamp,3) * 1000) - start;
-        intervals.cuetoresp(1,first:1:second) = true;
+%     if strcmp(vmrk(s).value,'S  8') && strcmp(vmrk(s+1).value,'S  9')   % When fixation is followed by cue
+%         first = (round(vmrk(s).timestamp,3) * 1000) - start;            % Time of fixation in ms. Shift backwards by 5 tr to match length of powerspectrum
+%         second = (round(vmrk(s+1).timestamp,3) * 1000) - start;         % Time of cue in ms. Shift backwards by 5 tr to match length of powerspectrum
+%         intervals.fixtocue(1,first:1:second) = true;                    % Define segment to take mean from
+%         power.fixtocue = [power.fixtocue; mean(powrspctrm(intervals.fixtocue))];
+    if strcmp(vmrk(s).value,'S  6') && strcmp(vmrk(s+1).value,'S  7') && strcmp(vmrk(s+3).value,'S  8')   % When a response is followed by a break
+        first_sample = floor((round(vmrk(s).timestamp,3) * 1000) - start);                                % Time of start of break
+        last_sample = floor((round(vmrk(s+3).timestamp,3) * 1000) - start);                               % Time of end of break
+        intervals.fixtocue(1,first_sample:1:last_sample) = true;
+        power.fixtocue = [power.fixtocue; mean(powrspctrm(intervals.fixtocue))];
+    elseif strcmp(vmrk(s).value,'S  8') && (strcmp(vmrk(s+2).value,'S  1') || strcmp(vmrk(s+2).value,'S  2') || strcmp(vmrk(s+2).value,'S  3') || strcmp(vmrk(s+2).value,'S  4'))      % When cue is followed by response
+        first_sample = (round(vmrk(s).timestamp,3) * 1000) - start;     % Time of fixation
+        last_sample = (round(vmrk(s+2).timestamp,3) * 1000) - start;    % Time of bp
+        intervals.cuetoresp(1,first_sample:1:last_sample) = true;
         power.cuetoresp = [power.cuetoresp; mean(powrspctrm(intervals.cuetoresp))];
+%     elseif strcmp(vmrk(s).value,'S  9') && (strcmp(vmrk(s+1).value,'S  1') || strcmp(vmrk(s+1).value,'S  2') || strcmp(vmrk(s+1).value,'S  3') || strcmp(vmrk(s+1).value,'S  4'))      % When cue is followed by response
+%         first = (round(vmrk(s).timestamp,3) * 1000) - start;          % Time of cue
+%         second = (round(vmrk(s+1).timestamp,3) * 1000) - start;       % Time of bp
+%         intervals.cuetoresp(1,first:1:second) = true;
+%         power.cuetoresp = [power.cuetoresp; mean(powrspctrm(intervals.cuetoresp))];
     end
     
 end
@@ -112,6 +129,11 @@ for t = 1:length(Condition)
     end
 end
 Condition_pressed = Condition(bpid);
+if length(Condition_pressed) > length(power.cuetoresp)
+    Condition_pressed = Condition_pressed(1:length(power.cuetoresp),1);
+elseif length(Condition_pressed) < length(power.cuetoresp)
+    power.cuetoresp = power.cuetoresp(1:length(Condition_pressed),1);
+end
 power.MeanExt = mean(power.cuetoresp(strcmp(Condition_pressed, 'Ext')));
 power.MeanInt2 = mean(power.cuetoresp(strcmp(Condition_pressed, 'Int2')));
 power.MeanInt3 = mean(power.cuetoresp(strcmp(Condition_pressed, 'Int3')));
