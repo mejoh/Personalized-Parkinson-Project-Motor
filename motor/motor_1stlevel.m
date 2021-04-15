@@ -22,27 +22,28 @@ end
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 
+session = 'ses-PITVisit1';
 Root = '/project/3022026.01';
-% BIDSDir  = fullfile(Root, 'pep', 'bids_PIT');
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-ANALYSESDir   = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem';  
-% ANALYSESDir   = strcat('/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl');
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
+ANALYSESDir   = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POMU.*'));
 fprintf('Found %i subjects \n', numel(Sub))
 
 % Check data for each subject's visits and exclude where necessary
-% TODO: Subjects with two sessions may be excluded based on missing data in
-% only one of the sessions
 Sel = true(size(Sub,1),1);
 for n = 1:numel(Sub)
-    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
+    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
         
+        % Fmriprep report
+        ReportFile = cellstr(spm_select('FPList', FMRIPrep, [Sub{n} '.html']));
         % Preprocessed functional image
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.*']));
-        FuncImg = cellstr(FuncImg{size(FuncImg,1)});
+        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii']));
+        FuncImg = cellstr(FuncImg{size(FuncImg,1)}); % Takes the last run
+        ConfTs = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries.tsv']));
+        ConfTs = cellstr(ConfTs{size(ConfTs,1)}); % Takes the last run
         % Events file
         dBeh = fullfile(BIDSDir, Sub{n}, Visit{v}, 'beh');
         EventsTsv = cellstr(spm_select('FPList', dBeh, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_events.tsv']));
@@ -62,37 +63,48 @@ for n = 1:numel(Sub)
             onsets{3}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int2') .* strcmp(Trials{1,9}, 'Hit')))';
             onsets{4}	 = Trials{1,1}(logical(strcmp(Trials{1,4}, 'cue') .* strcmp(Trials{1,5}, 'Int3') .* strcmp(Trials{1,9}, 'Hit')))';
             CheckMissing = cellfun(@isempty, onsets);
-            if sum(CheckMissing) > 0
-                fprintf('%s excluded: %s lacks onsets in at least one task condition \n', Sub{n}, Visit{v})     % Participants with poor performance
+            % Exclusion:
+            % 1: Missing onsets in at least one condition (poor performance)
+            % 2: Missing fmriprep html report
+            % 3: Missing preprocessed functional image
+            % 4: Missing confounds timeseries file
+            ex1 = sum(CheckMissing) > 0;
+            ex2 = isempty(ReportFile{1});
+            ex3 = isempty(FuncImg{1});
+            ex4 = isempty(ConfTs{1});
+            if ex1 || ex2 || ex3 || ex4
+                fprintf('Excluding %s %s\n', Sub{n}, Visit{v})
+                fprintf('Onsets: %f, Report: %f, FuncImage: %f, ConfTs: %f \n', ex1, ex2, ex3, ex4)
                 Sel(n) = false;
             end
-            if isempty(FuncImg{1})       % Participants with motor task but no preprocessed image
-                fprintf('%s excluded: %s lacks preprocessed functional image \n', Sub{n}, Visit{v})
-                Sel(n) = false;
-            end
-            if ~isempty(FuncImg{1})         % Participants whose runs of task and fmri do not correspond with each other
+            % 5: Lack of run correspondece between beh and func image, or between func image and confound timeseries
+            if ~isempty(FuncImg{1}) && ~isempty(ConfTs{1})        % Participants whose runs of task and fmri do not correspond with each other
                 taskRunID = extractBetween(EventsTsv{1}, '_run-', '_events');
                 fmriRunID = extractBetween(FuncImg{1}, '_run-', '_space');
-                if ~strcmp(taskRunID{1}, fmriRunID{1})
-                    fprintf('%s excluded: %s run of task events does not match run of functional image \n', Sub{n}, Visit{v})
+                conftsRunID = extractBetween(ConfTs{1}, '_run-', '_desc');
+                if ~strcmp(taskRunID{1}, fmriRunID{1}) || ~strcmp(fmriRunID{1}, conftsRunID{1})
+                    fprintf('Excluding %s %s: run numbers are not identical \n', Sub{n}, Visit{v})
                     Sel(n) = false;
                 end
             end
+            % 6: Already processed
             if ~isempty(FirstLevelCon) && ~istrue(Force)        % Participants who have already been processed
-                fprintf('%s excluded: %s has preexisting 1st level data \n', Sub{n}, Visit{v})
+                fprintf('Excluding %s %s: has preexisting 1st level data \n', Sub{n}, Visit{v})
                 Sel(n) = false;
             end
         else
-            fprintf('%s excluded: %s lacks motor task data \n', Sub{n}, Visit{v})
+            %fprintf('%s excluded: %s lacks motor task data \n', Sub{n}, Visit{v})
             Sel(n) = false;
         end
 
     end
-    if strcmp(Sub{n}, 'sub-POMUDAD07284172C0428')       % fmriprep fails for this subject
-        Sel(n) = false;
-    end
+%     if strcmp(Sub{n}, 'sub-POMUDAD07284172C0428')       % fmriprep fails for this subject
+%         Sel(n) = false;
+%     end
 end
 Sub = Sub(Sel);
+
+% Subset
 if isempty(Subset)
     fprintf('Subset not specified, processing all %i subjects! \n', numel(Sub))
     NrSub = numel(Sub);
@@ -112,13 +124,30 @@ end
 % Collect all functional images
 Files = {};
 for n = 1:NrSub
-    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
+    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii.*']));
+        FuncImg = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-preproc_bold.nii']));
         Files = [Files; cellstr(FuncImg{size(FuncImg,1)})]; % Selects the last run if there are multiple ones!
     end
 end
+
+%7: Fewer volumes than recorded pulses (time consuming)
+Sel = true(size(Files,1),1);
+for n = 1:numel(Files)
+    s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
+    v = char(extractBetween(Files{n}, [s '_'], '_task'));       % Visit
+    r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
+    TaskDir             = fullfile(BIDSDir, s, v, 'beh');
+    EventsJsonFile      = spm_select('FPList', TaskDir, [s, '_', v, '_task-motor_acq-MB6_run-', r, '_events.json']);
+    ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries.tsv']);
+    [NrPulses, NrConf] = checkpulsediff(EventsJsonFile, ConfFile);
+    if NrPulses > NrConf
+        fprintf('Number of recorded pulses exceeds volumes in func img. Skipping %s %s \n', s, v)
+        Sel(n) = false;
+    end
+end
+Files = Files(Sel);
 
 Inputs	= cell(6,1);
 JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
@@ -126,21 +155,17 @@ JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
 % Specify inputs to 1st-level analyses
 for n = 1:numel(Files)
     s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
-    v = char(extractBetween(Files{n}, [s '_'], '_task'));           % Visit
+    v = char(extractBetween(Files{n}, [s '_'], '_task'));       % Visit
     r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
     if ~istrue(preAROMA)
-        ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor..*desc-confounds_regressors3.tsv');
+        ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries3.tsv']);
         if isempty(ConfFile)
-            ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor..*desc-confounds_regressors2.tsv');
+            ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries2.tsv']);
         end
     else
-        ConfFile            = spm_select('FPList', fileparts(Files{n}), '.*task-motor.*desc-confounds_regressors.tsv');
+        ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries.tsv']);
     end
     SourceNii           = Files{n};
-    % Comment out for PIT %
-%     SPMDir              = fullfile(ANALYSESDir, s, [v '_PIT']);
-%     SPMStatDir          = fullfile(ANALYSESDir, s, [v '_PIT'], '1st_level'); %<<<<<<< REMOVE PIT WHEN APPROPRIATE
-    % Comment out for PIT %
     SPMDir              = fullfile(ANALYSESDir, s, v);
     SPMStatDir          = fullfile(ANALYSESDir, s, v, '1st_level');
     TaskDir             = fullfile(BIDSDir, s, v, 'beh');
@@ -198,19 +223,32 @@ end
 if numel(Files)==1
 	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
 else
-  	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',4*1024^3, 'timreq',3*60*60);%, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
+  	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',5*1024^3, 'timreq',3*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
 end
 
 % Clean up copied functional images
 for n = 1:numel(Inputs{2})
     dImg = cell2mat(Inputs{2}{n});
-    ImagesToDelete = cellstr(spm_select('FPList', fileparts(dImg), '.*.nii'));
+    ImagesToDelete = cellstr(spm_select('FPList', fileparts(dImg), '^sub.*.nii'));
     if ~isempty(ImagesToDelete)
         for i = 1:numel(ImagesToDelete)
             delete(ImagesToDelete{i})
         end
     end
 end
+
+end
+
+function [NrPulses, NrConf] = checkpulsediff(EventsJsonFile, ConfFile)
+
+    % Number of pulses in events json file
+    Json = fileread(EventsJsonFile);
+    DecodedJson = jsondecode(Json);
+    NrPulses = DecodedJson.NPulses.Value;
+    
+    % Number of timepoints in confounds file
+    Confounds = spm_load(char(ConfFile));
+    NrConf = length(Confounds.csf);
 
 end
 
