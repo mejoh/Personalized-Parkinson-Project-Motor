@@ -16,7 +16,8 @@ spm('defaults', 'FMRI');
 %% Directories
 
 ses = 'ses-Visit1';
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem';
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
+ClinicalConfs = readtable('/project/3022026.01/pep/ClinVars/derivatives/database_clinical_confounds_fmri.csv');
 % ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', ses), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
@@ -58,13 +59,13 @@ end
 SubInfo.ConfFiles = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     if contains(SubInfo.Group{n}, '_PIT')
-        Session = 'ses-Visit1_PIT';
+        Session = 'ses-PITVisit1';
     else
-        Session = 'ses-Visit1';
+        Session = 'ses-POMVisit1';
     end
-    SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_regressors3.mat$');
+    SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_timeseries3.mat$');
     if isempty(SubInfo.ConfFiles{n})
-        SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_regressors2.mat$');
+        SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_timeseries2.mat$');
     end
 end
 
@@ -77,6 +78,41 @@ for n = 1:numel(SubInfo.Sub)
     FrameDisp(isnan(FrameDisp)) = 0;
     SubInfo.FD(n) = mean(FrameDisp);
 end
+
+%% Age and Gender
+
+SubInfo.Age = zeros(size(SubInfo.Sub));
+SubInfo.Gender = cell(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    
+    subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
+    
+    if Offstate && length(subid) > 1        % Take PIT data if Offstate, POM data if not
+        subid = subid(1);
+    elseif ~Offstate && length(subid) > 1
+        subid = subid(2);
+    end
+    
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
+        fprintf('Missing values, interpolating...\n')
+        SubInfo.Age(n) = round(mean(ClinicalConfs.Age, 'omitnan'));
+        SubInfo.Gender{n} = cellstr('Male');
+    else
+        SubInfo.Age(n) = ClinicalConfs.Age(subid);
+        SubInfo.Gender{n} = ClinicalConfs.Gender(subid);
+    end
+    
+end
+
+SubInfo.Gender_num = zeros(size(SubInfo.Gender));
+for n = 1:numel(SubInfo.Gender)
+    if strcmp(SubInfo.Gender{n}, 'Male')
+        SubInfo.Gender_num(n) = 0;
+    else
+        SubInfo.Gender_num(n) = 1;
+    end
+end
+
 
 %% Examine correlation structure between relevant regressors
 
@@ -97,19 +133,19 @@ end
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};
 Inputs = cell(10,1);
 if Offstate
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff x ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff_ExtInt2Int3Catch')};
 else
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn x ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn_ExtInt2Int3Catch')};
 end
 
 if ~istrue(exclude_outliers) && istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff x ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff_ExtInt2Int3Catch')};
 elseif ~istrue(exclude_outliers) && ~istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn x ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn_ExtInt2Int3Catch')};
 elseif istrue(exclude_outliers) && istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff x ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOff_ExtInt2Int3Catch_NoOutliers')};
 elseif istrue(exclude_outliers) && ~istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn x ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'HcOn_ExtInt2Int3Catch_NoOutliers')};
 end
 
 ExtHc = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, ses, 'HC*'));
@@ -152,12 +188,20 @@ CatchPd_files = CatchPd_files(contains({CatchPd.name}, SubInfo.Sub));
 Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, ses, CatchPd_files);
 
 FD_hc = SubInfo.FD(strcmp(SubInfo.Group, 'HC_PIT'));
+Age_hc = SubInfo.Age(strcmp(SubInfo.Group, 'HC_PIT'));
+Gender_hc = SubInfo.Gender_num(strcmp(SubInfo.Group, 'HC_PIT'));
 if Offstate
     FD_pd = SubInfo.FD(strcmp(SubInfo.Group, 'PD_PIT'));
+    Age_pd = SubInfo.Age(strcmp(SubInfo.Group, 'PD_PIT'));
+    Gender_pd = SubInfo.Gender_num(strcmp(SubInfo.Group, 'PD_PIT'));
 else
     FD_pd = SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'));
+    Age_pd = SubInfo.Age(strcmp(SubInfo.Group, 'PD_POM'));
+    Gender_pd = SubInfo.Gender_num(strcmp(SubInfo.Group, 'PD_POM'));
 end
 Inputs{10,1} = [FD_hc; FD_hc; FD_hc; FD_hc; FD_pd; FD_pd; FD_pd; FD_pd];
+Inputs{11,1} = [Age_hc; Age_hc; Age_hc; Age_hc; Age_pd; Age_pd; Age_pd; Age_pd];
+Inputs{12,1} = [Gender_hc; Gender_hc; Gender_hc; Gender_hc; Gender_pd; Gender_pd; Gender_pd; Gender_pd];
 
 %% Run
 
