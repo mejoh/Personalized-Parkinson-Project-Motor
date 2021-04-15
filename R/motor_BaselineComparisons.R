@@ -2,19 +2,19 @@ source('M:/scripts/Personalized-Parkinson-Project-Motor/R/initialize_funcs.R')
 library(tidyverse)
 library(lme4)
 library(lmerTest)
+library(effectsize)
 
 ##### Load data #####
 # Write csv files
 bidsdir_clin <- 'P:/3022026.01/pep/ClinVars/'
-bidsdir_POM <- 'P:/3022026.01/pep/bids/'
-bidsdir_PIT <- 'P:/3022026.01/pep/bids_PIT/'
+bidsdir <- 'P:/3022026.01/pep/bids/'
 #generate_castor_csv(bidsdir_clin)
-#generate_motor_task_csv(bidsdir_POM)
-#generate_motor_task_csv(bidsdir_PIT)
+#generate_PIT_castor_csv(bidsdir_clin)
+#generate_motor_task_csv(bidsdir)
 
 # Import data
         # Clin vars for POM
-df.clin.pom <- read_csv('P:/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-02-23.csv')
+df.clin.pom <- read_csv('P:/3022026.01/pep/ClinVars_depricated/derivatives/database_clinical_variables_2021-03-12.csv')
         # Add LEDD, remove non-medusers
 df.ledd <- read_csv('P:/3024006.02/Data/LEDD/MedicationTable.csv')
 df.clin.pom <- left_join(df.clin.pom, df.ledd, by = c('pseudonym', 'Timepoint')) %>%
@@ -43,19 +43,36 @@ df.task <- full_join(df.task.pit, df.task.pom)
 # 2. HcOff x ExtInt2Int3
 # 3. OffOn x ExtInt2Int3
 
-# Response times
 # HcOn x ExtInt2Int3
-        # Data
+g <- 'PD_POM'
 df <- df.task %>%
         filter(Timepoint == 'ses-Visit1') %>%
-        filter(Group == 'HC_PIT' | Group == 'PD_POM') %>% 
+        filter(Group == 'HC_PIT' | Group == g) %>% 
         filter(Condition != 'Catch') %>%
         mutate(Response.Time_log = log(Response.Time),
-               Group = as.factor(Group))
+               Group = as.factor(Group),
+               Condition = as.factor(Condition))
 PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
 PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
 df <- df %>%
         filter(!pseudonym %in% PoorPerformancePseudos)
+# OffOn x ExtInt2Int3
+df <- df.task %>%
+        filter(Timepoint == 'ses-Visit1') %>%
+        filter(Group == 'PD_PIT' | Group == 'PD_POM' )%>% 
+        filter(Condition != 'Catch') %>%
+        mutate(Response.Time_log = log(Response.Time),
+               Group = as.factor(Group),
+               Condition = as.factor(Condition))
+PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
+PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
+POM_subs <- df %>% filter(Group == 'PD_POM' & Condition == 'Ext') %>% select(pseudonym)
+PIT_subs <- df %>% filter(Group == 'PD_PIT' & Condition == 'Ext') %>% select(pseudonym)
+All_subs <- c(POM_subs$pseudonym, PIT_subs$pseudonym)
+All_subs_unique <- All_subs[duplicated(All_subs)]
+df <- df %>%
+        filter(pseudonym %in% All_subs_unique)
+# Response times
         # Descriptives
 df %>%
         group_by(Group, Condition) %>%
@@ -76,11 +93,11 @@ contrasts(df$Condition) <- contr.helmert(3)[c(3:1), 2:1]
 contrasts(df$Group) <- contr.helmert(2)
 m1 <- lmer(Response.Time_log ~ 1 + Condition*Group + (1|pseudonym), data = df, REML = TRUE)
 summary(m1)
+eta_squared(m1)
 plot(m1)
 #confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 5000)
 
 # Error rates on ExtInt
-        # Data: load the RT data above
         # Descriptives
 df %>%
         group_by(Group, Condition) %>%
@@ -100,6 +117,7 @@ df %>%
 m1 <- lmer(Percentage.Correct ~ 1 + Group*Condition + (1|pseudonym), data = df)
 summary(m1)
 anova(m1)
+eta_squared(m1)
 
 # Reptitions
         #Data
@@ -121,6 +139,7 @@ df %>%
 m1 <- lm(Button.Press.Repetitions ~ 1 + Group, data = df)
 summary(m1)
 anova(m1)
+eta_squared(m1)
 confint(m1)
 
 # CoV
@@ -142,10 +161,12 @@ df %>%
 m1 <- lm(Button.Press.CoV ~ 1 + Group, data = df)
 summary(m1)
 anova(m1)
+eta_squared(m1)
 confint(m1)
 
 # Adjacency
         #Descriptives
+df <- df %>% filter(Condition == 'Ext')
 df %>%
         group_by(Group, Condition) %>%
         summarise(N = n(), AdjRat=mean(Button.Press.AdjacencyRatio, na.rm= TRUE), AdjRat_sd = sd(Button.Press.AdjacencyRatio, na.rm= TRUE),
@@ -164,16 +185,34 @@ df %>%
 m1 <- lm(Button.Press.AdjacencyRatio ~ 1 + Group, data = df)
 summary(m1)
 anova(m1)
+eta_squared(m1)
+confint(m1)
+
+# Switch behavior
+df <- df %>% filter(Condition == 'Ext')
+df %>%
+        group_by(Group, Condition) %>%
+        summarise(N = n(), SwitchRat=mean(Button.Press.SwitchRatio, na.rm= TRUE), SwitchRat_sd = sd(Button.Press.SwitchRatio, na.rm= TRUE),
+                  Switch=mean(Button.Press.Switch, na.rm= TRUE), Switch_sd = sd(Button.Press.Switch, na.rm= TRUE),
+                  NonSwitch=mean(Button.Press.non_switch, na.rm= TRUE), NonSwitch_sd = sd(Button.Press.non_switch, na.rm= TRUE))
+df %>%
+        ggplot(aes(y=Button.Press.SwitchRatio, x=Group, group=pseudonym)) +
+        geom_point(alpha=0.3)
+df %>%
+        ggplot(aes(y=Button.Press.SwitchRatio, x=Condition, color=Group)) +
+        geom_boxplot()
+df %>%
+        ggplot(aes(x=Button.Press.SwitchRatio, fill=Group)) +
+        geom_density(aes(color=Group), alpha = 0.5)
+#Inferences
+m1 <- lm(Button.Press.SwitchRatio ~ 1 + Group, data = df)
+summary(m1)
+anova(m1)
+eta_squared(m1)
 confint(m1)
 
 # Error rates on Catch
         # Data
-df <- df.task %>%
-        filter(Timepoint == 'ses-Visit1') %>%
-        filter(Group == 'HC_PIT' | Group == 'PD_POM') %>%
-        mutate(Group = as.factor(Group))
-PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
-PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
 df <- df %>%
         filter(Condition == 'Catch')
         # Descriptives
@@ -194,89 +233,17 @@ df %>%
 m1 <- lm(Percentage.Correct ~ 1 + Group, data = df)
 summary(m1)
 anova(m1)
+eta_squared(m1)
 confint(m1)
 
+        # Only for OffOn comparisons
+m1 <- lmer(Button.Press.Repetitions ~ 1 + Group + (1|pseudonym), data = df)
+m1 <- lmer(Button.Press.CoV ~ 1 + Group + (1|pseudonym), data = df)
+m1 <- lmer(Button.Press.AdjacencyRatio ~ 1 + Group + (1|pseudonym), data = df)
+m1 <- lmer(Button.Press.SwitchRatio ~ 1 + Group + (1|pseudonym), data = df)
+m1 <- lmer(Percentage.Correct ~ 1 + Group + (1|pseudonym), data = df)
 
-# HcOff x ExtInt2Int3
-        # Data
-df <- df.task %>%
-        filter(Timepoint == 'ses-Visit1') %>%
-        filter(Group == 'HC_PIT' | Group == 'PD_PIT') %>%
-        mutate(Response.Time_log = log(Response.Time),
-               Group = as.factor(Group))
-PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
-PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
-df <- df %>%
-        filter(!pseudonym %in% PoorPerformancePseudos)
-        # Descriptives
-df %>%
-        group_by(Group, Condition) %>%
-        summarise(N = n(), Mean=mean(Response.Time), SD = sd(Response.Time), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
-df %>%
-        ggplot(aes(y=Response.Time, x=Group, group=pseudonym)) +
-        geom_point(alpha=0.3) +
-        facet_wrap(~Condition)
-df %>%
-        ggplot(aes(y=Response.Time, x=Condition, color=Group)) +
-        geom_boxplot()
-df %>%
-        ggplot(aes(x=Response.Time, fill=Group)) +
-        geom_density(aes(color=Group), alpha = 0.5) +
-        facet_wrap(~Condition)
-        # Inferences
-contrasts(df$Condition) <- contr.helmert(3)[c(3:1), 2:1]
-contrasts(df$Group) <- contr.helmert(2)*-1
-m1 <- lmer(Response.Time_log ~ 1 + Condition*Group + (1|pseudonym), data = df, REML = TRUE)
 summary(m1)
-plot(m1)
-confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 5000)
-
-
-# OffOn x ExtInt2Int3
-        # Data
-df <- df.task %>%
-        filter(Timepoint == 'ses-Visit1') %>%
-        filter(Group == 'PD_PIT' | Group == 'PD_POM') %>%
-        select(-c(Button.Press.Mean,Button.Press.Sd,Button.Press.Repetitions)) %>%
-        pivot_wider(names_from = Condition,
-                    values_from = c(Percentage.Correct, Response.Time)) %>%
-                filter(Percentage.Correct_Ext > 0.25)
-POM_subs <- df %>% filter(Group == 'PD_POM') %>% select(pseudonym)
-PIT_subs <- df %>% filter(Group == 'PD_PIT') %>% select(pseudonym)
-All_subs <- c(POM_subs$pseudonym, PIT_subs$pseudonym)
-All_subs_unique <- All_subs[duplicated(All_subs)]
-df <- df %>%
-        filter(pseudonym %in% All_subs_unique) %>%
-        reshape_by_task %>%
-        mutate(Response.Time_log = log(Response.Time),
-               Group = as.factor(Group)) %>%
-        arrange(pseudonym)
-
-        # Descriptives
-df.table <- df %>%
-        group_by(Group, Condition) %>%
-        summarise(N = n(), Mean=mean(Response.Time), SD = sd(Response.Time), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
-df %>%
-        ggplot(aes(y=Response.Time, x=Group, group=pseudonym)) +
-        geom_point() +
-        geom_line() +
-        facet_wrap(~Condition)
-df %>%
-        ggplot(aes(y=Response.Time, x=Condition, color=Group)) +
-        geom_boxplot()
-df %>%
-        ggplot(aes(x=Response.Time, fill=Group)) +
-        geom_density(aes(color=Group), alpha = 0.5) +
-        facet_wrap(~Condition)
-        # Inferences
-#df <- df %>%
- #       mutate(Condition = as.factor(if_else(Condition == 'Ext', 'Ext', 'Int')))
-contrasts(df$Condition) <- contr.helmert(3)[c(3:1), 2:1]
-contrasts(df$Group) <- contr.helmert(2)
-m1 <- lmer(Response.Time_log ~ 1 + Condition*Group + (1 + Group|pseudonym), data = df, REML = TRUE)
-summary(m1)
-plot(m1)
-confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 500)
 
 
 #####
@@ -286,8 +253,9 @@ confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 500)
 clinical <- df.clin.pom %>%
         filter(MriNeuroPsychTask == 'Motor',
                Timepoint == 'ses-Visit1') %>%
-        select(pseudonym, Age, Gender, EstDisDurYears, LEDD, Subtype,
-               Up3OfRestTremAmpSum, Up3OfRAmpJaw, Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev, Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev, Up3OfConstan) %>%
+        select(pseudonym, Age, Gender, EstDisDurYears, LEDD, Subtype, Up3OfBradySum, Up3OfPIGDSum, Up3OfRigiditySum, Up3OfTotal, Up3OfPegRLBSum,
+               Up3OfRestTremAmpSum, Up3OfRAmpJaw, Up3OfRAmpArmYesDev, Up3OfRAmpArmNonDev, Up3OfRAmpLegYesDev, Up3OfRAmpLegNonDev, Up3OfConstan,
+               Up3OfTotal.1YearDelta, Up3OfBradySum.1YearDelta, Up3OfRestTremAmpSum.1YearDelta, Up3OfRigiditySum.1YearDelta, Up3OfPIGDSum.1YearDelta) %>%
         mutate(TremorDominant = NA)
 
 for(n in 1:nrow(clinical)){
@@ -299,25 +267,27 @@ for(n in 1:nrow(clinical)){
         }
         
         if(RestTremMax < 1){
-                clinical$TremorDominant[n] <- 'No'
+                clinical$TremorDominant[n] <- '0'
         }else if(RestTremMax >= 2){
-                clinical$TremorDominant[n] <- 'Yes'
+                clinical$TremorDominant[n] <- '2'
         }else{
-                clinical$TremorDominant[n] <- 'Intermediate'
+                clinical$TremorDominant[n] <- '1'
         }
 }
 
 
 df <- df.task %>%
-        filter(Group == 'PD_POM')
+        filter(Group == 'PD_POM',
+               Timepoint == 'ses-Visit1')
 
 df <- left_join(df, clinical, by = 'pseudonym')
 
-df <- df %>%
-        filter(TremorDominant != 'Intermediate')
+#df <- df %>%
+#        filter(TremorDominant != 'Intermediate')
 
 df_nocatch <- df %>%
-        filter(Condition != 'Catch') %>%
+        filter(Condition != 'Catch',
+               !is.na(TremorDominant)) %>%
         mutate(Condition = as.factor(Condition),
                TremorDominant = as.factor(TremorDominant),
                Age_c = scale(Age, center = TRUE, scale = FALSE),
@@ -328,14 +298,24 @@ df_nocatch <- df %>%
 
 df_nocatch %>%
         group_by(TremorDominant, Condition) %>%
-        summarise(n = n(), RT.mean = mean(Response.Time, na.rm = TRUE), RT.sd = sd(Response.Time, na.rm = TRUE),
-                  age = mean(Age), disdur = mean(EstDisDurYears, na.rm = TRUE), ledd = mean(LEDD, na.rm = TRUE))
+        summarise(n = n(), RT.mean = mean(Response.Time, na.rm = TRUE),
+                  AdjRatio = mean(Button.Press.AdjacencyRatio, na.rm = TRUE), Reps = mean(Button.Press.Repetitions), Cov = mean(Button.Press.CoV, na.rm=TRUE),
+                  age = mean(Age), disdur = mean(EstDisDurYears, na.rm = TRUE), ledd = mean(LEDD, na.rm = TRUE),
+                  resttrem = mean(Up3OfRestTremAmpSum, na.rm = TRUE), resttrem_prog = mean(Up3OfRestTremAmpSum.1YearDelta, na.rm=TRUE),
+                  pegboard = mean(Up3OfPegRLBSum, na.rm = TRUE), bradykinesia = mean(Up3OfBradySum, na.rm = TRUE), bradykinesia_prog = mean(Up3OfBradySum.1YearDelta, na.rm=TRUE),
+                  rigidity = mean(Up3OfRigiditySum, na.rm = TRUE), rigidity_prog = mean(Up3OfRigiditySum.1YearDelta, na.rm=TRUE),
+                  pigd = mean(Up3OfPIGDSum, na.rm = TRUE), pigd_prog = mean(Up3OfPIGDSum.1YearDelta, na.rm = TRUE),
+                  total = mean(Up3OfTotal, na.rm = TRUE), total_prog = mean(Up3OfTotal.1YearDelta, na.rm=TRUE))
+
+df_nocatch %>% select(Subtype, TremorDominant) %>% table/3
 
 ggplot(df_nocatch, aes(x=Condition,y=Response.Time, color=TremorDominant)) + 
-        geom_boxplot()
+        geom_boxplot() + 
+        scale_fill_discrete(labels)
 
-#contrasts(df_nocatch$Condition) <- contr.helmert(3)[c(3:1), 2:1]
-m1 <- lmer(Response.Time ~ 1 + Condition2*TremorDominant + Age_c + Gender + EstDisDurYears_c + (1+Condition2|pseudonym), data = df_nocatch)
+contrasts(df_nocatch$TremorDominant)
+contrasts(df_nocatch$Condition) <- contr.helmert(3)[c(3:1), 2:1]
+m1 <- lmer(log(Response.Time) ~ 1 + Condition*TremorDominant + Age_c + Gender + EstDisDurYears_c + (1|pseudonym), data = df_nocatch)
 summary(m1)
 anova(m1)
         
