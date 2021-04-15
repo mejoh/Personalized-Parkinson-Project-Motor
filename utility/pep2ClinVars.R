@@ -65,6 +65,8 @@ for(Sub in Subjects){
                         subfolder <- 'COVIDweek1'
                 }else if(str_detect(fname, 'COVID') & str_detect(fname, 'PackWeek2')){
                         subfolder <- 'COVIDweek2'
+                }else if(str_detect(fname, 'COVID') & str_detect(fname, 'CovPackDaily')){
+                        subfolder <- 'COVIDdaily'
                 }
                 
                 destination <- paste(dClinVars, pseudonym, '/ses-', subfolder, sep = '')
