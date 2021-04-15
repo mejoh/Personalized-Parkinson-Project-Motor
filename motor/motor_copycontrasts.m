@@ -14,15 +14,22 @@ spm('defaults', 'FMRI');
 
 %% Directories
 
+session = 'ses-POMVisit1';
 FDThresh = 1;
-ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005' 'con_0006' 'con_0007'  'con_0008'  'con_0009'  'con_0010'};
-SessionList = {'ses-Visit1' 'ses-Visit3'};
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem';
-% ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
+ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005' 'con_0006' 'con_0007'  'con_0008'  'con_0009'  'con_0010'};
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
 BIDSDir = '/project/3022026.01/pep/bids';
-BIDSDir_PIT = '/project/3022026.01/pep/bids_PIT';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir), 'dir', '^sub-POM.*'));
 fprintf('Number of subjects processed: %i\n', numel(Sub))
+
+Sel = true(numel(Sub),1);
+for n = 1:numel(Sub)
+    dir = spm_select('FPList', fullfile(ANALYSESDir, Sub{n}), 'dir', session);
+    if ~exist(dir,'dir')
+        Sel(n) = false;
+    end
+end
+Sub = Sub(Sel);
 
 
 %% Selection
@@ -33,16 +40,11 @@ Run = {};
 Session = {};
 Sub2 = {};
 for n = 1:numel(Sub)
-    Visit = cellstr(spm_select('List', fullfile(ANALYSESDir, Sub{n}), 'dir', 'ses-Visit*'));
+    Visit = cellstr(spm_select('List', fullfile(ANALYSESDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
-        if strcmp(Visit{v}, 'ses-Visit1_PIT')
-            d = BIDSDir_PIT;
-        elseif strcmp(Visit{v}, 'ses-Visit1') || strcmp(Visit{v}, 'ses-Visit3')
-            d = BIDSDir;
-        end
         Sub2 = [Sub2; {Sub{n}}];
         Session = [Session; {Visit{v}}];
-        Run = [Run; {num2str(FindLastRun(d, Sub{n}, Visit{v}(1:10), 'motor', 'MB6'))}];
+        Run = [Run; {num2str(FindLastRun(BIDSDir, Sub{n}, Visit{v}, 'motor', 'MB6'))}];
     end
 end
 SubInfo.Sub = Sub2;
@@ -55,14 +57,10 @@ SubInfo.JsonFiles = cell(size(SubInfo.Sub));
 SubInfo.ConfFiles = cell(size(SubInfo.Sub));
 
 for n = 1:numel(SubInfo.Sub)
-    if contains(SubInfo.Session{n}, 'PIT')
-        SubInfo.JsonFiles{n} = spm_select('FPList', fullfile(BIDSDir_PIT, SubInfo.Sub{n}, SubInfo.Session{n}(1:10), 'beh'), ['.*task-motor_acq-MB6_run-' SubInfo.Run{n} '_events\.json$']);
-    else
-        SubInfo.JsonFiles{n} = spm_select('FPList', fullfile(BIDSDir, SubInfo.Sub{n}, SubInfo.Session{n}, 'beh'), ['.*task-motor_acq-MB6_run-' SubInfo.Run{n} '_events\.json$']);
-    end
-    SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, SubInfo.Session{n}), ['^.*task-motor_acq-MB6_run-' SubInfo.Run{n} '_desc-confounds_regressors3.mat$']);
+    SubInfo.JsonFiles{n} = spm_select('FPList', fullfile(BIDSDir, SubInfo.Sub{n}, SubInfo.Session{n}, 'beh'), ['.*task-motor_acq-MB6_run-' SubInfo.Run{n} '_events\.json$']);
+    SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, SubInfo.Session{n}), ['^.*task-motor_acq-MB6_run-' SubInfo.Run{n} '_desc-confounds_timeseries3.mat$']);
     if isempty(SubInfo.ConfFiles{n})
-        SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, SubInfo.Session{n}), ['^.*task-motor_acq-MB6_run-' SubInfo.Run{n} '_desc-confounds_regressors2.mat$']);
+        SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, SubInfo.Session{n}), ['^.*task-motor_acq-MB6_run-' SubInfo.Run{n} '_desc-confounds_timeseries2.mat$']);
     end
 end
 
@@ -76,12 +74,6 @@ for n = 1:numel(SubInfo.Sub)
     Json = fileread(SubInfo.JsonFiles{n});
     DecodedJson = jsondecode(Json);
     SubInfo.Group(n) = DecodedJson.Group.Value;
-    if contains(SubInfo.Session{n}, 'PIT')
-        d = BIDSDir_PIT;
-        SubInfo.Group(n) = FindGroup(d, SubInfo.Sub{n}, SubInfo.Session{n}(1:10), 'dwi');
-    else
-        SubInfo.Group(n) = 'PD_POM';
-    end
     SubInfo.RespondingHand(n) = DecodedJson.RespondingHand.Value;
     SubInfo.PercentageCorrect(n) = DecodedJson.ExtCorrResp.Value;
 end
@@ -139,41 +131,43 @@ SubInfo.PercentageCorrect = SubInfo.PercentageCorrect(Sel);
 %% Copy and flip
 
 for c = 1:numel(ConList)
+    
     ConDir = fullfile(ANALYSESDir, 'Group', ConList{c});
-    if ~exist(ConDir, 'dir')
-        mkdir(ConDir);
-    else
-        delete(fullfile(ConDir, '*.*'));
-    end
-    if ~exist(fullfile(ConDir, 'ses-Visit1'), 'dir')
-        mkdir(fullfile(ConDir, 'ses-Visit1'))
-    else
-        delete(fullfile(ConDir, 'ses-Visit1', '*.*'));
-    end
-    if ~exist(fullfile(ConDir, 'ses-Visit3'), 'dir')
-        mkdir(fullfile(ConDir, 'ses-Visit3'))
-    else
-        delete(fullfile(ConDir, 'ses-Visit3', '*.*'));
-    end
-    for s = 1:numel(SessionList)
-        for n = 1:numel(SubInfo.Sub)
-            if strcmp(SessionList{s}, SubInfo.Session{n}(1:10))
-                InputConFile = fullfile(ANALYSESDir, SubInfo.Sub{n}, SubInfo.Session{n}, '1st_level', [ConList{c} '.nii']);
-                if exist(InputConFile, 'file')
-                    OutputConFile = fullfile(ConDir, SubInfo.Session{n}(1:10), [char(SubInfo.Group(n)) '_' SubInfo.Sub{n} '_' SubInfo.Session{n}(1:10) '_' ConList{c} '.nii']);
-                    copyfile(InputConFile, OutputConFile)
-                            if strcmp(SubInfo.RespondingHand(n), 'Left') && Swap
-                                fprintf('LR-swapping: %s\n', OutputConFile)
-                                Hdr		  = spm_vol(OutputConFile);
-                                Vol		  = spm_read_vols(Hdr);
-                                Hdr.fname = spm_file(OutputConFile, 'suffix', 'L2Rswap');
-                                spm_write_vol(Hdr, flipdim(Vol,1));		% LR is the first dimension in MNI space
-                                delete(OutputConFile);
-                            end
-                else
-                    fprintf('%s: Confile not available \n', SubInfo.Sub{n})
-                end
+%     if ~exist(ConDir, 'dir')
+%         mkdir(ConDir);
+%     else
+%         delete(fullfile(ConDir, '*.*'));
+%     end
+%     if ~exist(fullfile(ConDir, 'ses-Visit1'), 'dir')
+%         mkdir(fullfile(ConDir, 'ses-Visit1'))
+%     else
+%         delete(fullfile(ConDir, 'ses-Visit1', '*.*'));
+%     end
+%     if ~exist(fullfile(ConDir, 'ses-Visit2'), 'dir')
+%         mkdir(fullfile(ConDir, 'ses-Visit2'))
+%     else
+%         delete(fullfile(ConDir, 'ses-Visit2', '*.*'));
+%     end
+    
+    for n = 1:numel(SubInfo.Sub)
+        InputConFile = fullfile(ANALYSESDir, SubInfo.Sub{n}, session, '1st_level', [ConList{c} '.nii']);
+        if exist(InputConFile, 'file')
+            if contains(InputConFile, 'Visit1')
+                OutputConFile = fullfile(ConDir, 'ses-Visit1', [char(SubInfo.Group(n)) '_' SubInfo.Sub{n} '_' session '_' ConList{c} '.nii']);
+            elseif contains(InputConFile, 'Visit2') || contains(InputCon, 'Visit3')
+                OutputConFile = fullfile(ConDir, 'ses-Visit2', [char(SubInfo.Group(n)) '_' SubInfo.Sub{n} '_' session '_' ConList{c} '.nii']);
             end
+            copyfile(InputConFile, OutputConFile)
+            if strcmp(SubInfo.RespondingHand(n), 'Left') && Swap
+                fprintf('LR-swapping: %s\n', OutputConFile)
+                Hdr		  = spm_vol(OutputConFile);
+                Vol		  = spm_read_vols(Hdr);
+                Hdr.fname = spm_file(OutputConFile, 'suffix', 'L2Rswap');
+                spm_write_vol(Hdr, flipdim(Vol,1));		% LR is the first dimension in MNI space
+                delete(OutputConFile);
+            end
+        else
+            fprintf('%s: Confile not available \n', SubInfo.Sub{n})
         end
     end
 end
