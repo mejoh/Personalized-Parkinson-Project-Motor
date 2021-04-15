@@ -10,23 +10,21 @@ if nargin<1 || isempty(thr)
     thr = 0.05;
 end
 
-Project = '3022026.01';
-fprintf('Processing data in project: %s\n', Project)
-Root = strcat('/project/', Project);
-BIDSDir  = fullfile(Root, 'pep', 'bids');
+session = 'ses-POMVisit1';
+BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-ANALYSESDir   = strcat('/project/', Project, '/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer');  
+ANALYSESDir   = strcat('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem');  
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
 
 % Exclude subjects
 Sel = true(size(Sub,1),1);
 for n = 1:numel(Sub)
-    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
+    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
         
         % Confounds file
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_regressors.tsv']));
+        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries.tsv']));
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
         % Preexisting SPM.mat file
         MatFile = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^SPM.mat$');
@@ -49,7 +47,7 @@ fprintf('%i participants included for further processing \n', NrSub)
 
 % Re-label AROMA components based on correlation with task regressors
 for n = 1:NrSub
-    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', 'ses-Visit[0-9]'));
+    Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
         
         % SPM.mat
@@ -63,9 +61,9 @@ for n = 1:NrSub
         
         % Confounds file
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_regressors.tsv']));
+        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries.tsv']));
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
-        ConfoundsFile2 = cellstr(strrep(ConfoundsFile{1}, '_desc-confounds_regressors.tsv', '_desc-confounds_regressors2.tsv'));
+        ConfoundsFile2 = cellstr(strrep(ConfoundsFile{1}, '_desc-confounds_timeseries.tsv', '_desc-confounds_timeseries2.tsv'));
         % Load confounds
         confounds      = spm_load(ConfoundsFile{1});    % Load confound file
         fid            = fopen(ConfoundsFile{1}, 'r');
