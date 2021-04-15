@@ -5,6 +5,7 @@
 
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/initialize_funcs.R')
 library(tidyverse)
+library(lubridate)
 library(readxl)
         # Clinical vars
 fDat <- 'P:/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-04-06.csv'
@@ -331,7 +332,7 @@ df.Subtyping %>%
 
 df.Subtyping_only <- df.Subtyping %>%
         select(pseudonym, Subtype)
-OutputName <- paste('P:/3024006.02/Data/Subtyping/Subtypes_', today(), '.csv', sep='')
+OutputName <- paste('P:/3022026.01/pep/ClinVars/derivatives/Subtypes_', today(), '.csv', sep='')
 write_csv(df.Subtyping_only, OutputName)
 
 #####
