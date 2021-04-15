@@ -15,13 +15,14 @@ Confounds = spm_load(char(ConfoundsFile));
 ndum	  = max([0 (length(Confounds.csf) - NrPulses(1))]);
 dum		  = [zeros(NrPulses(1),ndum); eye(ndum)];	% Add dummies for acquired volumes after the experiment has ended
 dumid	  = cell(1,ndum);
+pulsediff = (length(Confounds.csf) - NrPulses(1));
 for n = 1:ndum
 	dumid{n} = sprintf('dum%02d', n);
 end
 
 allconfnames = fieldnames(Confounds);
-% substrings = {'TremorLog', 'framewise_displacement', 'std_dvars', 'trans_', 'rot_', 'a_comp_cor_01', 'a_comp_cor_02', 'a_comp_cor_03', 'a_comp_cor_04', 'a_comp_cor_05', 'a_comp_cor_06', 'a_comp_cor_07', 'a_comp_cor_08', 'aroma2_', 'cosine'};
-substrings = {'framewise_displacement', 'std_dvars', 'trans_', 'rot_', 'a_comp_cor_01', 'a_comp_cor_02', 'a_comp_cor_03', 'a_comp_cor_04', 'a_comp_cor_05', 'a_comp_cor_06', 'a_comp_cor_07', 'a_comp_cor_08', 'aroma2_', 'cosine'};
+substrings = {'TremorLog', 'framewise_displacement', 'std_dvars', 'trans_', 'rot_', 'a_comp_cor_01', 'a_comp_cor_02', 'a_comp_cor_03', 'a_comp_cor_04', 'a_comp_cor_05', 'a_comp_cor_06', 'a_comp_cor_07', 'a_comp_cor_08', 'aroma2_', 'cosine'};
+% substrings = {'framewise_displacement', 'std_dvars', 'trans_', 'rot_', 'a_comp_cor_01', 'a_comp_cor_02', 'a_comp_cor_03', 'a_comp_cor_04', 'a_comp_cor_05', 'a_comp_cor_06', 'a_comp_cor_07', 'a_comp_cor_08', 'aroma2_', 'cosine'};
 names={};
 for i = 1:length(substrings)                % Finds all instances of substrings in confounds file (multiple instances of trans/rot/t_comp_cor/aroma)
     filterednames = rmfield(Confounds, allconfnames(find(cellfun(@isempty, strfind(allconfnames, substrings{i})))));
@@ -31,9 +32,9 @@ R         = [cell2mat(cellfun(@getfield, repmat({Confounds}, size(names)), names
 if ndum > 0
     R       = [R dum];
     names	= [names dumid];
-    sprintf('%i volumes MORE than total number of pulses', (length(Confounds.csf) - NrPulses(1)))
+    sprintf('%i volumes MORE than total number of pulses', pulsediff)
 else
-    sprintf('%i volumes LESS than total number of pulses', (length(Confounds.csf) - NrPulses(1)))
+    sprintf('%i volumes LESS than total number of pulses', pulsediff)
 end
 nrcov     = length(names);
 covarfile = spm_file(char(NVolFile), 'filename',spm_file(ConfoundsFile,'filename'), 'ext','.mat');
