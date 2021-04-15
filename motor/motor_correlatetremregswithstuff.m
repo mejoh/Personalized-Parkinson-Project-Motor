@@ -1,11 +1,15 @@
 % Load all necessary data
-fileoutput = '/project/3024006.02/Data/matlab';
-regdir = '/project/3024006.02/Analyses/EMG/motor/processing/prepemg/Regressors/ZSCORED';
-seltremordir = '/project/3024006.02/Analyses/EMG/motor/processing/prepemg';
-groupdir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
-bidsdir = '/project/3022026.01/pep/bids_depricated';
+ses = 'ses-POMVisit1';
+logpower = false;
+fileoutput = 'P:/3024006.02/Data/matlab';
+regdir = 'P:/3024006.02/Analyses/EMG/motor/processing/prepemg/Regressors/ZSCORED';
+seltremordir = 'P:/3024006.02/Analyses/EMG/motor/processing/prepemg';
+groupdir = 'P:/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
+bidsdir = 'P:/3022026.01/pep/bids';
+
+% Collect data files
 Tremor_check = [];
-Tremor_check = readtable('/project/3024006.02/Analyses/EMG/motor/manually_checked/Martin/Tremor_check-24-Mar-2021.csv', 'Delimiter', ',');
+Tremor_check = readtable('P:/3024006.02/Analyses/EMG/motor/manually_checked/Martin/Tremor_check-24-Mar-2021.csv', 'Delimiter', ',');
 v1id = contains(Tremor_check.cName, 'ses-Visit1');
 Tremor_check = Tremor_check(v1id,:);
 certtremid = Tremor_check.cVal == 1;
@@ -22,12 +26,12 @@ for n = 1:size(Tremor_check,1)
     Tremor_check.RegFile{n} = spm_select('FPList', regdir, [Tremor_check.Sub{n} '.*ses-Visit1.*_log.mat']);
     Tremor_check.seltremor{n} = spm_select('FPList', seltremordir, [Tremor_check.Sub{n} '.*ses-Visit1.*seltremor.mat']);
     Tremor_check.spmfile{n} = spm_select('FPList', fullfile(groupdir, Tremor_check.Sub{n}, 'ses-Visit1', '1st_level'), 'SPM.mat');
-    Tremor_check.Vmrk{n} = spm_select('FPList', fullfile(bidsdir, Tremor_check.Sub{n}, 'ses-Visit1', 'eeg'), '.*task-motor_eeg.vmrk');
+    Tremor_check.Vmrk{n} = spm_select('FPList', fullfile(bidsdir, Tremor_check.Sub{n}, ses, 'eeg'), '.*task-motor_eeg.vmrk');
     ChanFreq = [];
     ChanFreq = char(extractBetween(Tremor_check.RegFile{n}, 'acc_', 'Hz'));
     Tremor_check.Chan{n} = ChanFreq(1);
     Tremor_check.Freq{n} = ChanFreq(3);
-    Tremor_check.Events{n} = spm_select('FPList', fullfile(bidsdir, Tremor_check.Sub{n}, 'ses-Visit1', 'beh'), '.*acq-MB6.*_events.tsv');
+    Tremor_check.Events{n} = spm_select('FPList', fullfile(bidsdir, Tremor_check.Sub{n}, ses, 'beh'), '.*acq-MB6.*_events.tsv');
 end
 Tremor_check = rmmissing(Tremor_check);
 
@@ -43,7 +47,7 @@ for n = 1:height(Tremor_check)
     
     spmmat = Tremor_check.spmfile{n};
     tremreg = Tremor_check.RegFile{n};
-    TremorVsTask.sub_corrtrem{n} = extractBetween(tremreg, 'ZSCORED/','-ses');
+    TremorVsTask.sub_corrtrem{n} = extractBetween(tremreg, 'ZSCORED\','-ses');
     
     if ~exist(spmmat,'file') || ~exist(tremreg,'file') 
         TremorVsTask.ext_corrtrem(n) = NaN;
@@ -100,7 +104,7 @@ for n = 1:height(Tremor_check)
     freq = Tremor_check.Freq{n};
     vmrkfile = Tremor_check.Vmrk{n};
     events = Tremor_check.Events{n};
-    Power.sub_power{n} = extractBetween(seltremor, 'prepemg/', '_ses');
+    Power.sub_power{n} = extractBetween(seltremor, 'prepemg\', '_ses');
     
     if ~exist(seltremor,'file') || ~exist(vmrkfile,'file')  || ~exist(events,'file') || isempty(chan) || isempty(freq)
         Power.ext_power(n) = NaN;
@@ -113,7 +117,7 @@ for n = 1:height(Tremor_check)
     end
     
     clear ext int2 int3 cat fixtocue cuetoresp
-    [ext, int2, int3, cat, fixtocue, cuetoresp] = motor_powerbycondition(seltremor, chan, freq, vmrkfile, events);
+    [ext, int2, int3, cat, fixtocue, cuetoresp] = motor_powerbycondition(seltremor, chan, freq, vmrkfile, events, logpower);
     Power.ext_power(n) = ext;
     Power.int2_power(n) = int2;
     Power.int3_power(n) = int3;
