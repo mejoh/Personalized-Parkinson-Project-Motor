@@ -10,9 +10,9 @@
 % Example: '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer/sub-POMU0A6DB3C02691EDC8/ses-Visit1_PIT/1st_level/SPM.mat'
 
 % Prepare
-ses = 'ses-Visit1';
-ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer';
-OUTPUTDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer/Group/Tremor';
+ses = 'ses-POMVisit1';
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/';
+OUTPUTDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Tremor';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', ses), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
@@ -60,27 +60,27 @@ SubInfo.SPM = SubInfo.SPM(Sel);
 SubInfo.TremNr = SubInfo.TremNr(Sel);
 SubInfo.TremDerivNr = SubInfo.TremDerivNr(Sel);
 
-% Exclude participants where tremor was absent
-Classification = readtable('/project/3022026.01/analyses/EMG/motor/manually_checked/Martin/Tremor_check-09-Nov-2020.csv');
-Classification = Classification(:,[1,9]);
-for n = 1:size(Classification,1)
-    Classification.Var1(n) = erase(Classification.Var1(n),',');
-    Classification.Var9(n) = extractBefore(Classification.Var9(n),'-ses');
-end
-TremorAbsent = Classification.Var9(~ismember(Classification.Var1,'1'));
-
-Sel = true(size(SubInfo.Sub));
-for n = 1:numel(SubInfo.Sub)
-    if sum(contains(TremorAbsent, SubInfo.Sub{n})) > 0
-        Sel(n) = false;
-    end
-end
-
-SubInfo.Sub = SubInfo.Sub(Sel);
-SubInfo.Group = SubInfo.Group(Sel);
-SubInfo.SPM = SubInfo.SPM(Sel);
-SubInfo.TremNr = SubInfo.TremNr(Sel);
-SubInfo.TremDerivNr = SubInfo.TremDerivNr(Sel);
+% % DEPRECATED: Exclude participants where tremor was absent
+% Classification = readtable('/project/3024006.02/Analyses/EMG/motor/manually_checked/Martin/Tremor_check-24-Mar-2021.mat');
+% Classification = Classification(:,[1,9]);
+% for n = 1:size(Classification,1)
+%     Classification.Var1(n) = erase(Classification.Var1(n),',');
+%     Classification.Var9(n) = extractBefore(Classification.Var9(n),'-ses');
+% end
+% TremorAbsent = Classification.Var9(~ismember(Classification.Var1,'1'));
+% 
+% Sel = true(size(SubInfo.Sub));
+% for n = 1:numel(SubInfo.Sub)
+%     if sum(contains(TremorAbsent, SubInfo.Sub{n})) > 0
+%         Sel(n) = false;
+%     end
+% end
+% 
+% SubInfo.Sub = SubInfo.Sub(Sel);
+% SubInfo.Group = SubInfo.Group(Sel);
+% SubInfo.SPM = SubInfo.SPM(Sel);
+% SubInfo.TremNr = SubInfo.TremNr(Sel);
+% SubInfo.TremDerivNr = SubInfo.TremDerivNr(Sel);
 
 % Start with clean directory
 if ~exist(OUTPUTDir, 'dir')
