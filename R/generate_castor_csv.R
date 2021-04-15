@@ -13,16 +13,6 @@ generate_castor_csv <- function(bidsdir){
         # Define a list of subjects
         Subjects <- basename(list.dirs(bidsdir, recursive = FALSE)) 
         Subjects <- Subjects[str_starts(Subjects, 'sub-')]
-        # Count number of visits
-        VisitCounter <- 0
-        for(n in Subjects){
-                dSubDir <- paste(bidsdir, n, sep='')
-                Visits <- dir(dSubDir)
-                Visits <- Visits[startsWith(Visits,'ses-Visit')]
-                for(t in Visits){
-                        VisitCounter = VisitCounter + 1
-                }
-        }
         
         # Import a row of data for a specified subject and visit
         # Finds json files, parses them, and binds variables horizontally
@@ -30,24 +20,23 @@ generate_castor_csv <- function(bidsdir){
         ImportCastorJson <- function(subject, visit){
                 
                 
-                
                 # Find subject's files and subset by pattern
                 # Visits and home questionnaires are collapsed (i.e. treated as one time point)
                 dSub <- paste(bidsdir, subject, sep='')
                 fAllFiles <- dir(dSub, full.names = TRUE, recursive = TRUE)
                 fSubsetFiles <- fAllFiles[grep(visit, fAllFiles)]
-                if(visit=='ses-Visit1'){
-                        fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('ses-HomeQuestionnaires1', fAllFiles)])
+                if(visit=='ses-POMVisit1'){
+                        fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('ses-POMHomeQuestionnaires1', fAllFiles)])
                 }
-                if(visit=='ses-Visit2'){
-                        fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('ses-HomeQuestionnaires2', fAllFiles)])
+                if(visit=='ses-POMVisit2'){
+                        fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('ses-POMHomeQuestionnaires2', fAllFiles)])
                 }
-                if(visit=='ses-Visit3'){
-                        fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('ses-HomeQuestionnaires3', fAllFiles)])
+                if(visit=='ses-POMVisit3'){
+                        fSubsetFiles <- c(fSubsetFiles, fAllFiles[grep('ses-POMHomeQuestionnaires3', fAllFiles)])
                 }
                 
                 # FIX: Removal of duplication and naming errors
-                if(visit=='ses-Visit1' || visit=='ses-Visit2' || visit=='ses-Visit3'){
+                if(visit=='ses-POMVisit1' || visit=='ses-POMVisit2' || visit=='ses-POMVisit3'){
                         ExcludedFiles <- c('Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_1',
                                            'Castor.Visit1.Motorische_taken_OFF.Updrs3_deel_2')#,
                         #'Castor.Visit1.Motorische_taken_ON.Updrs3_deel_3')   # < Not sure about this last one... only incorrect for some
@@ -90,7 +79,7 @@ generate_castor_csv <- function(bidsdir){
         for(n in Subjects){
                 dSubDir <- paste(bidsdir, n, sep='')
                 Visits <- dir(dSubDir)
-                Visits <- Visits[startsWith(Visits,'ses-Visit')]
+                Visits <- Visits[startsWith(Visits,'ses-POMVisit')]
                 for(t in Visits){
                         dat <- ImportCastorJson(n, t)
                         nam <- names(dat)
@@ -99,6 +88,16 @@ generate_castor_csv <- function(bidsdir){
                 }
         }
         # Initialize the final data frame and name variables
+        # Count number of visits
+        VisitCounter <- 0
+        for(n in Subjects){
+                dSubDir <- paste(bidsdir, n, sep='')
+                Visits <- dir(dSubDir)
+                Visits <- Visits[startsWith(Visits,'ses-POMVisit')]
+                for(t in Visits){
+                        VisitCounter = VisitCounter + 1
+                }
+        }
         df <- tibble('1' = rep('NA', VisitCounter))            # < NAs need to be chars for now so that the code below can work
         # Add temporary variable names
         for(i in 1:(length(VarNames) - 1)){
@@ -108,6 +107,8 @@ generate_castor_csv <- function(bidsdir){
         colnames(df) <- VarNames
         # Add timepoint variable
         df <- bind_cols(df, tibble(Timepoint = rep('NA', VisitCounter)))
+        # Add task variable
+        df <- bind_cols(df, tibble(MriNeuroPsychTask = rep('NA', VisitCounter)))
         #####
         
         ##### Import data #####
@@ -116,7 +117,14 @@ generate_castor_csv <- function(bidsdir){
         for(n in 1:length(Subjects)){
                 dSubDir <- paste(bidsdir, Subjects[n], sep='')
                 Visits <- dir(dSubDir)
-                Visits <- Visits[startsWith(Visits,'ses-Visit')]
+                Visits <- Visits[startsWith(Visits,'ses-POMVisit')]
+                dTaskDir <- paste(dirname(bidsdir), '/bids/', Subjects[n], '/', Visits[1], '/beh', sep='')
+                behfiles <- dir(dTaskDir)
+                if(length(behfiles[str_detect(behfiles, 'task-motor')]) > 0 & length(behfiles[str_detect(behfiles, 'task-reward')]) == 0){
+                        Task <- 'Motor'
+                }else if(length(behfiles[str_detect(behfiles, 'task-reward')]) > 0 & length(behfiles[str_detect(behfiles, 'task-motor')]) == 0){
+                        Task <- 'Reward'
+                }
                 for(t in Visits){
                         dat <- ImportCastorJson(Subjects[n], t)
                         SubVarNames <- colnames(dat)
@@ -125,6 +133,7 @@ generate_castor_csv <- function(bidsdir){
                                 df[RowID,colidx] <- unlist(dat[i])  # < Some variables are lists, like dat[77], these will be incorrectly imported!!! 
                         }
                         df$Timepoint[RowID] <- t
+                        df$MriNeuroPsychTask[RowID] <- Task
                         RowID = RowID + 1
                 }
         }
@@ -139,6 +148,8 @@ generate_castor_csv <- function(bidsdir){
         df[df=='##USER_MISSING_97##'] <- NA
         df[df=='##USER_MISSING_98##'] <- NA
         df[df=='##USER_MISSING_99##'] <- NA
+        
+        df1 <- df
         
         # FIX: BDI2 variables 16, 18, and 21 need to be altered. 
         # 16/18 take on values 0-6 when they should take on values 0-3
@@ -176,75 +187,59 @@ generate_castor_csv <- function(bidsdir){
                 }
         }
         
-        # FIX: Apat variables Apat09-14 needs to be reversed
-        msg <- 'Reversing scoring for Apat variables Apat09-14...'
+        reverse_variable_values <- function(var, valrange){
+                
+                var <- as.numeric(var)
+                opposite <- max(valrange):min(valrange)
+                
+                for(n in 1:length(var)){
+                        if(is.na(var[n])){
+                                next
+                        }
+                        for(v in 1:length(valrange)){
+                                if(sum(var[n] == valrange) > 0 & var[n] == valrange[v]){
+                                        var[n] <- opposite[v]
+                                        break
+                                }else if(sum(var[n] == valrange) == 0){
+                                        msg <- 'Value not found in range, set to NA'
+                                        print(msg)
+                                        var[n] <- NA
+                                }
+                        }
+                }
+                
+                return(var)
+                
+        }
+        
+        # FIX: STAI state variables Stai11, 12, 15, 18, 111, 115, 116, 119, 120 needs to be reversed
+        msg <- 'Reversing scoring for Stai state variables Stai01, 02, 05, 08, 11, 15, 16, 19, 20...'
         print(msg)
-        for(v in 1:length(df1$Apat09)){
-                if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 0){
-                        df1$Apat09[v] = 3
-                }else if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 1){
-                        df1$Apat09[v] = 2
-                }else if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 2){
-                        df1$Apat09[v] = 1
-                }else if(!is.na(df1$Apat09[v]) & df1$Apat09[v] == 3){
-                        df1$Apat09[v] = 0
-                }
-        }
-        for(v in 1:length(df1$Apat10)){
-                if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 0){
-                        df1$Apat10[v] = 3
-                }else if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 1){
-                        df1$Apat10[v] = 2
-                }else if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 2){
-                        df1$Apat10[v] = 1
-                }else if(!is.na(df1$Apat10[v]) & df1$Apat10[v] == 3){
-                        df1$Apat10[v] = 0
-                }
-        }
-        for(v in 1:length(df1$Apat11)){
-                if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 0){
-                        df1$Apat11[v] = 3
-                }else if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 1){
-                        df1$Apat11[v] = 2
-                }else if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 2){
-                        df1$Apat11[v] = 1
-                }else if(!is.na(df1$Apat11[v]) & df1$Apat11[v] == 3){
-                        df1$Apat11[v] = 0
-                }
-        }
-        for(v in 1:length(df1$Apat12)){
-                if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 0){
-                        df1$Apat12[v] = 3
-                }else if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 1){
-                        df1$Apat12[v] = 2
-                }else if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 2){
-                        df1$Apat12[v] = 1
-                }else if(!is.na(df1$Apat12[v]) & df1$Apat12[v] == 3){
-                        df1$Apat12[v] = 0
-                }
-        }
-        for(v in 1:length(df1$Apat13)){
-                if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 0){
-                        df1$Apat13[v] = 3
-                }else if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 1){
-                        df1$Apat13[v] = 2
-                }else if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 2){
-                        df1$Apat13[v] = 1
-                }else if(!is.na(df1$Apat13[v]) & df1$Apat13[v] == 3){
-                        df1$Apat13[v] = 0
-                }
-        }
-        for(v in 1:length(df1$Apat14)){
-                if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 0){
-                        df1$Apat14[v] = 3
-                }else if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 1){
-                        df1$Apat14[v] = 2
-                }else if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 2){
-                        df1$Apat14[v] = 1
-                }else if(!is.na(df1$Apat14[v]) & df1$Apat14[v] == 3){
-                        df1$Apat14[v] = 0
-                }
-        }
+        valrange <- 1:4
+        df1$StaiState01 <- reverse_variable_values(df1$StaiState01, valrange)
+        df1$StaiState02 <- reverse_variable_values(df1$StaiState02, valrange)
+        df1$StaiState05 <- reverse_variable_values(df1$StaiState05, valrange)
+        df1$StaiState08 <- reverse_variable_values(df1$StaiState08, valrange)
+        df1$StaiState11 <- reverse_variable_values(df1$StaiState11, valrange)
+        df1$StaiState15 <- reverse_variable_values(df1$StaiState15, valrange)
+        df1$StaiState16 <- reverse_variable_values(df1$StaiState16, valrange)
+        df1$StaiState19 <- reverse_variable_values(df1$StaiState19, valrange)
+        df1$StaiState20 <- reverse_variable_values(df1$StaiState20, valrange)
+        
+        # FIX: STAI trait variables Stai21, 23, 26, 27, 210, 213, 214, 215, 216, 219 needs to be reversed
+        msg <- 'Reversing scoring for Stai state variables Stai01, 03, 06, 07, 10, 13, 14, 15, 16, 19...'
+        print(msg)
+        valrange <- 1:4
+        df1$StaiTrait01 <- reverse_variable_values(df1$StaiTrait01, valrange)
+        df1$StaiTrait03 <- reverse_variable_values(df1$StaiTrait03, valrange)
+        df1$StaiTrait06 <- reverse_variable_values(df1$StaiTrait06, valrange)
+        df1$StaiTrait07 <- reverse_variable_values(df1$StaiTrait07, valrange)
+        df1$StaiTrait10 <- reverse_variable_values(df1$StaiTrait10, valrange)
+        df1$StaiTrait13 <- reverse_variable_values(df1$StaiTrait13, valrange)
+        df1$StaiTrait14 <- reverse_variable_values(df1$StaiTrait14, valrange)
+        df1$StaiTrait15 <- reverse_variable_values(df1$StaiTrait15, valrange)
+        df1$StaiTrait16 <- reverse_variable_values(df1$StaiTrait16, valrange)
+        df1$StaiTrait19 <- reverse_variable_values(df1$StaiTrait19, valrange)
         
         ##### Preprocessing #####
         
@@ -308,9 +303,12 @@ generate_castor_csv <- function(bidsdir){
                 
                 # Compute time to follow-up and estimated disease duration
                 for(n in 1:nrow(EstDiagnosisDates)){
-                        if(EstDiagnosisDates$Timepoint[n] == 'ses-Visit2' && EstDiagnosisDates$Timepoint[n-1] == 'ses-Visit1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-1]){
+                        if(EstDiagnosisDates$Timepoint[n] == 'ses-POMVisit2' && EstDiagnosisDates$Timepoint[n-1] == 'ses-POMVisit1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-1]){
                                 EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-1]) / 365
                                 EstDiagnosisDates$EstDisDurYears[n] <- EstDiagnosisDates$EstDisDurYears[n-1]
+                        }else if(EstDiagnosisDates$Timepoint[n] == 'ses-POMVisit3' && EstDiagnosisDates$Timepoint[n-2] == 'ses-POMVisit1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-2]){
+                                EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-2]) / 365
+                                EstDiagnosisDates$EstDisDurYears[n] <- EstDiagnosisDates$EstDisDurYears[n-2]
                         }
                 }
                 
@@ -359,8 +357,8 @@ generate_castor_csv <- function(bidsdir){
         list.QUIP_rs <- c(list.QUIP_icd, list.QUIP_hobbypund, list.QUIP_medication)
         list.AES12 <- c('Aes12Pd01', 'Aes12Pd02', 'Aes12Pd03', 'Aes12Pd04', 'Aes12Pd05', 'Aes12Pd06', 'Aes12Pd07', 'Aes12Pd08', 'Aes12Pd09',
                         'Aes12Pd10', 'Aes12Pd11', 'Aes12Pd12')
-        list.Apat <- c('Apat01','Apat02','Apat03','Apat04','Apat05','Apat06','Apat07','Apat08','Apat09','Apat10','Apat11','Apat12',
-                       'Apat13','Apat14')
+        #list.Apat <- c('Apat01','Apat02','Apat03','Apat04','Apat05','Apat06','Apat07','Apat08','Apat09','Apat10','Apat11','Apat12',
+        #               'Apat13','Apat14')
         list.BDI2 <- c('Bdi2It01', 'Bdi2It02', 'Bdi2It03', 'Bdi2It04', 'Bdi2It05', 'Bdi2It06', 'Bdi2It07', 'Bdi2It08', 'Bdi2It09',  'Bdi2It10',
                        'Bdi2It11', 'Bdi2It12', 'Bdi2It13', 'Bdi2It14', 'Bdi2It15', 'Bdi2It16', 'Bdi2It17', 'Bdi2It18', 'Bdi2It19', 'Bdi2It20', 'Bdi2It21')
         list.TalkProb <- c('TalkProb01', 'TalkProb02', 'TalkProb03', 'TalkProb04', 'TalkProb05', 'TalkProb06', 'TalkProb07')
@@ -411,7 +409,6 @@ generate_castor_csv <- function(bidsdir){
                                starts_with('RemSbdq'),
                                starts_with('Quip'),
                                starts_with('test'),
-                               starts_with('Apat'),
                                starts_with('Aes12'),
                                starts_with('Sf12'),
                                starts_with('Bdi2'),
@@ -424,7 +421,7 @@ generate_castor_csv <- function(bidsdir){
                                starts_with('Fog'),
                                starts_with('Pase'),
                                starts_with('Fallen')) %>%
-                        mutate(across(-c('pseudonym', 'Updrs2Cag', 'ScopaAut31b', 'ScopaAut32b', 'NpsMocBonus', 'Timepoint', 'ScopaAutCag',
+                        mutate(across(-c('pseudonym', 'Updrs2Cag', 'ScopaAut31b', 'ScopaAut32b', 'NpsMocBonus', 'Timepoint', 'MriNeuroPsychTask', 'ScopaAutCag',
                                          'ScopaAut29b', 'EssCag', 'ScopaSlpCag', 'RemSbdqCag'), as.numeric)) %>% 
                         mutate(Up3OfTotal = rowSums(.[list.TotalOff]),
                                Up3OnTotal = rowSums(.[list.TotalOn])) %>%
@@ -450,7 +447,6 @@ generate_castor_csv <- function(bidsdir){
                                STAIStateSum = rowSums(.[list.STAIState]),
                                QUIPicdSum = rowSums(.[list.QUIP_icd]),
                                QUIPrsSum = rowSums(.[list.QUIP_rs]),
-                               APATSum = rowSums(.[list.Apat]),
                                AES12Sum = rowSums(.[list.AES12]),
                                BDI2Sum = rowSums(.[list.BDI2]),
                                TalkProbSum = rowSums(.[list.TalkProb]),
@@ -486,13 +482,14 @@ generate_castor_csv <- function(bidsdir){
                                                                                                  'PDQ39_stigmaSum', 'PDQ39_socialsupportSum', 'PDQ39_cognitionsSum',
                                                                                                  'PDQ39_communicationSum', 'PDQ39_bodilydiscomfortSum')))))
                 
+                
                 return(dataframe)
                 
         }
         df3 <- VariableSelectionConstruction(df2)
         
         # Extend time-invariant variables to all levels of 'Timepoint'
-        varlist <- c('Gender', 'Age', 'MriNeuroPsychTask', 'EstDisDurYears')
+        varlist <- c('Gender', 'Age', 'EstDisDurYears')
         ExtendVars <- function(dataframe, varlist){
                 
                 # Iterate over variables in the input list
@@ -545,7 +542,6 @@ generate_castor_csv <- function(bidsdir){
                 dataframe$Up3OfHoeYah <- as.factor(dataframe$Up3OfHoeYah)                     # Hoen & Yahr stage
                 dataframe$Up3OnHoeYah <- as.factor(dataframe$Up3OnHoeYah)
                 dataframe$MriNeuroPsychTask <- as.factor(dataframe$MriNeuroPsychTask)         # Which task was done?
-                levels(dataframe$MriNeuroPsychTask) <- c('Motor', 'Reward')
                 dataframe$DiagParkCertain <- as.factor(dataframe$DiagParkCertain)             # Certainty of diagnosis
                 levels(dataframe$DiagParkCertain) <- c('PD','DoubtAboutPD','Parkinsonism','DoubtAboutParkinsonism', 'NeitherDisease')
                 dataframe$MostAffSide <- as.factor(dataframe$MostAffSide)                     # Most affected side
@@ -564,7 +560,6 @@ generate_castor_csv <- function(bidsdir){
         df5 <- TransformVariables(df4)
         
         # Calculate disease progression (Year2 - Year1) and indicate which participants have FU data
-        # TODO: What should be done about Year3? Calculate (Year3 - Year2)?
         CalculateDiseaseProgression <- function(dataframe){
                 
                 elble.change <- function(T1, T2, subscore.length, alpha=0.5, percent=TRUE){
@@ -618,11 +613,41 @@ generate_castor_csv <- function(bidsdir){
                                Up3OfPegRLBSum.1YearROC = NA,
                                Up3OnPegRLBSum.1YearROC = NA,
                                
+                               Up3OfTotal.2YearDelta = NA,
+                               Up3OnTotal.2YearDelta = NA,
+                               Up3OfTotal.2YearROC = NA,
+                               Up3OnTotal.2YearROC = NA,
+                               
+                               Up3OfBradySum.2YearDelta = NA,
+                               Up3OnBradySum.2YearDelta = NA,
+                               Up3OfBradySum.2YearROC = NA,
+                               Up3OnBradySum.2YearROC = NA,
+                               
+                               Up3OfRestTremAmpSum.2YearDelta = NA,
+                               Up3OnRestTremAmpSum.2YearDelta = NA,
+                               Up3OfRestTremAmpSum.2YearROC = NA,
+                               Up3OnRestTremAmpSum.2YearROC = NA,
+                               
+                               Up3OfRigiditySum.2YearDelta = NA,
+                               Up3OnRigiditySum.2YearDelta = NA,
+                               Up3OfRigiditySum.2YearROC = NA,
+                               Up3OnRigiditySum.2YearROC = NA,
+                               
+                               Up3OfPIGDSum.2YearDelta = NA,
+                               Up3OnPIGDSum.2YearDelta = NA,
+                               Up3OfPIGDSum.2YearROC = NA,
+                               Up3OnPIGDSum.2YearROC = NA,
+                               
+                               Up3OfPegRLBSum.2YearDelta = NA,
+                               Up3OnPegRLBSum.2YearDelta = NA,
+                               Up3OfPegRLBSum.2YearROC = NA,
+                               Up3OnPegRLBSum.2YearROC = NA,
+                               
                                MultipleSessions = 0)
                 
                 alpha <- 0.5
                 for(n in 1:nrow(dataframe)){
-                        if(dataframe$Timepoint[n] == 'ses-Visit2' && dataframe$Timepoint[n-1] == 'ses-Visit1'){
+                        if(dataframe$Timepoint[n] == 'ses-POMVisit2' && dataframe$Timepoint[n-1] == 'ses-POMVisit1'){
                                 
                                 dataframe$Up3OfTotal.1YearDelta[(n-1):n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-1]
                                 dataframe$Up3OnTotal.1YearDelta[(n-1):n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-1]
@@ -633,29 +658,21 @@ generate_castor_csv <- function(bidsdir){
                                 
                                 dataframe$Up3OfBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]
                                 dataframe$Up3OnBradySum.1YearDelta[(n-1):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]
-                                #dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-1]) / dataframe$Up3OfBradySum[n-1]) * 100
-                                #dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-1]) / dataframe$Up3OnBradySum[n-1]) * 100
                                 dataframe$Up3OfBradySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfBradySum[n-1], dataframe$Up3OfBradySum[n], length(list.BradykinesiaOff), alpha = 0.5/length(list.BradykinesiaOff))
                                 dataframe$Up3OnBradySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnBradySum[n-1], dataframe$Up3OnBradySum[n], length(list.BradykinesiaOn), alpha = 0.5/length(list.BradykinesiaOn))
                                 
                                 dataframe$Up3OfRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
                                 dataframe$Up3OnRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
-                                #dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]) / dataframe$Up3OfRestTremAmpSum[n-1]) * 100
-                                #dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]) / dataframe$Up3OnRestTremAmpSum[n-1]) * 100
                                 dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfRestTremAmpSum[n-1], dataframe$Up3OfRestTremAmpSum[n], length(list.RestTremorOff), alpha = 0.5/length(list.RestTremorOff))
                                 dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnRestTremAmpSum[n-1], dataframe$Up3OnRestTremAmpSum[n], length(list.RestTremorOn), alpha = 0.5/length(list.RestTremorOff))
                                 
                                 dataframe$Up3OfRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]
                                 dataframe$Up3OnRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]
-                                #dataframe$Up3OfRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]) / dataframe$Up3OfRigiditySum[n-1]) * 100
-                                #dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- ((dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]) / dataframe$Up3OnRigiditySum[n-1]) * 100
                                 dataframe$Up3OfRigiditySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfRigiditySum[n-1], dataframe$Up3OfRigiditySum[n], length(list.RigidityOff), alpha = 0.5/length(list.RigidityOff))
                                 dataframe$Up3OnRigiditySum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnRigiditySum[n-1], dataframe$Up3OnRigiditySum[n], length(list.RigidityOn), alpha = 0.5/length(list.RigidityOn))
                                 
                                 dataframe$Up3OfPIGDSum.1YearDelta[(n-1):n] <- dataframe$Up3OfPIGDSum[n] - dataframe$Up3OfPIGDSum[n-1]
                                 dataframe$Up3OnPIGDSum.1YearDelta[(n-1):n] <- dataframe$Up3OnPIGDSum[n] - dataframe$Up3OnPIGDSum[n-1]
-                                #dataframe$Up3OfPIGDSum.1YearROC[(n-1):n] <- ((dataframe$Up3OfPIGDSum[n] - dataframe$Up3OfPIGDSum[n-1]) / dataframe$Up3OfPIGDSum[n-1]) * 100
-                                #dataframe$Up3OnPIGDSum.1YearROC[(n-1):n] <- ((dataframe$Up3OnPIGDSum[n] - dataframe$Up3OnPIGDSum[n-1]) / dataframe$Up3OnPIGDSum[n-1]) * 100
                                 dataframe$Up3OfPIGDSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfPIGDSum[n-1], dataframe$Up3OfPIGDSum[n], length(list.PIGDOff), alpha = 0.5/length(list.PIGDOff))
                                 dataframe$Up3OnPIGDSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnPIGDSum[n-1], dataframe$Up3OnPIGDSum[n], length(list.PIGDOn), alpha = 0.5/length(list.PIGDOn))
                                 
@@ -665,6 +682,39 @@ generate_castor_csv <- function(bidsdir){
                                 dataframe$Up3OnPegRLBSum.1YearROC[(n-1):n] = elble.change(dataframe$Up3OnPegRLBSum[n-1], dataframe$Up3OnPegRLBSum[n], 1, alpha = 0.5/1)
                                 
                                 dataframe$MultipleSessions[(n-1):n] = 1
+                        }else if(dataframe$Timepoint[n] == 'ses-POMVisit3' && dataframe$Timepoint[n-2] == 'ses-POMVisit1'){
+                                
+                                dataframe$Up3OfTotal.2YearDelta[(n-2):n] <- dataframe$Up3OfTotal[n] - dataframe$Up3OfTotal[n-2]
+                                dataframe$Up3OnTotal.2YearDelta[(n-2):n] <- dataframe$Up3OnTotal[n] - dataframe$Up3OnTotal[n-2]
+                                dataframe$Up3OfTotal.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OfTotal[n-2], dataframe$Up3OfTotal[n], length(list.TotalOff), alpha = 0.5/length(list.TotalOff))
+                                dataframe$Up3OnTotal.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OnTotal[n-2], dataframe$Up3OnTotal[n], length(list.TotalOn), alpha = 0.5/length(list.TotalOn))
+                                
+                                dataframe$Up3OfBradySum.2YearDelta[(n-2):n] <- dataframe$Up3OfBradySum[n] - dataframe$Up3OfBradySum[n-2]
+                                dataframe$Up3OnBradySum.2YearDelta[(n-2):n] <- dataframe$Up3OnBradySum[n] - dataframe$Up3OnBradySum[n-2]
+                                dataframe$Up3OfBradySum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OfBradySum[n-2], dataframe$Up3OfBradySum[n], length(list.BradykinesiaOff), alpha = 0.5/length(list.BradykinesiaOff))
+                                dataframe$Up3OnBradySum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OnBradySum[n-2], dataframe$Up3OnBradySum[n], length(list.BradykinesiaOn), alpha = 0.5/length(list.BradykinesiaOn))
+                                
+                                dataframe$Up3OfRestTremAmpSum.2YearDelta[(n-2):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-2]
+                                dataframe$Up3OnRestTremAmpSum.2YearDelta[(n-2):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-2]
+                                dataframe$Up3OfRestTremAmpSum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OfRestTremAmpSum[n-2], dataframe$Up3OfRestTremAmpSum[n], length(list.RestTremorOff), alpha = 0.5/length(list.RestTremorOff))
+                                dataframe$Up3OnRestTremAmpSum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OnRestTremAmpSum[n-2], dataframe$Up3OnRestTremAmpSum[n], length(list.RestTremorOn), alpha = 0.5/length(list.RestTremorOff))
+                                
+                                dataframe$Up3OfRigiditySum.2YearDelta[(n-2):n] <- dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-2]
+                                dataframe$Up3OnRigiditySum.2YearDelta[(n-2):n] <- dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-2]
+                                dataframe$Up3OfRigiditySum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OfRigiditySum[n-2], dataframe$Up3OfRigiditySum[n], length(list.RigidityOff), alpha = 0.5/length(list.RigidityOff))
+                                dataframe$Up3OnRigiditySum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OnRigiditySum[n-2], dataframe$Up3OnRigiditySum[n], length(list.RigidityOn), alpha = 0.5/length(list.RigidityOn))
+                                
+                                dataframe$Up3OfPIGDSum.2YearDelta[(n-2):n] <- dataframe$Up3OfPIGDSum[n] - dataframe$Up3OfPIGDSum[n-2]
+                                dataframe$Up3OnPIGDSum.2YearDelta[(n-2):n] <- dataframe$Up3OnPIGDSum[n] - dataframe$Up3OnPIGDSum[n-2]
+                                dataframe$Up3OfPIGDSum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OfPIGDSum[n-2], dataframe$Up3OfPIGDSum[n], length(list.PIGDOff), alpha = 0.5/length(list.PIGDOff))
+                                dataframe$Up3OnPIGDSum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OnPIGDSum[n-2], dataframe$Up3OnPIGDSum[n], length(list.PIGDOn), alpha = 0.5/length(list.PIGDOn))
+                                
+                                dataframe$Up3OfPegRLBSum.2YearDelta[(n-2):n] = dataframe$Up3OfPegRLBSum[n] - dataframe$Up3OfPegRLBSum[n-2]
+                                dataframe$Up3OnPegRLBSum.2YearDelta[(n-2):n] = dataframe$Up3OnPegRLBSum[n] - dataframe$Up3OnPegRLBSum[n-2]
+                                dataframe$Up3OfPegRLBSum.2YearROC[(n-2):n] = elble.change(dataframe$Up3OfPegRLBSum[n-2], dataframe$Up3OfPegRLBSum[n], 1, alpha = 0.5/1)
+                                dataframe$Up3OnPegRLBSum.2YearROC[(n-2):n] = elble.change(dataframe$Up3OnPegRLBSum[n-2], dataframe$Up3OnPegRLBSum[n], 1, alpha = 0.5/1)
+                                
+                                dataframe$MultipleSessions[(n-2):n] = 1
                         }
                 }
                 dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
@@ -676,19 +726,22 @@ generate_castor_csv <- function(bidsdir){
         
         # Rearrange variables
         df7 <- df6 %>%
-                relocate(pseudonym, Timepoint, Gender, Age, EstDisDurYears, TimeToFUYears, MultipleSessions, MriNeuroPsychTask,
-                         Up3OfTotal, Up3OfTotal.1YearDelta, Up3OfTotal.1YearROC,
-                         Up3OnTotal, Up3OnTotal.1YearDelta, Up3OnTotal.1YearROC,
-                         Up3OfBradySum, Up3OfBradySum.1YearDelta, Up3OfBradySum.1YearROC,
-                         Up3OnBradySum, Up3OnBradySum.1YearDelta, Up3OnBradySum.1YearROC,
-                         Up3OfRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta, Up3OfRestTremAmpSum.1YearROC,
-                         Up3OnRestTremAmpSum, Up3OnRestTremAmpSum.1YearDelta, Up3OnRestTremAmpSum.1YearROC,
-                         Up3OfRigiditySum, Up3OfRigiditySum.1YearDelta, Up3OfRigiditySum.1YearROC,
-                         Up3OnRigiditySum, Up3OnRigiditySum.1YearDelta, Up3OnRigiditySum.1YearROC,
-                         Up3OfPIGDSum, Up3OfPIGDSum.1YearDelta, Up3OfPIGDSum.1YearROC,
-                         Up3OnPIGDSum, Up3OnPIGDSum.1YearDelta, Up3OnPIGDSum.1YearROC,
-                         Up3OfPegRLBSum, Up3OfPegRLBSum.1YearDelta, Up3OfPegRLBSum.1YearROC,
-                         Up3OnPegRLBSum, Up3OnPegRLBSum.1YearDelta, Up3OnPegRLBSum.1YearROC)
+                relocate(pseudonym, Timepoint, Gender, Age, EstDisDurYears, TimeToFUYears, MultipleSessions,
+                         Up3OfTotal, Up3OfTotal.1YearDelta, Up3OfTotal.1YearROC, Up3OfTotal.2YearDelta, Up3OfTotal.2YearROC,
+                         Up3OnTotal, Up3OnTotal.1YearDelta, Up3OnTotal.1YearROC, Up3OnTotal.2YearDelta, Up3OnTotal.2YearROC,
+                         Up3OfBradySum, Up3OfBradySum.1YearDelta, Up3OfBradySum.1YearROC, Up3OfBradySum.2YearDelta, Up3OfBradySum.2YearROC,
+                         Up3OnBradySum, Up3OnBradySum.1YearDelta, Up3OnBradySum.1YearROC, Up3OnBradySum.2YearDelta, Up3OnBradySum.2YearROC, 
+                         Up3OfRestTremAmpSum, Up3OfRestTremAmpSum.1YearDelta, Up3OfRestTremAmpSum.1YearROC, Up3OfRestTremAmpSum.2YearDelta, Up3OfRestTremAmpSum.2YearROC,
+                         Up3OnRestTremAmpSum, Up3OnRestTremAmpSum.1YearDelta, Up3OnRestTremAmpSum.1YearROC, Up3OnRestTremAmpSum.2YearDelta, Up3OnRestTremAmpSum.2YearROC,
+                         Up3OfRigiditySum, Up3OfRigiditySum.1YearDelta, Up3OfRigiditySum.1YearROC, Up3OfRigiditySum.2YearDelta, Up3OfRigiditySum.2YearROC,
+                         Up3OnRigiditySum, Up3OnRigiditySum.1YearDelta, Up3OnRigiditySum.1YearROC, Up3OnRigiditySum.2YearDelta, Up3OnRigiditySum.2YearROC,
+                         Up3OfPIGDSum, Up3OfPIGDSum.1YearDelta, Up3OfPIGDSum.1YearROC, Up3OfPIGDSum.2YearDelta, Up3OfPIGDSum.2YearROC,
+                         Up3OnPIGDSum, Up3OnPIGDSum.1YearDelta, Up3OnPIGDSum.1YearROC, Up3OnPIGDSum.2YearDelta, Up3OnPIGDSum.2YearROC,
+                         Up3OfPegRLBSum, Up3OfPegRLBSum.1YearDelta, Up3OfPegRLBSum.1YearROC, Up3OfPegRLBSum.2YearDelta, Up3OfPegRLBSum.2YearROC,
+                         Up3OnPegRLBSum, Up3OnPegRLBSum.1YearDelta, Up3OnPegRLBSum.1YearROC, Up3OnPegRLBSum.2YearDelta, Up3OnPegRLBSum.2YearROC)
+        
+        # Define the task that was used
+        
         
         #####
         
