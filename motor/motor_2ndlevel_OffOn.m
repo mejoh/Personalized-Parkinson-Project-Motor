@@ -11,8 +11,8 @@ spm('defaults', 'FMRI');
 
 ses = 'ses-Visit1';
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem';
-% ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_NoPMOD_TimeDer_BPCtrl';
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
+ClinicalConfs = readtable('/project/3022026.01/pep/ClinVars/derivatives/database_clinical_confounds_fmri.csv');
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', 'ses-Visit1'), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
@@ -33,7 +33,7 @@ Sub = Sub(Sel);
 SubInfo.Sub = extractBetween(Sub, 8, 31);
 SubInfo.Group = extractBetween(Sub, 1, 6);
 
-% Find patients that are included in both PIT and P
+% Find patients that are included in both PIT and POM
 [~, ind] = unique(SubInfo.Sub);   % indices to unique subs
 duplicate_ind = setdiff(1:size(SubInfo.Sub, 1), ind);   % duplicate indices
 duplicate_subs = SubInfo.Sub(duplicate_ind);   % duplicate values
@@ -48,6 +48,14 @@ for n = 1:numel(SubInfo.Sub)
 end
 SubInfo.Sub = SubInfo.Sub(Sel);
 SubInfo.Group = SubInfo.Group(Sel);
+
+Sel = false(size(SubInfo.Sub));
+for n = 1:height(ClinicalConfs)
+    if sum(contains(SubInfo.Sub, ClinicalConfs.pseudonym(n))) == 2
+        Sel(n) = true;
+    end
+end
+ClinicalConfs = ClinicalConfs(Sel,:);
 
 % Exclude outliers
 if istrue(exclude_outliers)
@@ -72,13 +80,13 @@ end
 SubInfo.ConfFiles = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     if contains(SubInfo.Group{n}, '_PIT')
-        Session = 'ses-Visit1_PIT';
+        Session = 'ses-PITVisit1';
     else
-        Session = 'ses-Visit1';
+        Session = 'ses-POMVisit1';
     end
-    SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_regressors3.mat$');
+    SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_timeseries3.mat$');
     if isempty(SubInfo.ConfFiles{n})
-        SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_regressors2.mat$');
+        SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_timeseries2.mat$');
     end
 end
 
@@ -90,6 +98,47 @@ for n = 1:numel(SubInfo.Sub)
     FrameDisp = Confounds.R(:,strcmp(Confounds.names, 'framewise_displacement'));
     FrameDisp(isnan(FrameDisp)) = 0;
     SubInfo.FD(n) = mean(FrameDisp);
+end
+
+%% Age and Gender and Baseline symptom severity
+
+SubInfo.Age = zeros(size(SubInfo.Sub));
+SubInfo.Gender = cell(size(SubInfo.Sub));
+SubInfo.UPDRSTotalBA = zeros(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    
+    subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
+    
+    if contains(SubInfo.Group{n}, 'PIT')
+        subid = subid(1);
+    else
+        subid = subid(2);
+    end
+    
+    if isempty(subid) || isnan(ClinicalConfs.Up3OfTotal(subid))
+        SubInfo.UPDRSTotalBA(n) = mean(ClinicalConfs.Up3OfTotal, 'omitnan');
+    else
+        SubInfo.UPDRSTotalBA(n) = ClinicalConfs.Up3OfTotal(subid);
+    end
+    
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
+        fprintf('Missing values, interpolating...\n')
+        SubInfo.Age(n) = mean(ClinicalConfs.Age, 'omitnan');
+        SubInfo.Gender{n} = cellstr('Male');
+    else
+        SubInfo.Age(n) = ClinicalConfs.Age(subid);
+        SubInfo.Gender{n} = ClinicalConfs.Gender(subid);
+    end
+    
+end
+
+SubInfo.Gender_num = zeros(size(SubInfo.Gender));
+for n = 1:numel(SubInfo.Gender)
+    if strcmp(SubInfo.Gender{n}, 'Male')
+        SubInfo.Gender_num(n) = 0;
+    else
+        SubInfo.Gender_num(n) = 1;
+    end
 end
 
 %% Assemble inputs
@@ -137,7 +186,17 @@ Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, ses, CatchPd_files);
 
 FD_PD_PIT = SubInfo.FD(strcmp(SubInfo.Group, 'PD_PIT'))';
 FD_PD_POM = SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'))';
+Age_PD_PIT = SubInfo.Age(strcmp(SubInfo.Group, 'PD_PIT'))';
+Age_PD_POM = SubInfo.Age(strcmp(SubInfo.Group, 'PD_POM'))';
+Gender_PD_PIT = SubInfo.Gender_num(strcmp(SubInfo.Group, 'PD_PIT'))';
+Gender_PD_POM = SubInfo.Gender_num(strcmp(SubInfo.Group, 'PD_POM'))';
+MotorSymSev_PIT = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_PIT'))';
+MotorSymSev_POM = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_POM'))';
+
 Inputs{10,1} = [FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM]';
+Inputs{11,1} = [Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM]';
+Inputs{12,1} = [Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM]';
+Inputs{13,1} = [MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM]';
 
 %% Run
 tabulate(SubInfo.Group)
