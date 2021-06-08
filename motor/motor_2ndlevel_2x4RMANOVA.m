@@ -31,14 +31,22 @@ for n = 1:numel(Sub)
         Sel(n) = true;
     elseif ~istrue(Offstate) && (contains(Sub{n}, 'HC_PIT') || contains(Sub{n}, 'PD_POM'))
         Sel(n) = true;
-    else
-        fprintf('Excluding %s due to group\n', Sub{n})
     end
 end
 Sub = Sub(Sel);
 
 SubInfo.Sub = extractBetween(Sub, 8, 31);
 SubInfo.Group = extractBetween(Sub, 1, 6);
+
+Sel = false(size(Sub));
+for n = 1:height(ClinicalConfs)
+    if Offstate && (strcmp(ClinicalConfs.Group(n), 'PD_PIT') || strcmp(ClinicalConfs.Group(n), 'HC_PIT'))
+        Sel(n) = true;
+    elseif ~Offstate && (strcmp(ClinicalConfs.Group(n), 'PD_POM') || strcmp(ClinicalConfs.Group(n), 'HC_PIT'))
+        Sel(n) = true;
+    end
+end
+ClinicalConfs = ClinicalConfs(Sel,:);
 
 % Exclude outliers
 if istrue(exclude_outliers)
@@ -86,12 +94,6 @@ SubInfo.Gender = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
-    
-    if Offstate && length(subid) > 1        % Take PIT data if Offstate, POM data if not
-        subid = subid(1);
-    elseif ~Offstate && length(subid) > 1
-        subid = subid(2);
-    end
     
     if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
         fprintf('Missing values, interpolating...\n')
