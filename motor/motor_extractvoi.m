@@ -3,9 +3,9 @@
 
 function motor_extractvoi()
 
-dOutput = '/project/3024006.02/Analyses/VOIs/NoTrem';
+dOutput = '/project/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch';
 % Load SPM.mat file
-dAnalysis = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_NoTrem/Group/HcOn x ExtInt2Int3Catch';
+dAnalysis = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_ExtInt2Int3Catch';
 fSPM = load(fullfile(dAnalysis, 'SPM.mat'));
 
 % List all available VOIs (except ones that have been edited)
