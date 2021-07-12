@@ -1,6 +1,6 @@
 % Images to summarize
-% ImageList = {'con_0001' 'con_0002' 'con_0003' 'ResMS'};
-ImageList = {'con_0001' 'con_0002'};
+ImageList = {'con_0001' 'con_0002' 'con_0003' 'ResMS'};
+% ImageList = {'con_0001'};
 
 % Generate a histogram of image intensities for each subject
 % Generate a boxplot + histogram of image intensities for the whole group
@@ -8,8 +8,8 @@ ImageList = {'con_0001' 'con_0002'};
 for i = 1:numel(ImageList)
     
     img = ImageList{i};
-    ANALYSESDir = '/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer';
-    OutputDir = fullfile('/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer/QC', img, '/');
+    ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
+    OutputDir = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC', img, '/');
     % Start with clean directory
     if ~exist(OutputDir, 'dir')
         mkdir(OutputDir);
@@ -20,13 +20,14 @@ for i = 1:numel(ImageList)
     % Subject list
     Sub = cellstr(spm_select('List', fullfile(ANALYSESDir), 'dir', '^sub-POM.*'));
     fprintf('Number of subjects processed: %i\n', numel(Sub))
+%     Sub = {Sub{1}; Sub{2}; Sub{3}; Sub{4}};
     SubInfo.Sub = {};
     SubInfo.Visit = {};
     SubInfo.GrandMean = [];
     Counter = 1;
     % Generate histogram of image intensities
     for n = 1:numel(Sub)
-        Visit = cellstr(spm_select('List', fullfile(ANALYSESDir, Sub{n}), 'dir', 'ses-Visit1*'));
+        Visit = cellstr(spm_select('List', fullfile(ANALYSESDir, Sub{n}), 'dir', 'ses-.*Visit1.*'));
         for v = 1:numel(Visit)
             ContrastImage = spm_select('FPList', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), [img '.nii']);
             if exist(ContrastImage, 'file')
@@ -41,8 +42,10 @@ for i = 1:numel(ImageList)
 
     % Define outliers as +-IQR*2
     m = mean(SubInfo.GrandMean);
-    lower = m - iqr(SubInfo.GrandMean)*2;
-    upper = m + iqr(SubInfo.GrandMean)*2;
+%     lower = m - iqr(SubInfo.GrandMean)*2;
+%     upper = m + iqr(SubInfo.GrandMean)*2;
+    lower = m - std(SubInfo.GrandMean)*2;
+    upper = m + std(SubInfo.GrandMean)*2;
     SubInfo.Outlier = false(size(SubInfo.GrandMean));
     for n = 1:length(SubInfo.Outlier)
         if SubInfo.GrandMean(n) < lower || SubInfo.GrandMean(n) > upper

@@ -7,7 +7,7 @@
 ##################################################
 
 FMRIPREPdir=/project/3022026.01/pep/bids/derivatives/fmriprep		# Specify directories
-SPMdir=/project/3022026.01/analyses/motor/DurAvg_ReAROMA_PMOD_TimeDer
+SPMdir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem
 FSLdir=/opt/fsl/6.0.0/etc/luts/renderhot.lut
 
 cd ${SPMdir}
@@ -37,15 +37,15 @@ for sub in ${input_list[@]}; do
 			slicer ${OUTPUTdir}/overlay_img -l ${FSLdir} -z 0.580 ${OUTPUTdir}/580.png -z 0.600 ${OUTPUTdir}/600.png -z 0.620 ${OUTPUTdir}/620.png -z 0.640 ${OUTPUTdir}/640.png -z 0.660 ${OUTPUTdir}/660.png -z 0.680 ${OUTPUTdir}/680.png -z 0.700 ${OUTPUTdir}/700.png -z 0.720 ${OUTPUTdir}/720.png -z 0.740 ${OUTPUTdir}/740.png
 
 			# Append to single image
-			pngappend ${OUTPUTdir}/580.png + ${OUTPUTdir}/600.png + ${OUTPUTdir}/620.png + ${OUTPUTdir}/640.png + ${OUTPUTdir}/660.png + ${OUTPUTdir}/680.png + ${OUTPUTdir}/700.png + ${OUTPUTdir}/720.png + ${OUTPUTdir}/740.png ${OUTPUTdir}/${sub}_${OUTPUTname}.png
+			pngappend ${OUTPUTdir}/580.png + ${OUTPUTdir}/600.png + ${OUTPUTdir}/620.png + ${OUTPUTdir}/640.png + ${OUTPUTdir}/660.png + ${OUTPUTdir}/680.png + ${OUTPUTdir}/700.png + ${OUTPUTdir}/720.png + ${OUTPUTdir}/740.png ${OUTPUTdir}/${sub}_${Visit}_${OUTPUTname}.png
 			# Clean up output		
 			rm ${OUTPUTdir}/5*.png ${OUTPUTdir}/6*.png ${OUTPUTdir}/7*.png ${OUTPUTdir}/overlay_img.nii.gz
 			# Move to QC folder
-			mv ${OUTPUTdir}/${sub}_${OUTPUTname}.png ${SPMdir}/QC/${sub}_${OUTPUTname}.png
+			mv ${OUTPUTdir}/${sub}_${Visit}_${OUTPUTname}.png ${SPMdir}/QC/${sub}_${Visit}_${OUTPUTname}.png
 
 		else
 
-			echo "Skipping ${sub}: does not have 1st level output"
+			echo "Skipping ${sub} ${Visit}: does not have 1st level output"
 
 		fi
 	done

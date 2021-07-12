@@ -23,7 +23,7 @@ function [GrandMean, Sub, Visit] = DistributionMean_1stlevelCon(ContrastImage, O
     beta = rmmissing(beta);
     GrandMean = mean(beta);
     
-    figure
+    figure('visible','off')
     subplot(1,1,1)
     histogram(beta,100)
     title('beta')
