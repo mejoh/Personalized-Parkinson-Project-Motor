@@ -112,6 +112,8 @@ generate_PIT_castor_csv <- function(bidsdir){
         
         df1 <- df
         
+        df1 <- df1[!is.na(df1$ParticipantType_1), ]    # Remove participants that do not have a participant type
+        
         # FIX: BDI2 variables 16, 18, and 21 need to be altered. 
         # 16/18 take on values 0-6 when they should take on values 0-3
         # 21 takes on values 1-4 when it should take on values 0-3
@@ -258,6 +260,7 @@ generate_PIT_castor_csv <- function(bidsdir){
                 # Variable selection and definition of subscores
                 dataframe <- dataframe %>%
                         select(pseudonym,
+                               ParticipantType_1,
                                Age_1,
                                Age_2,
                                Gender_1,
@@ -281,7 +284,9 @@ generate_PIT_castor_csv <- function(bidsdir){
                                starts_with('Apat'),
                                starts_with('Bdi2'),
                                starts_with('Stai'),) %>%
-                        mutate(across(-c('pseudonym', 'Timepoint', 'MedUse_1'), as.numeric)) %>% 
+                        mutate(across(all_of(c(list.TotalOff, list.BradykinesiaOff, list.RestTremorOff, list.RigidityOff, list.PIGDOff,
+                                        list.ActionTremorOff, list.CompositeTremorOff, list.STAITrait, list.STAIState, list.QUIP_icd,
+                                        list.QUIP_rs, list.Apat, list.BDI2)), as.numeric)) %>% 
                         mutate(Up3OfTotal = rowSums(.[list.TotalOff])) %>%
                         mutate(Up3OfBradySum = rowSums(.[list.BradykinesiaOff])) %>%
                         mutate(Up3OfRestTremAmpSum = rowSums(.[list.RestTremorOff])) %>%
@@ -295,6 +300,7 @@ generate_PIT_castor_csv <- function(bidsdir){
                                QUIPrsSum = rowSums(.[list.QUIP_rs]),
                                APATSum = rowSums(.[list.Apat]),
                                BDI2Sum = rowSums(.[list.BDI2])) %>%
+                        mutate(Group = if_else(ParticipantType_1 == 1, 'PD_PIT', 'HC_PIT')) %>%
                         unite('Age', c('Age_1','Age_2'), na.rm = TRUE, remove = TRUE) %>%
                         unite('Gender', c('Gender_1','Gender_2'), na.rm = TRUE, remove = TRUE) %>%
                         unite('PrefHand', c('PrefHand_1','PrefHand_2'), na.rm = TRUE, remove = TRUE) %>%
