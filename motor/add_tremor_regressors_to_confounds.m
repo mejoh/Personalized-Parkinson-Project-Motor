@@ -2,18 +2,30 @@
 % Adds tremor regressors to fmriprep confounds file
 function add_tremor_regressors_to_confounds()
 
-session = 'ses-POMVisit1';
+session = 'ses-PITVisit1';
 BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 % ClinVars = fullfile(Root, 'ClinVars');
 EMGDir = '/project/3024006.02/Analyses/EMG/motor';
+% EMGDir = '/project/3024006.02/Analyses/EMG/motor_PIT';
 Prepemg = fullfile(EMGDir, 'processing/prepemg/Regressors/ZSCORED');
 Automaticdir = fullfile(EMGDir, 'automaticdir');
-Peak_Check = fullfile(EMGDir, 'manually_checked/Martin/Peak_check-24-Mar-2021.mat');
+Peak_Check = fullfile(EMGDir, 'manually_checked/Martin/Peak_check-24-Mar-2021.mat');        %POM
+% Peak_Check = fullfile(EMGDir, 'manually_checked/Martin/Peak_check-14-Apr-2021.mat')       %PIT
 load(Peak_Check, 'Peak_check');
-Tremor_Check = fullfile(EMGDir, 'manually_checked/Martin/Tremor_check-24-Mar-2021.mat');
+Tremor_Check = fullfile(EMGDir, 'manually_checked/Martin/Tremor_check-24-Mar-2021.mat');    %POM
+% Tremor_Check = fullfile(EMGDir, 'manually_checked/Martin/Tremor_check-14-Apr-2021.mat');  %PIT
 load(Tremor_Check, 'Tremor_check');
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
+
+Sel = true(size(Sub,1),1);
+for n = 1:numel(Sub)
+    checkfile = spm_select('FPList', fullfile(FMRIPrep, Sub{n}), 'dir', session);
+    if isempty(checkfile)
+        Sel(n) = false;
+    end
+end
+Sub = Sub(Sel);
 
 % Exclude subjects
 Sel = true(size(Sub,1),1);
@@ -21,17 +33,19 @@ for n = 1:numel(Sub)
     Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
         
-        t = eraseBetween(Visit{v}, 'ses-','Visit');
+        s = Sub{n};
         % Confounds file
-        dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries2.tsv']));
+        t = char(Visit);
+        dFunc = fullfile(FMRIPrep, s, t, 'func');
+        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [s, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries2.tsv']));
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
         % Automaticdir
-        AutoClassed = spm_select('FPList', Automaticdir, [Sub{n}, '-', t, '-motor-selected-acc.*.jpg']);
+        t = eraseBetween(Visit{v}, 'ses-','Visit');
+        AutoClassed = spm_select('FPList', Automaticdir, [s, '-', t, '-motor-selected-acc.*.jpg']);
         % Prepemg output
-        TAmp = spm_select('FPList', Prepemg, [Sub{n}, '-', t, '.*acc.*amplitude.mat']);
-        TLog = spm_select('FPList', Prepemg, [Sub{n}, '-', t, '.*acc.*log.mat']);
-        TPow = spm_select('FPList', Prepemg, [Sub{n}, '-', t, '.*acc.*power.mat']);
+        TAmp = spm_select('FPList', Prepemg, [s, '-', t, '.*acc.*amplitude.mat']);
+        TLog = spm_select('FPList', Prepemg, [s, '-', t, '.*acc.*log.mat']);
+        TPow = spm_select('FPList', Prepemg, [s, '-', t, '.*acc.*power.mat']);
         
         % Exclude participants
         if isempty(ConfoundsFile{1})
@@ -48,11 +62,11 @@ for n = 1:numel(Sub)
         end
         
         % Determine tremor presence from manual checks of prepemg output
-        fid1 = find(contains(Tremor_check.cName,[Sub{n}, '-',t]));    % Find subject's visit
-        fid2 = find(contains(Peak_check.cName,[Sub{n}, '-',t]));
+        fid1 = find(contains(Tremor_check.cName,[s '-' t]));    % Find subject's visit
+        fid2 = find(contains(Peak_check.cName,[s '-' t]));
         if ~isempty(fid1) && ~isempty(fid2) && (Tremor_check.cVal(fid1) == 1) && (Peak_check.cVal(fid2) == 1)          % Define tremor presence
             Sel(n) = true;
-            fprintf('Including %s %s : labelled as tremor \n', Sub{n}, Visit{v})
+            fprintf('Including %s %s : labelled as tremor \n', s, t)
         else
             Sel(n) = false;
         end
@@ -68,10 +82,11 @@ for n = 1:NrSub
     Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
         
-        t = eraseBetween(Visit{v}, 'ses-','Visit');
+        s = Sub{n};
         % Confounds file
-        dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
-        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries2.tsv']));
+        t = char(Visit);
+        dFunc = fullfile(FMRIPrep, s, t, 'func');
+        ConfoundsFile = cellstr(spm_select('FPList', dFunc, [s, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries2.tsv']));
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
         if isempty(ConfoundsFile{1})
             break
@@ -81,9 +96,10 @@ for n = 1:NrSub
         confounds      = spm_load(ConfoundsFile{1});    % Load confound file
         
         % Tremor files
-        TAmp = spm_select('FPList', Prepemg, [Sub{n}, '-', t '.*acc.*amplitude.mat']);
-        TLog = spm_select('FPList', Prepemg, [Sub{n}, '-', t '.*acc.*log.mat']);
-        TPow = spm_select('FPList', Prepemg, [Sub{n}, '-', t '.*acc.*power.mat']);
+        t = eraseBetween(Visit{v}, 'ses-','Visit');
+        TAmp = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*amplitude.mat']);
+        TLog = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*log.mat']);
+        TPow = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*power.mat']);
         % Load tremor files
         TAmp = load(TAmp);
         TLog = load(TLog);
@@ -91,6 +107,10 @@ for n = 1:NrSub
         % Insert convolved tremor regressors (lin and deriv1)
         if length(confounds.dvars) ~= length(TAmp.R(:,2))
             ZerosToAdd = length(confounds.dvars) - length(TAmp.R(:,2));
+            if ZerosToAdd < 0
+                fprintf('Skipping %s: EMG data is longer than confound timeseries \n', s)
+                break
+            end
         end
         confounds2 = confounds;
         confounds2.TremorAmplitude_lin = [zeros(ZerosToAdd,1); TAmp.R(:,2)];
