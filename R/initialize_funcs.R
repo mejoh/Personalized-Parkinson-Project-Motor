@@ -2,3 +2,4 @@ source('M:/scripts/Personalized-Parkinson-Project-Motor/R/reshape_by_medication.
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/reshape_by_task.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/generate_motor_task_csv.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/generate_castor_csv.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/generate_PIT_castor_csv.R')
