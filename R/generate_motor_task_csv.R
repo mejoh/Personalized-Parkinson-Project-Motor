@@ -6,6 +6,7 @@ generate_motor_task_csv <- function(bidsdir){
         
         library(tidyverse)
         library(tidyjson)
+        library(lubridate)
         
         # Import a row of data for a specified subject and visit
         ImportEventsTsv <- function(subject, visit){
@@ -45,7 +46,9 @@ generate_motor_task_csv <- function(bidsdir){
         for(n in 1:length(Subjects)){
                 filepth1 <- paste(bidsdir, Subjects[n], '/', 'ses-POMVisit1', '/beh/', sep='')
                 filepth2 <- paste(bidsdir, Subjects[n], '/', 'ses-PITVisit1', '/beh/', sep='')
-                contents <- c(dir(filepth1), dir(filepth2))
+                filepth3 <- paste(bidsdir, Subjects[n], '/', 'ses-POMVisit3', '/beh/', sep='')
+                filepth4 <- paste(bidsdir, Subjects[n], '/', 'ses-PITVisit2', '/beh/', sep='')
+                contents <- c(dir(filepth1), dir(filepth2), dir(filepth3), dir(filepth4))
                 tsvfile <- contents[str_detect(contents, 'task-motor_acq-MB6_run.*.tsv')]
                 if(length(tsvfile) == 0){
                         Sel[n] <- FALSE
@@ -257,11 +260,18 @@ generate_motor_task_csv <- function(bidsdir){
                 }
         }
         
+        # Fix groupings due to error in json files
+        for(n in 1:length(Data$Group)){
+                if(str_detect(Data$Timepoint[n],'PITVisit2')){
+                        Data$Group[n] <- 'HC_PIT'
+                }
+        }
+        
         # Omit rows without full data (removes all catch trials. Probably dont want this...)
         #Data <- na.omit(Data)
         
         # Write the data frame to csv
-        outputfile <- paste(bidsdir, 'derivatives/database_motor_task.csv', sep = '')
+        outputfile <- paste(bidsdir, 'derivatives/database_motor_task_', today(), '.csv', sep = '')
         if(file.exists(outputfile)){
                 file.remove(outputfile)
         }
