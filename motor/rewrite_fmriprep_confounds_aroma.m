@@ -10,11 +10,12 @@ if nargin<1 || isempty(thr)
     thr = 0.05;
 end
 
-session = 'ses-POMVisit1';
+session = 'ses-PITVisit1';
 BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 ANALYSESDir   = strcat('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem');  
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
+% Sub = {'sub-POMU94E6A93D782CE718'};
 
 % Exclude subjects
 Sel = true(size(Sub,1),1);
@@ -49,7 +50,6 @@ fprintf('%i participants included for further processing \n', NrSub)
 for n = 1:NrSub
     Visit = cellstr(spm_select('List', fullfile(BIDSDir, Sub{n}), 'dir', session));
     for v = 1:numel(Visit)
-        
         % SPM.mat
         dStats = fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level');
         SPMFile = cellstr(spm_select('FPList', dStats, '^SPM.mat$'));
@@ -62,6 +62,11 @@ for n = 1:NrSub
         % Confounds file
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
         ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries.tsv']));
+        if length(ConfoundsFile) > 1
+            id = length(ConfoundsFile);
+            fprintf('Multiple confound timeseries found for %s (n=%i). Selecting the last...\n', Sub{n}, id)
+            ConfoundsFile = cellstr(ConfoundsFile{id});
+        end
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
         ConfoundsFile2 = cellstr(strrep(ConfoundsFile{1}, '_desc-confounds_timeseries.tsv', '_desc-confounds_timeseries2.tsv'));
         % Load confounds
