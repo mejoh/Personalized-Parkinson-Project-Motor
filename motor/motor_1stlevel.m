@@ -22,7 +22,7 @@ end
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 
-session = 'ses-PITVisit1';
+session = 'ses-PITVisit2';
 Root = '/project/3022026.01';
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
@@ -99,7 +99,7 @@ for n = 1:numel(Sub)
         end
 
     end
-%     if strcmp(Sub{n}, 'sub-POMUDAD07284172C0428')       % fmriprep fails for this subject
+%     if strcmp(Sub{n}, 'sub-POMUC2917FBF8466577F')       % too few volumes
 %         Sel(n) = false;
 %     end
 end
@@ -133,22 +133,22 @@ for n = 1:NrSub
     end
 end
 
-% 7: Fewer volumes than recorded pulses (time consuming)
-Sel = true(size(Files,1),1);
-for n = 1:numel(Files)
-    s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
-    v = char(extractBetween(Files{n}, [s '_'], '_task'));       % Visit
-    r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
-    TaskDir             = fullfile(BIDSDir, s, v, 'beh');
-    EventsJsonFile      = spm_select('FPList', TaskDir, [s, '_', v, '_task-motor_acq-MB6_run-', r, '_events.json']);
-    ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries.tsv']);
-    [NrPulses, NrConf] = checkpulsediff(EventsJsonFile, ConfFile);
-    if NrPulses > NrConf
-        fprintf('Number of recorded pulses exceeds volumes in func img. Skipping %s %s \n', s, v)
-        Sel(n) = false;
-    end
-end
-Files = Files(Sel);
+% % 7: Fewer volumes than recorded pulses (time consuming)
+% Sel = true(size(Files,1),1);
+% for n = 1:numel(Files)
+%     s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
+%     v = char(extractBetween(Files{n}, [s '_'], '_task'));       % Visit
+%     r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
+%     TaskDir             = fullfile(BIDSDir, s, v, 'beh');
+%     EventsJsonFile      = spm_select('FPList', TaskDir, [s, '_', v, '_task-motor_acq-MB6_run-', r, '_events.json']);
+%     ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries.tsv']);
+%     [NrPulses, NrConf] = checkpulsediff(EventsJsonFile, ConfFile);
+%     if NrPulses > NrConf
+%         fprintf('Number of recorded pulses exceeds volumes in func img. Skipping %s %s \n', s, v)
+%         Sel(n) = false;
+%     end
+% end
+% Files = Files(Sel);
 
 Inputs	= cell(6,1);
 JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
