@@ -17,33 +17,43 @@
 %%%
 
 %% Collect existing log files and define output .tsv file
-% project = '3024006.01';
-% visit = 'ses-PITVisit1';
+project = '3024006.01';
+visit = 'ses-PITVisit2';
 % project = '3022026.01';
-% visit = 'ses-POMVisit1';
+% visit = 'ses-POMVisit3';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
-BIDS     = spm_BIDS(BIDSDir);
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-PIT2.*'));
+% BIDS     = spm_BIDS(BIDSDir);
 
-% Run = {'1'}; 
+Run = {'2'}; 
 % Run = {'1', '2', '3'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
 for r = 1:length(Run)
-  Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
-  NSub     = numel(Sub);
-  fprintf('Project = %s\n', project)
-  fprintf('%i subjects have run %s data. Checking for missing files...\n', NSub, Run{r})
+%   Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
+%   NSub     = numel(Sub);
+%   fprintf('Project = %s\n', project)
+%   fprintf('%i subjects have run %s data. Checking for missing files...\n', NSub, Run{r})
 
   % Exclude participants with missing log files
   Sel = true(size(Sub));
   for n = 1:numel(Sub)
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
+    s = char(extractAfter(Sub{n}, 'sub-'));
+%     MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*motor_behav'));    %PIT
+    MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*beh*'));              %POM
+    if length(MotorBehavDir) > 1
+        fprintf('%s Located multiple motor behavior dirs, selecting last one...\n', Sub{n})
+        MotorBehavDir = MotorBehavDir(length(MotorBehavDir));
+    elseif length(MotorBehavDir) < 1
+        Sel(n) = false;
+        continue
+    end
     
-    CustomLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
-	DefaultLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
+    CustomLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), ['^' s '_(t|T)ask' Run{r} '_logfile\.txt$']);
+	DefaultLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), ['^' s '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
     if size(CustomLog,1) ~= 1 || size(DefaultLog,1) ~= 1
-		fprintf('Skipping sub-%s with %i custom log and %i default log\n', Sub{n}, size(CustomLog,1), size(DefaultLog,1))
+		fprintf('Skipping sub-%s with %i custom log and %i default log\n', s, size(CustomLog,1), size(DefaultLog,1))
 		Sel(n) = false;
     end
     
@@ -66,10 +76,16 @@ ExtCorrResp = cell(NSub,1);
 % Collect log files, also determine handedness and group.
   for n = 1:NSub
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit, 'beh');
-    CustomLogs{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '_logfile\.txt$']);
-	DefaultLogs{n}   = spm_select('FPList', MotorBehavDir, [Sub{n} '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
+    s = char(extractAfter(Sub{n}, 'sub-'));
+%     MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*motor_behav'));
+    MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*beh*'));
+    if length(MotorBehavDir) > 1
+        fprintf('%s Located multiple motor behavior dirs, selecting last one...\n', Sub{n})
+        MotorBehavDir = MotorBehavDir(length(MotorBehavDir));
+    end
+    CustomLogs{n}    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), ['^' s '_(t|T)ask' Run{r} '_logfile\.txt$']);
+	DefaultLogs{n}   = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), ['^' s '_(t|T)ask' Run{r} '-MotorTaskEv_.*\.log$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' s], visit, 'beh', ['sub-' s '_' visit '_task-motor_acq-MB6_run-' Run{r} '_events.tsv']);
     JsonOutputFiles{n} = strrep(OutputFiles{n}, '.tsv', '.json');
     
     if contains(DefaultLogs{n}, 'left')
@@ -78,9 +94,9 @@ ExtCorrResp = cell(NSub,1);
         RespondingHand{n} = 'Right';
     end
         
-    if strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'dwi'), 'dir')
+    if strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, [Sub{n}], visit, 'dwi'), 'dir')
         Group{n} = 'HC_PIT';
-    elseif strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'dwi'), 'dir')
+    elseif strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, [Sub{n}], visit, 'dwi'), 'dir')
         Group{n} = 'PD_PIT';
     else
         Group{n} = 'PD_POM';
@@ -141,6 +157,13 @@ NEvents = numel(Events);
     fileID = fopen(DefaultLogs{a}, 'r');
     AdditionalEvents		= textscan(fileID, '%s\t%f\t%s\t%s\t%f\t%*f\t%*f\t%*f\t%*f\t%*f\t%*s\t%s\t%*f', 'HeaderLines',5, 'Delimiter','\t', 'TreatAsEmpty','NA');
     fclose(fileID);
+    
+    if str2double(AdditionalEvents{1,Code}{1}) ~= 5
+        msg = 'First event in logfile is not an instructions-screen. Review handling of file. Skipping subject';
+        fprintf('%s\n', DefaultLogs{a})
+        warning(msg)
+        continue
+    end
     
     pulses.onsets = AdditionalEvents{Time}(strcmp(AdditionalEvents{Type}, 'Pulse')) * TimeScaleDef - T0;
     NPulses{a} = numel(pulses.onsets);                      % Number of pulses

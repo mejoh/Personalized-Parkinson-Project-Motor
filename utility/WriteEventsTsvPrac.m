@@ -1,25 +1,32 @@
 %% Write bids-compatible events.tsv file from motor task log files
 
 %% Collect existing log files and define output .tsv file
-project = '3024006.01';
-visit = 'ses-PITVisit1';
-% project = '3022026.01';
-% visit = 'ses-POMVisit3';
+% project = '3024006.01';
+% visit = 'ses-PITVisit2';
+project = '3022026.01';
+visit = 'ses-POMVisit3';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
-BIDS     = spm_BIDS(BIDSDir);
-
-Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor');
-fprintf('Project = %s\n', project)
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM3.*'));
+% BIDS     = spm_BIDS(BIDSDir);
 
   % Exclude participants with missing log files
 Sel = true(size(Sub));
 for n = 1:numel(Sub)
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
+    s = char(extractAfter(Sub{n}, 'sub-'));
+%     MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*motor_behav'));
+    MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*beh*'));
+    if length(MotorBehavDir) > 1
+        fprintf('%s Located multiple motor behavior dirs, selecting last one...\n', Sub{n})
+        MotorBehavDir = MotorBehavDir(length(MotorBehavDir));
+    elseif length(MotorBehavDir) < 1
+        Sel(n) = false;
+        continue
+    end
     
-    PracLog    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
+    PracLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac1_logfile\.txt$']);
     if size(PracLog,1) ~= 1
 		Sel(n) = false;
     end
@@ -37,10 +44,16 @@ OutputFiles = cell(NSub,1);
 % Collect log files, also determine handedness and group.
 for n = 1:NSub
     
-    MotorBehavDir = fullfile(RAWDir, ['sub-' Sub{n}], visit,  'beh');
+    s = char(extractAfter(Sub{n}, 'sub-'));
+%     MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*motor_behav'));
+    MotorBehavDir = dir(fullfile(RAWDir, ['sub-' s], visit,  '*beh*'));
+    if length(MotorBehavDir) > 1
+        fprintf('%s Located multiple motor behavior dirs, selecting last one...\n', Sub{n})
+        MotorBehavDir = MotorBehavDir(length(MotorBehavDir));
+    end
     
-    PracLog{n}    = spm_select('FPList', MotorBehavDir, [Sub{n} '_(p|P)rac1_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' Sub{n}], visit, 'beh', ['sub-' Sub{n} '_' visit '_task-motor_acq-practice_run-1_events.tsv']);
+    PracLog{n}    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac1_logfile\.txt$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' s], visit, 'beh', ['sub-' s '_' visit '_task-motor_acq-practice_run-1_events.tsv']);
   
 end
 
