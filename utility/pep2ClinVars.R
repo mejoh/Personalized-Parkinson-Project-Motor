@@ -1,8 +1,8 @@
 library(tidyverse)
 
 # Define input and output directories
-dPEP_HomeQuest <- 'P:/3022026.01/pep/download_HomeQuest/'
-dPEP_Visit <- 'P:/3022026.01/pep/download/'
+dPEP_HomeQuest <- 'P:/3022026.01/pep/download_CASTOR/'
+dPEP_Visit <- 'P:/3022026.01/pep/download_CASTOR/'
 dPEP_COVID <- 'P:/3022026.01/pep/download_COVID/'
 dClinVars <- 'P:/3022026.01/pep/ClinVars/'
 
@@ -33,7 +33,7 @@ for(Sub in Subjects){
         download_files <- download_files[str_detect(download_files, 'Castor.')]
         download_COVID_files  <- list.files(paste(dPEP_COVID, Sub, sep = ''), full.names = TRUE)
         download_COVID_files <- download_COVID_files[str_detect(download_COVID_files, 'Castor.')]
-        all_files <- c(download_HomeQuest_files, download_files, download_COVID_files)
+        all_files <- unique(c(download_HomeQuest_files, download_files, download_COVID_files))
         
         for(f in all_files){
                 fname <- basename(f)
