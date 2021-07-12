@@ -14,9 +14,10 @@ spm('defaults', 'FMRI');
 
 %% Directories
 
-session = 'ses-POMVisit1';
+session = 'ses-POMVisit3';
+consession = 'ses-Visit2';
 FDThresh = 1;
-ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005' 'con_0006' 'con_0007'  'con_0008'  'con_0009'  'con_0010'};
+ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005' 'con_0006' 'con_0007'  'con_0008'  'con_0009'  'con_0010'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
 BIDSDir = '/project/3022026.01/pep/bids';
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir), 'dir', '^sub-POM.*'));
@@ -73,7 +74,14 @@ SubInfo.PercentageCorrect = strings(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     Json = fileread(SubInfo.JsonFiles{n});
     DecodedJson = jsondecode(Json);
-    SubInfo.Group(n) = DecodedJson.Group.Value;
+    if exist(spm_select('FPList', fullfile(BIDSDir, SubInfo.Sub{n}, SubInfo.Session{n}), 'dir', 'dwi'), 'dir') && contains(SubInfo.Session{n}, 'PIT')
+        SubInfo.Group(n) = 'HC_PIT';
+    elseif ~exist(spm_select('FPList', fullfile(BIDSDir, SubInfo.Sub{n}, SubInfo.Session{n}), 'dir', 'dwi'), 'dir') && contains(SubInfo.Session{n}, 'PIT')
+        SubInfo.Group(n) = 'PD_PIT';
+    else
+        SubInfo.Group(n) = 'PD_POM';
+    end
+%     SubInfo.Group(n) = DecodedJson.Group.Value;
     SubInfo.RespondingHand(n) = DecodedJson.RespondingHand.Value;
     SubInfo.PercentageCorrect(n) = DecodedJson.ExtCorrResp.Value;
 end
@@ -128,33 +136,30 @@ SubInfo.RespondingHand = SubInfo.RespondingHand(Sel);
 SubInfo.FD = SubInfo.FD(Sel);
 SubInfo.PercentageCorrect = SubInfo.PercentageCorrect(Sel);
 
+fprintf('%i subjects will be copied\n', length(SubInfo.Sub))
+
 %% Copy and flip
 
 for c = 1:numel(ConList)
     
     ConDir = fullfile(ANALYSESDir, 'Group', ConList{c});
-%     if ~exist(ConDir, 'dir')
-%         mkdir(ConDir);
+    if ~exist(ConDir, 'dir')
+        mkdir(ConDir);
 %     else
 %         delete(fullfile(ConDir, '*.*'));
-%     end
-%     if ~exist(fullfile(ConDir, 'ses-Visit1'), 'dir')
-%         mkdir(fullfile(ConDir, 'ses-Visit1'))
+    end
+    if ~exist(fullfile(ConDir, consession), 'dir')
+        mkdir(fullfile(ConDir, consession))
 %     else
-%         delete(fullfile(ConDir, 'ses-Visit1', '*.*'));
-%     end
-%     if ~exist(fullfile(ConDir, 'ses-Visit2'), 'dir')
-%         mkdir(fullfile(ConDir, 'ses-Visit2'))
-%     else
-%         delete(fullfile(ConDir, 'ses-Visit2', '*.*'));
-%     end
+%         delete(fullfile(ConDir, consession, '*.*'));
+    end
     
     for n = 1:numel(SubInfo.Sub)
         InputConFile = fullfile(ANALYSESDir, SubInfo.Sub{n}, session, '1st_level', [ConList{c} '.nii']);
         if exist(InputConFile, 'file')
             if contains(InputConFile, 'Visit1')
                 OutputConFile = fullfile(ConDir, 'ses-Visit1', [char(SubInfo.Group(n)) '_' SubInfo.Sub{n} '_' session '_' ConList{c} '.nii']);
-            elseif contains(InputConFile, 'Visit2') || contains(InputCon, 'Visit3')
+            elseif contains(InputConFile, 'Visit2') || contains(InputConFile, 'Visit3')
                 OutputConFile = fullfile(ConDir, 'ses-Visit2', [char(SubInfo.Group(n)) '_' SubInfo.Sub{n} '_' session '_' ConList{c} '.nii']);
             end
             copyfile(InputConFile, OutputConFile)
