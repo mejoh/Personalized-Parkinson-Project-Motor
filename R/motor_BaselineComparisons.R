@@ -1,8 +1,12 @@
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/initialize_funcs.R')
+detach(package:dplyr)
+library(multcomp)
+library(dplyr)
 library(tidyverse)
 library(lme4)
 library(lmerTest)
 library(effectsize)
+library(cowplot)
 
 ##### Load data #####
 # Write csv files
@@ -14,27 +18,28 @@ bidsdir <- 'P:/3022026.01/pep/bids/'
 
 # Import data
         # Clin vars for POM
-df.clin.pom <- read_csv('P:/3022026.01/pep/ClinVars_depricated/derivatives/database_clinical_variables_2021-03-12.csv')
+df.clin.pom <- read_csv('P:/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-04-15.csv')
+df.clin.pit <- read_csv('P:/3022026.01/pep/ClinVars/derivatives/database_PIT_clinical_variables_2021-05-21.csv')
         # Add LEDD, remove non-medusers
-df.ledd <- read_csv('P:/3024006.02/Data/LEDD/MedicationTable.csv')
-df.clin.pom <- left_join(df.clin.pom, df.ledd, by = c('pseudonym', 'Timepoint')) %>%
-        filter(ParkinMedUser == 'Yes')
+#df.ledd <- read_csv('P:/3024006.02/Data/LEDD/MedicationTable.csv')
+#df.clin.pom <- left_join(df.clin.pom, df.ledd, by = c('pseudonym', 'Timepoint'))
+df.clin.pom <- df.clin.pom %>% filter(ParkinMedUser == 'Yes')
         # Add subtypes
-df.subtypes <- read_csv('P:/3024006.02/Data/Subtyping/Subtypes.csv')
+df.subtypes <- read_csv('P:/3022026.01/pep/ClinVars/derivatives/Subtypes_2021-04-12.csv')
 df.clin.pom <- left_join(df.clin.pom, df.subtypes, by = 'pseudonym')
-        # Task data for PIT
-df.task.pit <- read_csv('P:/3022026.01/pep/bids_PIT/derivatives/database_motor_task.csv')
-        # Temporary fix of groupings, remove once re-BIDScoining has been completed
-for(n in 1:length(df.task.pit$Group)){
-        d <- paste(bidsdir_PIT, df.task.pit$pseudonym[n], '/', df.task.pit$Timepoint[n], '/dwi', sep = '')
-        if(dir.exists(d)){
-                df.task.pit$Group[n] <- 'HC_PIT'
-        }
-}
         # Task data for POM
-df.task.pom <- read_csv('P:/3022026.01/pep/bids/derivatives/database_motor_task.csv')
-        # Bind everything together
-df.task <- full_join(df.task.pit, df.task.pom)
+df.task <- read_csv('P:/3022026.01/pep/bids/derivatives/database_motor_task_2021-05-21.csv')
+        # Remove study identifier from Timepoint
+df.clin.pom$Timepoint <- str_remove(df.clin.pom$Timepoint, 'POM')
+df.clin.pit$Timepoint <- str_remove(df.clin.pit$Timepoint, 'PIT')
+df.task$Timepoint <- str_remove(df.task$Timepoint, 'POM')
+df.task$Timepoint <- str_remove(df.task$Timepoint, 'PIT')
+
+summarytab <- df.task %>%
+        group_by(Group, Timepoint, Condition) %>%
+        summarise(rt.mean=mean(Response.Time, na.rm=TRUE), rt.sd=sd(Response.Time, na.rm = TRUE)) %>%
+        na.omit
+
 #####
 
 ##### Analysis of motor task behavioral data #####
@@ -43,19 +48,26 @@ df.task <- full_join(df.task.pit, df.task.pom)
 # 2. HcOff x ExtInt2Int3
 # 3. OffOn x ExtInt2Int3
 
-# HcOn x ExtInt2Int3
-g <- 'PD_POM'
+# HcOn x ExtInt2Int3 OR HcOff x ExtInt2Int3
+g <- 'PD_PIT'
 df <- df.task %>%
         filter(Timepoint == 'ses-Visit1') %>%
         filter(Group == 'HC_PIT' | Group == g) %>% 
         filter(Condition != 'Catch') %>%
         mutate(Response.Time_log = log(Response.Time),
-               Group = as.factor(Group),
                Condition = as.factor(Condition))
 PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
 PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
+cat('Number of subjects excluded due to poor performance:', length(PoorPerformancePseudos))
 df <- df %>%
         filter(!pseudonym %in% PoorPerformancePseudos)
+covars1 <- df.clin.pom %>% filter(Timepoint == 'ses-Visit1') %>% select(pseudonym, Timepoint, Age, Gender, Group) %>% na.omit
+covars2 <- df.clin.pit %>% filter(Timepoint == 'ses-Visit1') %>% select(pseudonym, Timepoint, Age, Gender, Group) %>% na.omit
+covars <- full_join(covars1,covars2)
+df <- left_join(df, covars, by = c('pseudonym', 'Timepoint', 'Group')) %>%
+        mutate(Group = as.factor(Group),
+               Gender = as.factor(Gender),
+               Age_c = scale(Age, center = TRUE, scale = FALSE))
 # OffOn x ExtInt2Int3
 df <- df.task %>%
         filter(Timepoint == 'ses-Visit1') %>%
@@ -66,14 +78,28 @@ df <- df.task %>%
                Condition = as.factor(Condition))
 PoorPerformanceIndex <- df$Percentage.Correct[df$Condition == 'Ext'] < 0.25
 PoorPerformancePseudos <- unique(df$pseudonym)[PoorPerformanceIndex]
+cat('Number of subjects excluded due to poor performance:', length(PoorPerformancePseudos))
 POM_subs <- df %>% filter(Group == 'PD_POM' & Condition == 'Ext') %>% select(pseudonym)
 PIT_subs <- df %>% filter(Group == 'PD_PIT' & Condition == 'Ext') %>% select(pseudonym)
 All_subs <- c(POM_subs$pseudonym, PIT_subs$pseudonym)
 All_subs_unique <- All_subs[duplicated(All_subs)]
 df <- df %>%
         filter(pseudonym %in% All_subs_unique)
+covars1 <- df.clin.pom %>% filter(Timepoint == 'ses-Visit1') %>% select(pseudonym, Timepoint, Age, Gender, Group, EstDisDurYears) %>% na.omit
+covars2 <- df.clin.pit %>% filter(Timepoint == 'ses-Visit1') %>% select(pseudonym, Timepoint, Age, Gender, Group) %>% na.omit
+covars <- full_join(covars1,covars2)
+df <- left_join(df, covars, by = c('pseudonym', 'Timepoint', 'Group')) %>%
+        mutate(Group = as.factor(Group),
+               Gender = as.factor(Gender),
+               Age_c = scale(Age, center = TRUE, scale = FALSE))
+
+df %>%
+        filter(Group == 'PD_POM') %>%
+        filter(Condition == 'Ext') %>%
+        summarise(disdur=mean(EstDisDurYears, na.rm=TRUE), sd=sd(EstDisDurYears,na.rm=TRUE))
+
 # Response times
-        # Descriptives
+        # Descriptives (NOTE: Needs to be changed in a way that suits the df above)
 df %>%
         group_by(Group, Condition) %>%
         summarise(N = n(), Mean=mean(Response.Time), SD = sd(Response.Time), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
@@ -82,8 +108,16 @@ df %>%
         geom_point(alpha=0.3) +
         facet_wrap(~Condition)
 df %>%
-        ggplot(aes(y=Response.Time, x=Condition, color=Group)) +
-        geom_boxplot()
+        ggplot(aes(y=Response.Time, x=Condition, fill=Group)) +
+        geom_boxplot(lwd=1.2, alpha = .5, fatten = TRUE) +
+        theme_cowplot(font_size = 20, line_size = 1.2) +
+        labs(title = 'Off-state compared to on-state patients',
+             x = 'Number of possible responses',
+             y = 'Response time (seconds)',
+             color = 'Group') + 
+        scale_fill_manual(labels = c('Off','On'), values = c('lightgreen','pink')) + 
+        scale_x_discrete(labels = c('One', 'Two', 'Three'))
+        
 df %>%
         ggplot(aes(x=Response.Time, fill=Group)) +
         geom_density(aes(color=Group), alpha = 0.5) +
@@ -91,10 +125,26 @@ df %>%
         # Inferences
 contrasts(df$Condition) <- contr.helmert(3)[c(3:1), 2:1]
 contrasts(df$Group) <- contr.helmert(2)
-m1 <- lmer(Response.Time_log ~ 1 + Condition*Group + (1|pseudonym), data = df, REML = TRUE)
+m1 <- lmer(Response.Time_log ~ 1 + Condition*Group + Age_c + Gender + (1|pseudonym), data = df, REML = TRUE)
 summary(m1)
+anova(m1)
 eta_squared(m1)
 plot(m1)
+summary(glht(m1, linfct = mcp(Condition = "Tukey")), test = adjusted("holm"))
+
+df_g1 <- df %>%
+        filter(Group == 'PD_PIT')
+m2 <- lmer(Response.Time_log ~ 1 + Condition + Age_c + Gender + (1|pseudonym), data = df_g1, REML = TRUE)
+summary(m2)
+anova(m2)
+summary(glht(m2, linfct = mcp(Condition = "Tukey")), test = adjusted("holm"))
+
+df_g2 <- df %>%
+        filter(Group == 'HC_PIT')
+m3 <- lmer(Response.Time_log ~ 1 + Condition + Age_c + Gender + (1|pseudonym), data = df_g2, REML = TRUE)
+summary(m3)
+anova(m3)
+summary(glht(m3, linfct = mcp(Condition = "Tukey")), test = adjusted("holm"))
 #confint.merMod(m1, method = 'boot', boot.type = 'basic', nsim = 5000)
 
 # Error rates on ExtInt
@@ -248,7 +298,7 @@ summary(m1)
 
 #####
 
-##### Analysis of motor task behavioral data with tremor subtyping #####
+##### DEPRECATED Analysis of motor task behavioral data with tremor subtyping #####
 
 clinical <- df.clin.pom %>%
         filter(MriNeuroPsychTask == 'Motor',
@@ -334,8 +384,8 @@ anova(m1)
         # Data
 df <- df.clin.pom %>%
         filter((Timepoint == 'ses-Visit1' | Timepoint == 'ses-Visit2') & MultipleSessions == 'Yes' & MriNeuroPsychTask == 'Motor') %>%
-        select(pseudonym, Age, Gender, EstDisDurYears, Timepoint, TimeToFUYears, LEDD,
-               Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta) %>%
+        select(pseudonym, Age, Gender, EstDisDurYears, Timepoint, TimeToFUYears,
+               Up3OfBradySum, Up3OnBradySum, Up3OfBradySum.1YearDelta, Up3OnBradySum.1YearDelta) %>%
         na.omit
 
 df <- reshape_by_medication(df, lengthen = TRUE)
@@ -343,16 +393,22 @@ df <- df %>% pivot_wider(names_from='Subscore',
                            names_prefix='Up3',
                            values_from = 'Severity')
 levels(df$Medication) <- c('Off','On')
+df$Timepoint <- as.factor(df$Timepoint)
 
 df <- df %>%
         mutate(Gender = as.factor(Gender),
                Age_c = scale(Age, center = TRUE, scale = FALSE),
-               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE),
-               LEDD_c = scale(LEDD, center = TRUE, scale = FALSE))
+               EstDisDurYears_c = scale(EstDisDurYears, center = TRUE, scale = FALSE))
         # Descriptives
 df %>%
         group_by(Timepoint, Medication) %>%
-        summarise(N = n(), Mean=mean(Up3Total), SD = sd(Up3Total), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+        summarise(N = n(), Mean=mean(Up3BradySum), SD = sd(Up3BradySum), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+df %>%
+        filter(Timepoint=='ses-Visit1') %>%
+        group_by(Medication) %>%
+        summarise(N = n(), Mean=mean(Up3BradySum.1YearDelta), SD = sd(Up3BradySum.1YearDelta), SE = SD/sqrt(N), lower = Mean-1.96*SE, upper = Mean+1.96*SE)
+
+
 df %>%
         ggplot(aes(y=Up3Total, x=Medication, group=pseudonym)) +
         geom_point() +
@@ -365,12 +421,33 @@ df %>%
         scale_color_gradient2(low = 'blue', high = 'red') +
         facet_wrap(~Medication)
 df %>%
-        ggplot(aes(y=Up3Total, x=Medication, color=Timepoint)) +
-        geom_boxplot()
+        ggplot(aes(y=Up3Total, x=Medication, fill=Timepoint)) +
+        geom_boxplot(lwd=1.2, alpha = .5, fatten = TRUE) +
+        theme_cowplot(font_size = 20, line_size = 1.2) +
+        labs(title = 'Motor symptom severity over time',
+             x = 'Medication',
+             y = 'MDS-UPDRS III Total score',
+             color = 'Group') + 
+        scale_fill_manual(labels = c('Baseline','1 year'), values = c('lightgreen','pink')) + 
+        scale_x_discrete(labels = c('Off','On'))
 df %>%
         ggplot(aes(x=Up3Total, fill=Timepoint)) +
         geom_density(aes(color=Timepoint), alpha = 0.5) +
         facet_wrap(~Medication)
+
+df %>% ggplot(aes(x=Medication, y=Up3Total)) +
+        theme_cowplot(font_size = 20, line_size = 1.2) +
+        geom_dotplot(aes(fill=Timepoint), binaxis = 'y', stackdir = 'center',
+                     position = 'dodge', dotsize=.5, alpha=.5, binwidth = 1.5) +
+        stat_summary(aes(group=Timepoint), fun.data=mean_ci, 
+                     geom="errorbar", color="black", width=.4, position = position_dodge(width = .9), lwd = 1.2) +
+        stat_summary(aes(group=Timepoint), fun=mean, geom="point", color="black", position = position_dodge(width = .9), size = 2) +
+        labs(title = 'Motor symptom severity over time',
+             x = 'Medication',
+             y = 'MDS-UPDRS III Total score') + 
+        scale_fill_manual(labels = c('Baseline','1 year'), values = c('darkgreen','purple')) + 
+        scale_x_discrete(labels = c('Off','On'))
+
         # Inferences
 contrasts(df$Gender) <- contr.helmert(2)
 contrasts(df$Medication) <- contr.helmert(2)
@@ -388,22 +465,23 @@ plot(m1)
 df.BA_Severity <- df.clin.pom %>%
         filter(MriNeuroPsychTask == 'Motor') %>%
         filter(Timepoint == 'ses-Visit1') %>%
-        select(pseudonym, Up3OfTotal, Up3OnTotal, Age, Gender, EstDisDurYears) %>%
+        select(pseudonym, Up3OfBradySum, Up3OnBradySum, Age, Gender, EstDisDurYears) %>%
         na.omit
 df.Prog <- df.clin.pom %>%
         filter(MriNeuroPsychTask == 'Motor') %>%
         filter(MultipleSessions == 'Yes') %>%
         filter(Timepoint == 'ses-Visit1') %>%
-        select(pseudonym, Up3OfTotal, Up3OnTotal, Up3OfTotal.1YearDelta, Up3OnTotal.1YearDelta, Age, Gender, EstDisDurYears) %>%
+        select(pseudonym, Up3OfBradySum, Up3OnBradySum, Up3OfBradySum.1YearDelta, Up3OnBradySum.1YearDelta, Age, Gender, EstDisDurYears) %>%
         na.omit
-df.RTs <- df.task.pom %>%
+df.RTs <- df.task %>%
         filter(Timepoint == 'ses-Visit1') %>%
+        filter(Group == 'PD_POM') %>%
         select(pseudonym, Condition, Response.Time, Percentage.Correct) %>%
         mutate(Response.Time = round(Response.Time, 3)) %>%
         pivot_wider(names_from = Condition,
                     values_from = c(Response.Time, Percentage.Correct)) %>%
         filter(Percentage.Correct_Ext > 0.25) %>%
-        select(-c(Percentage.Correct_Ext, Percentage.Correct_Int2, Percentage.Correct_Int3)) %>%
+        select(-c(Percentage.Correct_Ext, Percentage.Correct_Int2, Percentage.Correct_Int3, Response.Time_Catch)) %>%
         na.omit
         # Join clinical and behavioral performance data
 df1 <- left_join(df.BA_Severity, df.RTs, by = "pseudonym") %>%
@@ -439,12 +517,35 @@ df2 <- left_join(df.Prog, df.RTs, by = "pseudonym") %>%
 
 # Descriptives
 
+x <- df1 %>%
+        filter(Condition == 'ExtInt') %>%
+        filter(Medication == 'On') %>%
+        select(Response.Time)
+y <- df1 %>%
+        filter(Condition == 'ExtInt') %>%
+        filter(Medication == 'On') %>%
+        select(BA)
+cor.test(x$Response.Time,y$BA)
+
 df1 %>% 
         ggplot(aes(y=BA, x=Response.Time, color = Medication, group = Medication)) +
         geom_point(alpha = .5) +
         geom_smooth(method='lm') +
         facet_wrap(~Condition) +
         labs(title = 'Baseline severity') + xlab('Response time') + ylab('MDS-UPDRS III Total (baseline)')
+
+df1 %>%
+        filter(Condition == 'DeltaIntExt') %>%
+        ggplot(aes(y=BA, x=Response.Time, color = Medication, group = Medication)) +
+        geom_point(alpha = .5) +
+        geom_smooth(method='lm') +
+        theme_cowplot(font_size = 20, line_size = 1.2) +
+        labs(title = 'Relationship between response times and bradykinesia',
+             x = 'Mean response time across conditions',
+             y = 'Bradykinesia sub-score at baseline',
+             color = 'Medication') + 
+        scale_color_manual(labels = c('Off','On'), values = c('darkgreen','purple'))
+
 df2 %>%
         ggplot(aes(y=Prog, x=Response.Time, color = Medication, group = Medication)) +
         geom_point(alpha = .5) +
@@ -452,8 +553,19 @@ df2 %>%
         facet_wrap(~Condition) +
         labs(title = 'Progression') + xlab('Response time') + ylab('MDS-UPDRS III Total (1-year progression)')
 
-# Inferences
+df2 %>%
+        filter(Condition == 'DeltaIntExt') %>%
+        ggplot(aes(y=Prog, x=Response.Time, color = Medication, group = Medication)) +
+        geom_point(alpha = .5) +
+        geom_smooth(method='lm') +
+        theme_cowplot(font_size = 20, line_size = 1.2) +
+        labs(title = 'Relationship between response times and bradykinesia progression',
+             x = 'Mean response time across conditions',
+             y = 'Bradykinesia sub-score, delta',
+             color = 'Medication') + 
+        scale_color_manual(labels = c('Off','On'), values = c('darkgreen','purple'))
 
+# Inferences
         # Baseline severity (off) ~ Mean(ExtInt) RTs
 df_extint <- df1 %>%
         filter(Condition == 'ExtInt') %>%
@@ -583,7 +695,8 @@ df.clin_corr <- df.clin.pom %>%
         mutate(Gender = if_else(Gender == 'Male', 1, 0))
 
 # Prepare task data
-df.task_corr <- df.task.pom %>%
+df.task_corr <- df.task %>%
+        filter(Group == 'PD_POM') %>%
         filter(Timepoint == 'ses-Visit1') %>%
         select(pseudonym, Condition, Response.Time) %>%
         pivot_wider(names_from = Condition,
@@ -597,7 +710,7 @@ df.task_corr <- df.task.pom %>%
         select(-c(Ext,Int2,Int3))
 
 # Prepare VOIs
-dVOI <- 'P:/3024006.02/Analyses/VOIs/NoTrem'
+dVOI <- 'P:/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch'
 fVOI <- dir(dVOI, 'VOI.*.csv', full.names = TRUE)
 fVOI <- fVOI[!mapply(grepl, 'ClinVars', fVOI)]
 
@@ -622,14 +735,12 @@ for(f in 1:length(fVOI)){
 # Write csv file in wide-format by brain region to enable clustering
 # Analysis: HC>ON Mean(ExtInt), ROI=Whole-brain
         # Data files
-#fDat_ROI.Whole_Mean <- c('P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_LeftM1_ClinVars.csv',
-#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_LeftPutamen_ClinVars.csv',
-#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_RightCB_ClinVars.csv',
-#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_RightM1_ClinVars.csv',
-#                    'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_Mean_SMA_ClinVars.csv')
-fDat_ROI.Whole_Mean <- c('P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_Mean_LeftM1_ClinVars.csv',
-                         'P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_Mean_LeftPut_ClinVars.csv',
-                         'P:/3024006.02/Analyses/VOIs/NoTrem/VOI_ROI-Whole_Con-HCvPD_Mean_RightCB_ClinVars.csv')
+fDat_ROI.Whole_Mean <- c('P:/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch/VOI_LeftMC_ClinVars.csv',
+                         'P:/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch/VOI_LeftPutamen_ClinVars.csv',
+                         'P:/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch/VOI_RightCB_ClinVars.csv',
+                         'P:/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch/VOI_RightPutamen_ClinVars.csv',
+                         'P:/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch/VOI_SMA_ClinVars.csv',
+                         'P:/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch/VOI_PFC_ClinVars.csv')
 
         # Generate data frame
 df.Whole_Mean <- read_csv(fDat_ROI.Whole_Mean[1])
@@ -657,7 +768,7 @@ df.Whole_Mean <- df.Whole_Mean %>%
         # Add ROI names
 df.Whole_Mean <- df.Whole_Mean %>%
         arrange(pseudonym)
-roinames <- c('LeftM1', 'LeftPutamen', 'RightCB')#, 'RightM1', 'SMA')
+roinames <- c('LeftMC', 'LeftPutamen', 'RightCB', 'RightPutamen', 'SMA', 'PFC')
 roinames <- tibble(ROI = rep(roinames, length(unique(df.Whole_Mean$pseudonym))))
 df.Whole_Mean <- bind_cols(df.Whole_Mean, roinames)
 df.Whole_Mean <- df.Whole_Mean %>%
@@ -666,11 +777,11 @@ df.Whole_Mean <- df.Whole_Mean %>%
                                     #Brain.Ext_log,Brain.Int_log,Brain.ExtInt_log,Brain.DeltaIntExt_log))
 
         # Write csv
-OutputName <- paste(dirname(fDat_ROI.Whole_Mean[1]), '/VOI_ROI-Whole_Con-HCvPD_Mean_AllRois_ClinVars.csv', sep = '')
+OutputName <- paste(dirname(fDat_ROI.Whole_Mean[1]), '/VOI_ROI-Whole_AllRegions_ClinVars.csv', sep = '')
 write_csv(df.Whole_Mean, OutputName)
 
 
-# Analysis: HC>ON, Ext>Int or Int>Ext, ROI=Whole-brain
+# DEPRECATED : Analysis: HC>ON, Ext>Int or Int>Ext, ROI=Whole-brain
         # Data files
 #fDat_ROI.Whole_EXTvINT <- c('P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD_EXTvINT_PreSMA_ClinVars.csv',
 #                            'P:/3024006.02/Analyses/VOIs/VOI_ROI-Whole_Con-HCvPD-EXTvINT_RightPFC_ClinVars.csv')
@@ -716,7 +827,7 @@ OutputName <- paste(dirname(fDat_ROI.Whole_EXTvINT[1]), '/VOI_ROI-Whole_Con-HCvP
 write_csv(df.Whole_EXTvINT, OutputName)
 
 
-# Analysis: HC>ON, Mean(ExtInt), ROI=BiPutamen
+# DEPRECATED : Analysis: HC>ON, Mean(ExtInt), ROI=BiPutamen
         # Data files
 fDat_ROI.Put_Mean <- c('P:/3024006.02/Analyses/VOIs/VOI_ROI-Putamen_Con-HCvPD_Mean_LeftPutamen_ClinVars.csv',
                        'P:/3024006.02/Analyses/VOIs/VOI_ROI-Putamen_Con-HCvPD_Mean_RightPutamen_ClinVars.csv')
@@ -974,5 +1085,24 @@ df.clin.pom %>%
         summarise(LEDD.avg = round(mean(LEDD, na.rm = TRUE)), LEDD.sd = round(sd(LEDD, na.rm = TRUE)))
 ggplot(df.clin.pom, aes(y=LEDD)) + 
         geom_boxplot()
+
+df.clin.pit %>%
+        filter(Group == 'PD_PIT') %>%
+        summarise(age=mean(Age), sd=sd(Age))
+
+df.clin.pit %>%
+        filter(Group == 'PD_PIT') %>%
+        select(Gender) %>%
+        table
+
+df.clin.pit %>%
+        filter(Group == 'HC_PIT') %>%
+        summarise(age=mean(Age), sd=sd(Age))
+
+df.clin.pit %>%
+        filter(Group == 'HC_PIT') %>%
+        select(Gender) %>%
+        table
+        
 
 #####
