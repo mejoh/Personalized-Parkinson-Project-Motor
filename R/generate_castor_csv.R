@@ -10,6 +10,8 @@ generate_castor_csv <- function(bidsdir){
         library(lubridate)
         library(assertthat)
         
+        bidsdir <- 'P:/3022026.01/pep/ClinVars/'
+        
         # Define a list of subjects
         Subjects <- basename(list.dirs(bidsdir, recursive = FALSE)) 
         Subjects <- Subjects[str_starts(Subjects, 'sub-')]
@@ -338,7 +340,7 @@ generate_castor_csv <- function(bidsdir){
         list.PIGDOn <- str_replace(list.PIGDOff, 'Of', 'On')
         list.ActionTremorOff <- c('Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev')
         list.ActionTremorOn <- str_replace(list.RigidityOff, 'Of', 'On')
-        list.CompositeTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev',
+        list.CompositeTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfRAmpJaw',
                                      'Up3OfConstan','Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev')
         list.CompositeTremorOn <- str_replace(list.CompositeTremorOff, 'Of', 'On')
         list.STAITrait <- c('StaiTrait01', 'StaiTrait02', 'StaiTrait03', 'StaiTrait04', 'StaiTrait05', 'StaiTrait06', 'StaiTrait07',
@@ -357,8 +359,8 @@ generate_castor_csv <- function(bidsdir){
         list.QUIP_rs <- c(list.QUIP_icd, list.QUIP_hobbypund, list.QUIP_medication)
         list.AES12 <- c('Aes12Pd01', 'Aes12Pd02', 'Aes12Pd03', 'Aes12Pd04', 'Aes12Pd05', 'Aes12Pd06', 'Aes12Pd07', 'Aes12Pd08', 'Aes12Pd09',
                         'Aes12Pd10', 'Aes12Pd11', 'Aes12Pd12')
-        #list.Apat <- c('Apat01','Apat02','Apat03','Apat04','Apat05','Apat06','Apat07','Apat08','Apat09','Apat10','Apat11','Apat12',
-        #               'Apat13','Apat14')
+        list.Apat <- c('Apat01','Apat02','Apat03','Apat04','Apat05','Apat06','Apat07','Apat08','Apat09','Apat10','Apat11','Apat12',
+                       'Apat13','Apat14')
         list.BDI2 <- c('Bdi2It01', 'Bdi2It02', 'Bdi2It03', 'Bdi2It04', 'Bdi2It05', 'Bdi2It06', 'Bdi2It07', 'Bdi2It08', 'Bdi2It09',  'Bdi2It10',
                        'Bdi2It11', 'Bdi2It12', 'Bdi2It13', 'Bdi2It14', 'Bdi2It15', 'Bdi2It16', 'Bdi2It17', 'Bdi2It18', 'Bdi2It19', 'Bdi2It20', 'Bdi2It21')
         list.TalkProb <- c('TalkProb01', 'TalkProb02', 'TalkProb03', 'TalkProb04', 'TalkProb05', 'TalkProb06', 'TalkProb07')
@@ -380,7 +382,6 @@ generate_castor_csv <- function(bidsdir){
         list.PDQ39_bodilydiscomfort <- c("Pdq39It37","Pdq39It38","Pdq39It39")
         list.PDQ39_singleindex <-  c('PDQ39_mobilitySum', 'PDQ39_activitiesSum', 'PDQ39_emotionalSum', 'PDQ39_stigmaSum', 'PDQ39_socialsupportSum',
                                      'PDQ39_cognitionsSum', 'PDQ39_communicationSum', 'PDQ39_bodilydiscomfortSum')
-        
         
         # Variable selection / construction
         VariableSelectionConstruction <- function(dataframe){
@@ -448,6 +449,7 @@ generate_castor_csv <- function(bidsdir){
                                QUIPicdSum = rowSums(.[list.QUIP_icd]),
                                QUIPrsSum = rowSums(.[list.QUIP_rs]),
                                AES12Sum = rowSums(.[list.AES12]),
+                               ApatSum = rowSums(.[list.Apat]),
                                BDI2Sum = rowSums(.[list.BDI2]),
                                TalkProbSum = rowSums(.[list.TalkProb]),
                                VisualProb23Sum = rowSums(.[list.VisualProb23]),
@@ -459,7 +461,8 @@ generate_castor_csv <- function(bidsdir){
                                PDQ39_socialsupportSum = rowSums(.[list.PDQ39_socialsupport], na.rm = TRUE),
                                PDQ39_cognitionsSum = rowSums(.[list.PDQ39_cognitions]) / (4*4) * 100,
                                PDQ39_communicationSum = rowSums(.[list.PDQ39_communication]) / (4*3) * 100,
-                               PDQ39_bodilydiscomfortSum = rowSums(.[list.PDQ39_bodilydiscomfort]) / (4*3) * 100)
+                               PDQ39_bodilydiscomfortSum = rowSums(.[list.PDQ39_bodilydiscomfort]) / (4*3) * 100) %>%
+                        mutate(Group = 'PD_POM')
                 
                 
                 for(v in 1:length(dataframe$PDQ39_socialsupportSum)){
@@ -598,6 +601,11 @@ generate_castor_csv <- function(bidsdir){
                                Up3OfRestTremAmpSum.1YearROC = NA,
                                Up3OnRestTremAmpSum.1YearROC = NA,
                                
+                               Up3OfCompositeTremorSum.1YearDelta = NA,
+                               Up3OnCompositeTremorSum.1YearDelta = NA,
+                               Up3OfCompositeTremorSum.1YearROC = NA,
+                               Up3OnCompositeTremorSum.1YearROC = NA,
+                               
                                Up3OfRigiditySum.1YearDelta = NA,
                                Up3OnRigiditySum.1YearDelta = NA,
                                Up3OfRigiditySum.1YearROC = NA,
@@ -628,6 +636,11 @@ generate_castor_csv <- function(bidsdir){
                                Up3OfRestTremAmpSum.2YearROC = NA,
                                Up3OnRestTremAmpSum.2YearROC = NA,
                                
+                               Up3OfCompositeTremorSum.1YearDelta = NA,
+                               Up3OnCompositeTremorSum.1YearDelta = NA,
+                               Up3OfCompositeTremorSum.1YearROC = NA,
+                               Up3OnCompositeTremorSum.1YearROC = NA,
+                               
                                Up3OfRigiditySum.2YearDelta = NA,
                                Up3OnRigiditySum.2YearDelta = NA,
                                Up3OfRigiditySum.2YearROC = NA,
@@ -642,6 +655,61 @@ generate_castor_csv <- function(bidsdir){
                                Up3OnPegRLBSum.2YearDelta = NA,
                                Up3OfPegRLBSum.2YearROC = NA,
                                Up3OnPegRLBSum.2YearROC = NA,
+                               
+                               STAITraitSum.1YearDelta = NA,
+                               STAITraitSum.1YearROC = NA,
+                               STAITraitSum.2YearDelta = NA,
+                               STAITraitSum.2YearROC = NA,
+                               
+                               STAIStateSum.1YearDelta = NA,
+                               STAIStateSum.1YearROC = NA,
+                               STAIStateSum.2YearDelta = NA,
+                               STAIStateSum.2YearROC = NA,
+                               
+                               QUIPicdSum.1YearDelta = NA,
+                               QUIPicdSum.1YearROC = NA,
+                               QUIPicdSum.2YearDelta = NA,
+                               QUIPicdSum.2YearROC = NA,
+                               
+                               QUIPrsSum.1YearDelta = NA,
+                               QUIPrsSum.1YearROC = NA,
+                               QUIPrsSum.2YearDelta = NA,
+                               QUIPrsSum.2YearROC = NA,
+                               
+                               AES12Sum.1YearDelta = NA,
+                               AES12Sum.1YearROC = NA,
+                               AES12Sum.2YearDelta = NA,
+                               AES12Sum.2YearROC = NA,
+                               
+                               ApatSum.1YearDelta = NA,
+                               ApatSum.1YearROC = NA,
+                               ApatSum.2YearDelta = NA,
+                               ApatSum.2YearROC = NA,
+                               
+                               BDI2Sum.1YearDelta = NA,
+                               BDI2Sum.1YearROC = NA,
+                               BDI2Sum.2YearDelta = NA,
+                               BDI2Sum.2YearROC = NA,
+                               
+                               PDQ39_SingleIndex.1YearDelta = NA,
+                               PDQ39_SingleIndex.1YearROC = NA,
+                               PDQ39_SingleIndex.2YearDelta = NA,
+                               PDQ39_SingleIndex.2YearROC = NA,
+                               
+                               TalkProbSum.1YearDelta = NA,
+                               TalkProbSum.1YearROC = NA,
+                               TalkProbSum.2YearDelta = NA,
+                               TalkProbSum.2YearROC = NA,
+                               
+                               VisualProb23Sum.1YearDelta = NA,
+                               VisualProb23Sum.1YearROC = NA,
+                               VisualProb23Sum.2YearDelta = NA,
+                               VisualProb23Sum.2YearROC = NA,
+                               
+                               VisualProb17Sum.1YearDelta = NA,
+                               VisualProb17Sum.1YearROC = NA,
+                               VisualProb17Sum.2YearDelta = NA,
+                               VisualProb17Sum.2YearROC = NA,
                                
                                MultipleSessions = 0)
                 
@@ -664,7 +732,12 @@ generate_castor_csv <- function(bidsdir){
                                 dataframe$Up3OfRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OfRestTremAmpSum[n] - dataframe$Up3OfRestTremAmpSum[n-1]
                                 dataframe$Up3OnRestTremAmpSum.1YearDelta[(n-1):n] <- dataframe$Up3OnRestTremAmpSum[n] - dataframe$Up3OnRestTremAmpSum[n-1]
                                 dataframe$Up3OfRestTremAmpSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfRestTremAmpSum[n-1], dataframe$Up3OfRestTremAmpSum[n], length(list.RestTremorOff), alpha = 0.5/length(list.RestTremorOff))
-                                dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnRestTremAmpSum[n-1], dataframe$Up3OnRestTremAmpSum[n], length(list.RestTremorOn), alpha = 0.5/length(list.RestTremorOff))
+                                dataframe$Up3OnRestTremAmpSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnRestTremAmpSum[n-1], dataframe$Up3OnRestTremAmpSum[n], length(list.RestTremorOn), alpha = 0.5/length(list.RestTremorOn))
+                                
+                                dataframe$Up3OfCompositeTremorSum.1YearDelta[(n-1):n] <- dataframe$Up3OfCompositeTremorSum[n] - dataframe$Up3OfCompositeTremorSum[n-1]
+                                dataframe$Up3OnCompositeTremorSum.1YearDelta[(n-1):n] <- dataframe$Up3OnCompositeTremorSum[n] - dataframe$Up3OnCompositeTremorSum[n-1]
+                                dataframe$Up3OfCompositeTremorSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OfCompositeTremorSum[n-1], dataframe$Up3OfCompositeTremorSum[n], length(list.CompositeTremorOff), alpha = 0.5/length(list.CompositeTremorOff))
+                                dataframe$Up3OnCompositeTremorSum.1YearROC[(n-1):n] <- elble.change(dataframe$Up3OnCompositeTremorSum[n-1], dataframe$Up3OnCompositeTremorSum[n], length(list.CompositeTremorOn), alpha = 0.5/length(list.CompositeTremorOn))
                                 
                                 dataframe$Up3OfRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-1]
                                 dataframe$Up3OnRigiditySum.1YearDelta[(n-1):n] <- dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-1]
@@ -680,6 +753,39 @@ generate_castor_csv <- function(bidsdir){
                                 dataframe$Up3OnPegRLBSum.1YearDelta[(n-1):n] = dataframe$Up3OnPegRLBSum[n] - dataframe$Up3OnPegRLBSum[n-1]
                                 dataframe$Up3OfPegRLBSum.1YearROC[(n-1):n] = elble.change(dataframe$Up3OfPegRLBSum[n-1], dataframe$Up3OfPegRLBSum[n], 1, alpha = 0.5/1)
                                 dataframe$Up3OnPegRLBSum.1YearROC[(n-1):n] = elble.change(dataframe$Up3OnPegRLBSum[n-1], dataframe$Up3OnPegRLBSum[n], 1, alpha = 0.5/1)
+                                
+                                dataframe$STAITraitSum.1YearDelta[(n-1):n] <- dataframe$STAITraitSum[n] - dataframe$STAITraitSum[n-1]
+                                dataframe$STAITraitSum.1YearROC[(n-1):n] <- elble.change(dataframe$STAITraitSum[n-1], dataframe$STAITraitSum[n], length(list.STAITrait), alpha = 0.5/length(list.STAITrait))
+                                
+                                dataframe$STAIStateSum.1YearDelta[(n-1):n] <- dataframe$STAIStateSum[n] - dataframe$STAIStateSum[n-1]
+                                dataframe$STAIStateSum.1YearROC[(n-1):n] <- elble.change(dataframe$STAIStateSum[n-1], dataframe$STAIStateSum[n], length(list.STAIState), alpha = 0.5/length(list.STAIState))
+                                
+                                dataframe$QUIPicdSum.1YearDelta[(n-1):n] <- dataframe$QUIPicdSum[n] - dataframe$QUIPicdSum[n-1]
+                                dataframe$QUIPicdSum.1YearROC[(n-1):n] <- elble.change(dataframe$QUIPicdSum[n-1], dataframe$QUIPicdSum[n], length(list.QUIP_icd), alpha = 0.5/length(list.QUIP_icd))
+                                
+                                dataframe$QUIPrsSum.1YearDelta[(n-1):n] <- dataframe$QUIPrsSum[n] - dataframe$QUIPrsSum[n-1]
+                                dataframe$QUIPrsSum.1YearROC[(n-1):n] <- elble.change(dataframe$QUIPrsSum[n-1], dataframe$QUIPrsSum[n], length(list.QUIP_rs), alpha = 0.5/length(list.QUIP_rs))
+                                
+                                dataframe$AES12Sum.1YearDelta[(n-1):n] <- dataframe$AES12Sum[n] - dataframe$AES12Sum[n-1]
+                                dataframe$AES12Sum.1YearROC[(n-1):n] <- elble.change(dataframe$AES12Sum[n-1], dataframe$AES12Sum[n], length(list.AES12), alpha = 0.5/length(list.AES12))
+                                
+                                dataframe$ApatSum.1YearDelta[(n-1):n] <- dataframe$Apat12Sum[n] - dataframe$Apat12Sum[n-1]
+                                dataframe$ApatSum.1YearROC[(n-1):n] <- elble.change(dataframe$Apat12Sum[n-1], dataframe$Apat12Sum[n], length(list.Apat), alpha = 0.5/length(list.Apat))
+                                
+                                dataframe$BDI2Sum.1YearDelta[(n-1):n] <- dataframe$BDI2Sum[n] - dataframe$BDI2Sum[n-1]
+                                dataframe$BDI2Sum.1YearROC[(n-1):n] <- elble.change(dataframe$BDI2Sum[n-1], dataframe$BDI2Sum[n], length(list.BDI2), alpha = 0.5/length(list.BDI2))
+                                
+                                dataframe$PDQ39_SingleIndex.1YearDelta[(n-1):n] <- dataframe$PDQ39_SingleIndex[n] - dataframe$PDQ39_SingleIndex[n-1]
+                                dataframe$PDQ39_SingleIndex.1YearROC[(n-1):n] <- elble.change(dataframe$PDQ39_SingleIndex[n-1], dataframe$PDQ39_SingleIndex[n], length(list.PDQ39_singleindex), alpha = 0.5/length(list.PDQ39_singleindex))
+                                
+                                dataframe$TalkProbSum.1YearDelta[(n-1):n] <- dataframe$TalkProbSum[n] - dataframe$TalkProbSum[n-1]
+                                dataframe$TalkProbSum.1YearROC[(n-1):n] <- elble.change(dataframe$TalkProbSum[n-1], dataframe$TalkProbSum[n], length(list.TalkProb), alpha = 0.5/length(list.TalkProb))
+                                
+                                dataframe$VisualProb23Sum.1YearDelta[(n-1):n] <- dataframe$VisualProb23Sum[n] - dataframe$VisualProb23Sum[n-1]
+                                dataframe$VisualProb23Sum.1YearROC[(n-1):n] <- elble.change(dataframe$VisualProb23Sum[n-1], dataframe$VisualProb23Sum[n], length(list.VisualProb23), alpha = 0.5/length(list.VisualProb23))
+                                
+                                dataframe$VisualProb17Sum.1YearDelta[(n-1):n] <- dataframe$VisualProb17Sum[n] - dataframe$VisualProb17Sum[n-1]
+                                dataframe$VisualProb17Sum.1YearROC[(n-1):n] <- elble.change(dataframe$VisualProb17Sum[n-1], dataframe$VisualProb17Sum[n], length(list.VisualProb17), alpha = 0.5/length(list.VisualProb17))
                                 
                                 dataframe$MultipleSessions[(n-1):n] = 1
                         }else if(dataframe$Timepoint[n] == 'ses-POMVisit3' && dataframe$Timepoint[n-2] == 'ses-POMVisit1'){
@@ -699,6 +805,12 @@ generate_castor_csv <- function(bidsdir){
                                 dataframe$Up3OfRestTremAmpSum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OfRestTremAmpSum[n-2], dataframe$Up3OfRestTremAmpSum[n], length(list.RestTremorOff), alpha = 0.5/length(list.RestTremorOff))
                                 dataframe$Up3OnRestTremAmpSum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OnRestTremAmpSum[n-2], dataframe$Up3OnRestTremAmpSum[n], length(list.RestTremorOn), alpha = 0.5/length(list.RestTremorOff))
                                 
+                                dataframe$Up3OfCompositeTremorSum.1YearDelta[(n-2):n] <- dataframe$Up3OfCompositeTremorSum[n] - dataframe$Up3OfCompositeTremorSum[n-2]
+                                dataframe$Up3OnCompositeTremorSum.1YearDelta[(n-2):n] <- dataframe$Up3OnCompositeTremorAmpSum[n] - dataframe$Up3OnCompositeTremorSum[n-2]
+                                dataframe$Up3OfCompositeTremorSum.1YearROC[(n-2):n] <- elble.change(dataframe$Up3OfCompositeTremorSum[n-2], dataframe$Up3OfCompositeTremorSum[n], length(list.CompositeTremorOff), alpha = 0.5/length(list.CompositeTremorOff))
+                                dataframe$Up3OnCompositeTremorSum.1YearROC[(n-2):n] <- elble.change(dataframe$Up3OnCompositeTremorSum[n-2], dataframe$Up3OnCompositeTremorSum[n], length(list.CompositeTremorrOn), alpha = 0.5/length(list.CompositeTremorOn))
+                                
+                                
                                 dataframe$Up3OfRigiditySum.2YearDelta[(n-2):n] <- dataframe$Up3OfRigiditySum[n] - dataframe$Up3OfRigiditySum[n-2]
                                 dataframe$Up3OnRigiditySum.2YearDelta[(n-2):n] <- dataframe$Up3OnRigiditySum[n] - dataframe$Up3OnRigiditySum[n-2]
                                 dataframe$Up3OfRigiditySum.2YearROC[(n-2):n] <- elble.change(dataframe$Up3OfRigiditySum[n-2], dataframe$Up3OfRigiditySum[n], length(list.RigidityOff), alpha = 0.5/length(list.RigidityOff))
@@ -713,6 +825,36 @@ generate_castor_csv <- function(bidsdir){
                                 dataframe$Up3OnPegRLBSum.2YearDelta[(n-2):n] = dataframe$Up3OnPegRLBSum[n] - dataframe$Up3OnPegRLBSum[n-2]
                                 dataframe$Up3OfPegRLBSum.2YearROC[(n-2):n] = elble.change(dataframe$Up3OfPegRLBSum[n-2], dataframe$Up3OfPegRLBSum[n], 1, alpha = 0.5/1)
                                 dataframe$Up3OnPegRLBSum.2YearROC[(n-2):n] = elble.change(dataframe$Up3OnPegRLBSum[n-2], dataframe$Up3OnPegRLBSum[n], 1, alpha = 0.5/1)
+                                
+                                dataframe$STAITraitSum.2YearDelta[(n-2):n] <- dataframe$STAITraitSum[n] - dataframe$STAITraitSum[n-2]
+                                dataframe$STAITraitSum.2YearROC[(n-2):n] <- elble.change(dataframe$STAITraitSum[n-2], dataframe$STAITraitSum[n], length(list.STAITrait), alpha = 0.5/length(list.STAITrait))
+                                
+                                dataframe$STAIStateSum.2YearDelta[(n-2):n] <- dataframe$STAIStateSum[n] - dataframe$STAIStateSum[n-2]
+                                dataframe$STAIStateSum.2YearROC[(n-2):n] <- elble.change(dataframe$STAIStateSum[n-2], dataframe$STAIStateSum[n], length(list.STAIState), alpha = 0.5/length(list.STAIState))
+                                
+                                dataframe$QUIPicdSum.2YearDelta[(n-2):n] <- dataframe$QUIPicdSum[n] - dataframe$QUIPicdSum[n-2]
+                                dataframe$QUIPicdSum.2YearROC[(n-2):n] <- elble.change(dataframe$QUIPicdSum[n-2], dataframe$QUIPicdSum[n], length(list.QUIPicd), alpha = 0.5/length(list.QUIPicd))
+                                
+                                dataframe$QUIPrsSum.2YearDelta[(n-2):n] <- dataframe$QUIPrsSum[n] - dataframe$QUIPrsSum[n-2]
+                                dataframe$QUIPrsSum.2YearROC[(n-2):n] <- elble.change(dataframe$QUIPrsSum[n-2], dataframe$QUIPrsSum[n], length(list.QUIPrs), alpha = 0.5/length(list.QUIPrs))
+                                
+                                dataframe$AES12Sum.2YearDelta[(n-2):n] <- dataframe$AES12Sum[n] - dataframe$AES12Sum[n-2]
+                                dataframe$AES12Sum.2YearROC[(n-2):n] <- elble.change(dataframe$AES12Sum[n-2], dataframe$AES12Sum[n], length(list.AES12), alpha = 0.5/length(list.AES12))
+                                
+                                dataframe$BDI2Sum.2YearDelta[(n-2):n] <- dataframe$BDI2Sum[n] - dataframe$BDI2Sum[n-2]
+                                dataframe$BDI2Sum.2YearROC[(n-2):n] <- elble.change(dataframe$BDI2Sum[n-2], dataframe$BDI2Sum[n], length(list.BDI2), alpha = 0.5/length(list.BDI2))
+                                
+                                dataframe$PDQ39_SingleIndex.2YearDelta[(n-2):n] <- dataframe$PDQ39_SingleIndex[n] - dataframe$PDQ39_SingleIndex[n-2]
+                                dataframe$PDQ39_SingleIndex.2YearROC[(n-2):n] <- elble.change(dataframe$PDQ39_SingleIndex[n-2], dataframe$PDQ39_SingleIndex[n], length(list.PDQ39_singleindex), alpha = 0.5/length(list.PDQ39_singleindex))
+                                
+                                dataframe$TalkProbSum.2YearDelta[(n-2):n] <- dataframe$TalkProbSum[n] - dataframe$TalkProbSum[n-2]
+                                dataframe$TalkProbSum.2YearROC[(n-2):n] <- elble.change(dataframe$TalkProbSum[n-2], dataframe$TalkProbSum[n], length(list.TalkProb), alpha = 0.5/length(list.TalkProb))
+                                
+                                dataframe$VisualProb23Sum.2YearDelta[(n-2):n] <- dataframe$VisualProb23Sum[n] - dataframe$VisualProb23Sum[n-2]
+                                dataframe$VisualProb23Sum.2YearROC[(n-2):n] <- elble.change(dataframe$VisualProb23Sum[n-2], dataframe$VisualProb23Sum[n], length(list.VisualProb23), alpha = 0.5/length(list.VisualProb23))
+                                
+                                dataframe$VisualProb17Sum.2YearDelta[(n-2):n] <- dataframe$VisualProb17Sum[n] - dataframe$VisualProb17Sum[n-2]
+                                dataframe$VisualProb17Sum.2YearROC[(n-2):n] <- elble.change(dataframe$VisualProb17Sum[n-2], dataframe$VisualProb17Sum[n], length(list.VisualProb17), alpha = 0.5/length(list.VisualProb17))
                                 
                                 dataframe$MultipleSessions[(n-2):n] = 1
                         }
@@ -738,7 +880,17 @@ generate_castor_csv <- function(bidsdir){
                          Up3OfPIGDSum, Up3OfPIGDSum.1YearDelta, Up3OfPIGDSum.1YearROC, Up3OfPIGDSum.2YearDelta, Up3OfPIGDSum.2YearROC,
                          Up3OnPIGDSum, Up3OnPIGDSum.1YearDelta, Up3OnPIGDSum.1YearROC, Up3OnPIGDSum.2YearDelta, Up3OnPIGDSum.2YearROC,
                          Up3OfPegRLBSum, Up3OfPegRLBSum.1YearDelta, Up3OfPegRLBSum.1YearROC, Up3OfPegRLBSum.2YearDelta, Up3OfPegRLBSum.2YearROC,
-                         Up3OnPegRLBSum, Up3OnPegRLBSum.1YearDelta, Up3OnPegRLBSum.1YearROC, Up3OnPegRLBSum.2YearDelta, Up3OnPegRLBSum.2YearROC)
+                         Up3OnPegRLBSum, Up3OnPegRLBSum.1YearDelta, Up3OnPegRLBSum.1YearROC, Up3OnPegRLBSum.2YearDelta, Up3OnPegRLBSum.2YearROC,
+                         STAITraitSum, STAITraitSum.1YearDelta, STAITraitSum.1YearROC, STAITraitSum.2YearDelta, STAITraitSum.2YearROC,
+                         STAIStateSum, STAIStateSum.1YearDelta, STAIStateSum.1YearROC, STAIStateSum.2YearDelta, STAIStateSum.2YearROC,
+                         QUIPicdSum, QUIPicdSum.1YearDelta, QUIPicdSum.1YearROC, QUIPicdSum.2YearDelta, QUIPicdSum.2YearROC,
+                         QUIPrsSum, QUIPrsSum.1YearDelta, QUIPrsSum.1YearROC, QUIPrsSum.2YearDelta, QUIPrsSum.2YearROC,
+                         AES12Sum, AES12Sum.1YearDelta, AES12Sum.1YearROC, AES12Sum.2YearDelta, AES12Sum.2YearROC,
+                         BDI2Sum, BDI2Sum.1YearDelta, BDI2Sum.1YearROC, BDI2Sum.2YearDelta, BDI2Sum.2YearROC,
+                         PDQ39_SingleIndex, PDQ39_SingleIndex.1YearDelta, PDQ39_SingleIndex.1YearROC, PDQ39_SingleIndex.2YearDelta, PDQ39_SingleIndex.2YearROC,
+                         TalkProbSum, TalkProbSum.1YearDelta, TalkProbSum.1YearROC, TalkProbSum.2YearDelta, TalkProbSum.2YearROC,
+                         VisualProb23Sum, VisualProb23Sum.1YearDelta, VisualProb23Sum.1YearROC, VisualProb23Sum.2YearDelta, VisualProb23Sum.2YearROC,
+                         VisualProb17Sum, VisualProb17Sum.1YearDelta, VisualProb17Sum.1YearROC, VisualProb17Sum.2YearDelta, VisualProb17Sum.2YearROC)
         
         # Define the task that was used
         
