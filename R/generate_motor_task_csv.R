@@ -8,6 +8,8 @@ generate_motor_task_csv <- function(bidsdir){
         library(tidyjson)
         library(lubridate)
         
+        bidsdir <- 'P:/3022026.01/pep/bids/'
+        
         # Import a row of data for a specified subject and visit
         ImportEventsTsv <- function(subject, visit){
                 
@@ -61,6 +63,7 @@ generate_motor_task_csv <- function(bidsdir){
                         ~Condition,
                         ~Response.Time,
                         ~Percentage.Correct,
+                        ~Poor.Performance,
                         ~Button.Press.Mean,
                         ~Button.Press.Sd,
                         ~Button.Press.CoV,
@@ -196,6 +199,7 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Condition = Conditions[i],
                                                                 Response.Time = filter(Row, correct_response == 'Hit') %>% pull(var = response_time) %>% mean,
                                                                 Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
+                                                                Poor.Performance = NA,
                                                                 Button.Press.Mean = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% mean,
                                                                 Button.Press.Sd = filter(Row, correct_response == 'Hit') %>% pull(var = button_pressed) %>% sd,
                                                                 Button.Press.CoV = Button.Press.Sd / Button.Press.Mean,
@@ -217,6 +221,7 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Condition = Conditions[i],
                                                                 Response.Time = NA,
                                                                 Percentage.Correct = nrow(filter(Row, correct_response == 'Hit')) / nrow(Row),
+                                                                Poor.Performance = NA,
                                                                 Button.Press.Mean = NA,
                                                                 Button.Press.Sd = NA,
                                                                 Button.Press.CoV = NA,
@@ -241,6 +246,7 @@ generate_motor_task_csv <- function(bidsdir){
                                                         Condition = Conditions[i],
                                                         Response.Time = NA,
                                                         Percentage.Correct = NA,
+                                                        Poor.Performance = NA,
                                                         Button.Press.Mean = NA,
                                                         Button.Press.Sd = NA,
                                                         Button.Press.CoV = NA,
@@ -269,6 +275,20 @@ generate_motor_task_csv <- function(bidsdir){
         
         # Omit rows without full data (removes all catch trials. Probably dont want this...)
         #Data <- na.omit(Data)
+        
+        PoorPerformancePseudos <- Data %>%
+                select(pseudonym, Percentage.Correct, Condition) %>%
+                filter(Condition == 'Ext') %>%
+                filter(Percentage.Correct < .25) %>%
+                pull(pseudonym)
+        
+        for(n in 1:length(Data$pseudonym)){
+                if(Data$pseudonym[n] %in% PoorPerformancePseudos){
+                        Data$Poor.Performance[n] <- 'Yes'
+                }else{
+                        Data$Poor.Performance[n] <- 'No'
+                }
+        }
         
         # Write the data frame to csv
         outputfile <- paste(bidsdir, 'derivatives/database_motor_task_', today(), '.csv', sep = '')
