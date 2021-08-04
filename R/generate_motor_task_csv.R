@@ -77,7 +77,8 @@ generate_motor_task_csv <- function(bidsdir){
                         ~Button.Press.non_switch,
                         ~Button.Press.SwitchRatio,
                         ~Responding.Hand,
-                        ~Group)    # Generate data frame
+                        ~Group,
+                        ~On.And.Off.Meds)    # Generate data frame
         
         # Write one per condition for each subject to the data frame
         for(n in 1:length(Subjects)){
@@ -213,7 +214,8 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Button.Press.non_switch = non_switch_counter,
                                                                 Button.Press.SwitchRatio = switch_counter / (switch_counter + non_switch_counter),
                                                                 Responding.Hand = Events[[2]]$RespondingHand.Value,
-                                                                Group = Events[[2]]$Group.Value)
+                                                                Group = Events[[2]]$Group.Value,
+                                                                On.And.Off.Meds = NA)
                                         }else{
                                                 Data <- add_row(Data,
                                                                 pseudonym = Subjects[n],
@@ -235,7 +237,8 @@ generate_motor_task_csv <- function(bidsdir){
                                                                 Button.Press.non_switch = NA,
                                                                 Button.Press.SwitchRatio = NA,
                                                                 Responding.Hand = Events[[2]]$RespondingHand.Value,
-                                                                Group = Events[[2]]$Group.Value)
+                                                                Group = Events[[2]]$Group.Value,
+                                                                On.And.Off.Meds = NA)
                                         }
                                 }else{
                                         
@@ -260,7 +263,8 @@ generate_motor_task_csv <- function(bidsdir){
                                                         Button.Press.non_switch = NA,
                                                         Button.Press.SwitchRatio = NA,
                                                         Responding.Hand = NA,
-                                                        Group = NA)
+                                                        Group = NA,
+                                                        On.And.Off.Meds = NA)
                                 }
                         }
                 }
@@ -276,6 +280,7 @@ generate_motor_task_csv <- function(bidsdir){
         # Omit rows without full data (removes all catch trials. Probably dont want this...)
         #Data <- na.omit(Data)
         
+        # Denote which subjects performed below cutoff
         PoorPerformancePseudos <- Data %>%
                 select(pseudonym, Percentage.Correct, Condition) %>%
                 filter(Condition == 'Ext') %>%
@@ -287,6 +292,20 @@ generate_motor_task_csv <- function(bidsdir){
                         Data$Poor.Performance[n] <- 'Yes'
                 }else{
                         Data$Poor.Performance[n] <- 'No'
+                }
+        }
+        
+        # Denote which subjects have data in both on and off states
+        POM_subs <- Data %>% filter(Group == 'PD_POM' & Condition == 'Ext' & Timepoint == 'ses-POMVisit1') %>% select(pseudonym)
+        PIT_subs <- Data %>% filter(Group == 'PD_PIT' & Condition == 'Ext' & Timepoint == 'ses-PITVisit1') %>% select(pseudonym)
+        All_subs <- c(POM_subs$pseudonym, PIT_subs$pseudonym)
+        All_subs_duplicates <- All_subs[duplicated(All_subs)]
+        
+        for(n in 1:length(Data$pseudonym)){
+                if(Data$pseudonym[n] %in% All_subs_duplicates){
+                        Data$On.And.Off.Meds[n] <- 'Yes'
+                }else{
+                        Data$On.And.Off.Meds[n] <- 'No'
                 }
         }
         
