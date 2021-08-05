@@ -309,6 +309,10 @@ generate_motor_task_csv <- function(bidsdir){
                 }
         }
         
+        # Remove study-handle from Timepoint
+        Data$Timepoint <- str_remove(Data$Timepoint, 'POM')
+        Data$Timepoint <- str_remove(Data$Timepoint, 'PIT')
+        
         # Write the data frame to csv
         outputfile <- paste(bidsdir, 'derivatives/database_motor_task_', today(), '.csv', sep = '')
         if(file.exists(outputfile)){
