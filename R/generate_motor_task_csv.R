@@ -280,7 +280,7 @@ generate_motor_task_csv <- function(bidsdir){
         # Omit rows without full data (removes all catch trials. Probably dont want this...)
         #Data <- na.omit(Data)
         
-        # Denote which subjects performed below cutoff
+        # Denote which subjects performed below cutoff (exclusion criterion: performing below 25% on the 1-choice condition)
         PoorPerformancePseudos <- Data %>%
                 select(pseudonym, Percentage.Correct, Condition) %>%
                 filter(Condition == 'Ext') %>%
