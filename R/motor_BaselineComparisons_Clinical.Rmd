@@ -1,0 +1,122 @@
+---
+title: "motor_BaselineComparisons_Clinical"
+author: "M.E. Johansson"
+date: "8/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 2500)
+```
+
+# Load libraries and functions.
+
+```{r libraries, message=FALSE}
+source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
+source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/summarySE.R")
+library(emmeans)
+library(cowplot)
+library(readr)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(effectsize)
+library(car)
+```
+
+# Load data
+
+```{r datafile}
+datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
+datafile_clin_pom <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_clinical_variables_2021-05-27.csv'
+datafile_clin_pit <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_PIT_clinical_variables_2021-05-21.csv'
+datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
+```
+
+```{r data, echo=FALSE, message=FALSE}
+#Read task data
+
+data_task <- read_csv(datafile_task)
+
+#Read clinical data
+
+data_clin_pom <- read_csv(datafile_clin_pom)
+data_clin_subtypes <- read_csv(datafile_clin_subtypes)
+data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
+data_clin_pom_orig$Timepoint <- str_remove(data_clin_pom_orig$Timepoint, 'POM')
+data_clin_pom_subset <- data_clin_pom_orig %>% 
+        filter(Timepoint == 'ses-Visit1') %>% 
+        select(pseudonym, Timepoint, Age, Gender, Group, Subtype)
+
+data_clin_pit_orig <- read_csv(datafile_clin_pit)
+data_clin_pit_orig$Timepoint <- str_remove(data_clin_pit_orig$Timepoint, 'PIT')
+data_clin_pit_subset <- data_clin_pit_orig %>% 
+        filter(Timepoint == 'ses-Visit1') %>% 
+        select(pseudonym, Timepoint, Age, Gender, Group)
+data_clin <- full_join(data_clin_pom_subset,data_clin_pit_subset)
+
+#Merge task and clinical data
+
+data_task_clin <- full_join(data_task, data_clin) %>%
+        mutate(Gender = as.factor(Gender))
+
+#Select data for ON vs HC
+
+data_ONvsHC <- data_task_clin %>%
+  filter(Timepoint == 'ses-Visit1') %>%
+  filter(Group == 'PD_POM' | Group == 'HC_PIT') %>%
+  filter(Poor.Performance == 'No') %>%
+  select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
+  mutate(Group = as.factor(Group),
+         Condition = as.factor(Condition))
+
+#Select data for ON vs OFF
+
+data_ONvsOFF <- data_task_clin %>%
+  filter(Timepoint == 'ses-Visit1') %>%
+  filter(Group == 'PD_POM' | Group == 'PD_PIT') %>%
+  filter(Poor.Performance == 'No') %>%
+  filter(On.And.Off.Meds == 'Yes') %>%
+  select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
+  mutate(Group = as.factor(Group),
+         Condition = as.factor(Condition))
+
+#Select data for Subtypes vs HC
+
+data_tmp_pdpom <- data_task_clin %>%
+        filter(Timepoint == 'ses-Visit1') %>%
+        filter(Group == 'PD_POM') %>%
+        filter(Poor.Performance == 'No') %>%
+        mutate(Group = Subtype) %>%
+        select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
+data_tmp_hcpit <- data_task_clin %>%
+        filter(Timepoint == 'ses-Visit1') %>%
+        filter(Group == 'HC_PIT') %>%
+        filter(Poor.Performance == 'No') %>%
+        select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
+data_SUBSvsHC <- rbind(data_tmp_hcpit, data_tmp_pdpom) %>%
+        mutate(Group = as.factor(Group),
+               Condition = as.factor(Condition))
+
+#Select data for Subtypes
+
+data_SUBS_clin <- data_clin_pom_orig %>%
+        filter(Group == 'PD_POM') %>%
+        select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears, Up3OfTotal,Up3OfBradySum, Up3OfRigiditySum, Up3OfCompositeTremorSum,
+               Up3OfPegRLBSum, Up3OfTotal.1YearDelta, Up3OfBradySum.1YearDelta, Up3OfRigiditySum.1YearDelta, Up3OfCompositeTremorSum.1YearDelta,
+               Up3OfPegRLBSum.1YearDelta)
+data_SUBS_task <- data_task_clin %>%
+        filter(Group == 'PD_POM') %>%
+        filter(Timepoint != 'ses-Visit3') %>%
+        select(pseudonym, Timepoint, Condition,Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Poor.Performance)
+data_SUBS <- full_join(data_SUBS_clin, data_SUBS_task, by = c('pseudonym', 'Timepoint')) %>%
+        mutate(Group = Subtype,
+               Group = as.factor(Group),
+               Condition = as.factor(Condition),
+               Timepoint = as.factor(Timepoint))
+        
+```
