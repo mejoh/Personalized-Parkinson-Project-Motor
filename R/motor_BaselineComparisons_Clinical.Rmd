@@ -2,7 +2,13 @@
 title: "motor_BaselineComparisons_Clinical"
 author: "M.E. Johansson"
 date: "8/13/2021"
-output: html_document
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -28,95 +34,349 @@ library(effectsize)
 library(car)
 ```
 
+```{r functions_plot, echo=FALSE}
+#For measurements where values differ per condition (Response.Time and Percentage.Correct)
+raincloudplot <- function(data, sumrepdat, title){
+ggplot(data, aes(x = Condition, y = Score, fill = Group)) +
+  geom_flat_violin(aes(fill = Group),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.5, 
+                   trim = FALSE, 
+                   alpha = .5, 
+                   colour = NA)+
+  geom_point(aes(x = as.numeric(Condition)-.1, y = Score, colour = Group),
+             position = position_jitterdodge(jitter.width = .04, dodge.width = .05),
+             size = .25,
+             shape = 20)+
+  geom_boxplot(aes(x = Condition, y = Score, fill = Group),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  geom_line(data = sumrepdat,
+            aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group),
+            linetype = 3)+
+  geom_point(data = sumrepdat, 
+             aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group), 
+             shape = 18) +
+  geom_errorbar(data = sumrepdat, 
+                aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group, ymin = Score_mean-se, ymax = Score_mean+se),
+                width = .05)+
+  scale_colour_brewer(palette = "Dark2")+
+  scale_fill_brewer(palette = "Dark2")+
+  ggtitle(title)+
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme_cowplot()
+}
+
+#For measurements where values do not differ per condition (Button.Press.CoV, Button.Press.SwitchRatio)
+raincloudplot2 <- function(data, sumrepdat, title){
+ggplot(data, aes(x = Group, y = Score)) +
+  geom_flat_violin(aes(fill = Group),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.5, 
+                   trim = FALSE, 
+                   alpha = .5, 
+                   colour = NA)+
+  geom_jitter(aes(x = as.numeric(Group)-.1, y = Score, colour = Group),
+             size = .25,
+             shape = 20,
+             width = .01)+
+  geom_boxplot(aes(x = Group, y = Score, fill = Group),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  geom_point(data = sumrepdat, 
+             aes(x = as.numeric(Group)+.1, y = Score_mean, group = Group, colour = Group), 
+             shape = 18) +
+  geom_errorbar(data = sumrepdat, 
+                aes(x = as.numeric(Group)+.1, y = Score_mean, ymin = Score_mean-se, ymax = Score_mean+se, group = Group, colour = Group),
+                width = .05)+
+  scale_colour_brewer(palette = "Dark2")+
+  scale_fill_brewer(palette = "Dark2")+
+  ggtitle(title)+
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme_cowplot()
+}
+```
+
+```{r facetscatter, echo=FALSE}
+
+facet_scatter <- function(data, y,x,lines,facets){
+     g <- ggplot(data, aes_string(y=y, x=x, color = lines, group = lines)) +
+                geom_point(alpha = .5) +
+                geom_smooth(method='lm', se = FALSE) +
+                facet_wrap(as.formula(paste("~", facets)))+
+                scale_colour_brewer(palette = "Dark2")+
+                scale_fill_brewer(palette = "Dark2")+
+                theme_cowplot()   
+     print(g)
+}
+
+simple_scatter <- function(data, y,x,lines){
+     g <- ggplot(data, aes_string(y=y, x=x, color = lines, group = lines)) +
+                geom_point(alpha = .5) +
+                geom_smooth(method='lm', se = FALSE) +
+                scale_colour_brewer(palette = "Dark2")+
+                scale_fill_brewer(palette = "Dark2")+
+                theme_cowplot()   
+     print(g)
+}
+
+simpler_scatter <- function(data, y,x){
+     g <- ggplot(data, aes_string(y=y, x=x)) +
+                geom_point(alpha = .5) +
+                geom_smooth(method='lm', se = FALSE) +
+                scale_colour_brewer(palette = "Dark2")+
+                scale_fill_brewer(palette = "Dark2")+
+                theme_cowplot()   
+     print(g)
+}
+
+```
+
+```{r functions_inference, echo = FALSE}
+posthoc_comparisons <-function(model, rm = TRUE){
+        
+        if(rm){
+                cond <- emmeans(model, pairwise ~ Condition, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>%
+                        as.data.frame()
+                group <-emmeans(model, pairwise ~ Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                        as.data.frame()
+                cond_group <- rbind(cond, group) %>%
+                        mutate_if(is.numeric, round, digits = 6)
+                group_by_cond <- emmeans(model, pairwise ~ Group|Condition, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                       as.data.frame() %>%
+                        mutate_if(is.numeric, round, digits = 6)
+                cond_by_group <- emmeans(model, pairwise ~ Condition|Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                        as.data.frame() %>%
+                        mutate_if(is.numeric, round, digits = 6)
+                #all <- emmeans(model, pairwise ~ Condition:Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                 #       summary(infer = TRUE) %>% 
+                 #       as.data.frame() %>%
+                 #       mutate_if(is.numeric, round, digits = 6)
+        
+                print('Simple comparisons')
+                print(cond_group)
+                print('Comparisons between groups within conditions')
+                print(group_by_cond)
+                print('Comparisons between conditions within groups')
+                print(cond_by_group) 
+                #print('Comparisons between all levels of group and conditon')
+                #print(all)
+        }else{
+                group <- emmeans(model, pairwise ~ Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                        as.data.frame()
+                print('Simple comparisons')
+                print(group)
+        }
+        
+}
+
+interrogate_mod <- function(model){
+        print(anova(model))
+        #print(Anova(model, type=2))
+        #print(Anova(model, type=3))
+        #print(plot(model))
+        #print(summary(model))
+        #print(eta_squared(model))
+        #print(confint(model))
+}
+
+```
+
 # Load data
 
 ```{r datafile}
 datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
 datafile_clin_pom <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_clinical_variables_2021-05-27.csv'
-datafile_clin_pit <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_PIT_clinical_variables_2021-05-21.csv'
 datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
 ```
 
 ```{r data, echo=FALSE, message=FALSE}
 #Read task data
 
-data_task <- read_csv(datafile_task)
+data_task <- read_csv(datafile_task) %>%
+  filter(Group == 'PD_POM') %>%
+  filter(Timepoint != 'ses-Visit3') %>%
+  select(pseudonym, Timepoint, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Poor.Performance)
 
 #Read clinical data
 
-data_clin_pom <- read_csv(datafile_clin_pom)
+data_clin_pom <- read_csv(datafile_clin_pom) %>%
+        filter(MriNeuroPsychTask == 'Motor')
 data_clin_subtypes <- read_csv(datafile_clin_subtypes)
 data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
 data_clin_pom_orig$Timepoint <- str_remove(data_clin_pom_orig$Timepoint, 'POM')
-data_clin_pom_subset <- data_clin_pom_orig %>% 
-        filter(Timepoint == 'ses-Visit1') %>% 
-        select(pseudonym, Timepoint, Age, Gender, Group, Subtype)
+data_clin <- data_clin_pom_orig %>%
+  select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears)
 
-data_clin_pit_orig <- read_csv(datafile_clin_pit)
-data_clin_pit_orig$Timepoint <- str_remove(data_clin_pit_orig$Timepoint, 'PIT')
-data_clin_pit_subset <- data_clin_pit_orig %>% 
-        filter(Timepoint == 'ses-Visit1') %>% 
-        select(pseudonym, Timepoint, Age, Gender, Group)
-data_clin <- full_join(data_clin_pom_subset,data_clin_pit_subset)
-
-#Merge task and clinical data
-
-data_task_clin <- full_join(data_task, data_clin) %>%
-        mutate(Gender = as.factor(Gender))
-
-#Select data for ON vs HC
-
-data_ONvsHC <- data_task_clin %>%
-  filter(Timepoint == 'ses-Visit1') %>%
-  filter(Group == 'PD_POM' | Group == 'HC_PIT') %>%
-  filter(Poor.Performance == 'No') %>%
-  select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
-  mutate(Group = as.factor(Group),
-         Condition = as.factor(Condition))
-
-#Select data for ON vs OFF
-
-data_ONvsOFF <- data_task_clin %>%
-  filter(Timepoint == 'ses-Visit1') %>%
-  filter(Group == 'PD_POM' | Group == 'PD_PIT') %>%
-  filter(Poor.Performance == 'No') %>%
-  filter(On.And.Off.Meds == 'Yes') %>%
-  select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
-  mutate(Group = as.factor(Group),
-         Condition = as.factor(Condition))
-
-#Select data for Subtypes vs HC
-
-data_tmp_pdpom <- data_task_clin %>%
-        filter(Timepoint == 'ses-Visit1') %>%
+data_clin <- data_clin_pom_orig %>%
         filter(Group == 'PD_POM') %>%
-        filter(Poor.Performance == 'No') %>%
-        mutate(Group = Subtype) %>%
-        select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
-data_tmp_hcpit <- data_task_clin %>%
-        filter(Timepoint == 'ses-Visit1') %>%
-        filter(Group == 'HC_PIT') %>%
-        filter(Poor.Performance == 'No') %>%
-        select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
-data_SUBSvsHC <- rbind(data_tmp_hcpit, data_tmp_pdpom) %>%
-        mutate(Group = as.factor(Group),
-               Condition = as.factor(Condition))
+        select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears, Up3OfTotal, Up3OfTotal.1YearDelta)
 
-#Select data for Subtypes
-
-data_SUBS_clin <- data_clin_pom_orig %>%
-        filter(Group == 'PD_POM') %>%
-        select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears, Up3OfTotal,Up3OfBradySum, Up3OfRigiditySum, Up3OfCompositeTremorSum,
-               Up3OfPegRLBSum, Up3OfTotal.1YearDelta, Up3OfBradySum.1YearDelta, Up3OfRigiditySum.1YearDelta, Up3OfCompositeTremorSum.1YearDelta,
-               Up3OfPegRLBSum.1YearDelta)
-data_SUBS_task <- data_task_clin %>%
-        filter(Group == 'PD_POM') %>%
-        filter(Timepoint != 'ses-Visit3') %>%
-        select(pseudonym, Timepoint, Condition,Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Poor.Performance)
-data_SUBS <- full_join(data_SUBS_clin, data_SUBS_task, by = c('pseudonym', 'Timepoint')) %>%
+#Merge clinical and task data
+data_SUBS <- full_join(data_clin, data_task, by = c('pseudonym', 'Timepoint')) %>%
         mutate(Group = Subtype,
                Group = as.factor(Group),
                Condition = as.factor(Condition),
                Timepoint = as.factor(Timepoint))
+
+#Select data for symptom progression analyses
+data_SUBS_t1 <- data_SUBS %>%
+  filter(Timepoint == 'ses-Visit1') %>%
+  filter(Condition == 'Ext')
+data_SUBS_t2 <- data_SUBS %>%
+  filter(Timepoint == 'ses-Visit2')
+data_SUBS_subset <- bind_rows(data_SUBS_t1, data_SUBS_t2) %>%
+  arrange(pseudonym)
+
+data_SUBS_SymProgTotal_NoSubtype <- data_SUBS_subset %>%
+        mutate(Score = Up3OfTotal,
+               Group = 'PD_POM') %>%
+        select(pseudonym, Timepoint, Group, Age, Gender, Score) %>%
+        mutate(Condition = Timepoint) %>%
+        na.omit
+
+data_SUBS_SymProgTotal <- data_SUBS_subset %>%
+        mutate(Score = Up3OfTotal) %>%
+        select(pseudonym, Timepoint, Group, Age, Gender, Score) %>%
+        mutate(Condition = Timepoint) %>%
+        na.omit
+
+#Select data for correlation analyses
+data_SUBS_BaTotalRTs <- data_SUBS %>%
+  filter(Timepoint == 'ses-Visit1') %>%
+  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal, Response.Time) %>%
+  na.omit
+
+data_SUBS_BaTotalRTs_mean <- data_SUBS_BaTotalRTs %>%
+        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal'), names_from = Condition, values_from = Response.Time) %>%
+        mutate(Mean = (Ext+Int2+Int3)/3)
+
+data_SUBS_ProgTotalRTs <- data_SUBS %>%
+  filter(Timepoint == 'ses-Visit1') %>%
+  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal.1YearDelta, Response.Time) %>%
+  na.omit
+
+data_SUBS_ProgTotalRTs_mean <- data_SUBS_ProgTotalRTs %>%
+        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal.1YearDelta'), names_from = Condition, values_from = Response.Time) %>%
+        mutate(Mean = (Ext+Int2+Int3)/3)
         
+```
+
+# Symptom progression {.tabset}
+
+We would like to test whether patients worsen over the course of a single year. We are also interested in testing whether this worsening differs between PD subtypes. Note that I recoded Condition to mean Timepoint so I could make use of the functions that were defined for the task inferences.
+
+## Whole sample
+```{r data_symprog, echo = FALSE, message = FALSE}
+sumrepdat_SUBS_SymProgTotal_NoSubtype <- summarySE(data_SUBS_SymProgTotal_NoSubtype, measurevar = "Score",
+                       groupvars=c("Group", 'Condition'))
+print(sumrepdat_SUBS_SymProgTotal_NoSubtype)
+raincloudplot(data_SUBS_SymProgTotal_NoSubtype, sumrepdat_SUBS_SymProgTotal_NoSubtype, 'Progression of MDS-UPDRS III across the whole cohort')
+
+f <- 'log1p(Score) ~ 1 + Condition + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+print(paste('Fitting the following model:', f, sep=' '))
+infer_SUBS_ProgTotal_NoSubtype <- lmer(f, data=data_SUBS_SymProgTotal_NoSubtype)
+interrogate_mod(infer_SUBS_ProgTotal_NoSubtype)
+#posthoc_comparisons(infer_SUBS_ProgTotal, rm = TRUE)
+```
+
+## Subtypes
+
+```{r data_symprog_subtypes, echo = FALSE, message = FALSE}
+sumrepdat_SUBS_SymProgTotal <- summarySE(data_SUBS_SymProgTotal, measurevar = "Score",
+                       groupvars=c("Group", 'Condition'))
+print(sumrepdat_SUBS_SymProgTotal)
+raincloudplot(data_SUBS_SymProgTotal, sumrepdat_SUBS_SymProgTotal, 'Progression of MDS-UPDRS III total between subtypes')
+
+f <- 'log1p(Score) ~ 1 + Group*Condition + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+print(paste('Fitting the following model:', f, sep=' '))
+
+infer_SUBS_ProgTotal <- lmer(f, data=data_SUBS_SymProgTotal)
+interrogate_mod(infer_SUBS_ProgTotal)
+#posthoc_comparisons(infer_SUBS_ProgTotal, rm = TRUE)
+```
+
+# Clinical-Task correlations {.tabset}
+
+This section is more experimental than the sections above. This is where I am still exploring different questions and options for assessing those questions.
+
+## Whole sample
+
+We would like to know whether baseline symptom severity is associated with task performance. One way to do this is to average response times across conditions and correlate it with some clinical score. The question we are testing here is whether overall task performance can be predicted by baseline symptom severity.
+
+```{r clintaskcorr_simpler, echo = FALSE, message = FALSE, warning = FALSE}
+simpler_scatter(data=data_SUBS_BaTotalRTs_mean, y='log(Up3OfTotal)', x='log(Mean)')
+f <- 'log1p(Mean) ~ log1p(Up3OfTotal) + Gender + scale(Age, center=TRUE, scale=FALSE)'
+print(paste('Fitting the following model:', f, sep=' '))
+infer_SUBS_BaTotalRTs_mean <- lm(f, data=data_SUBS_BaTotalRTs_mean)
+interrogate_mod(infer_SUBS_BaTotalRTs_mean)
+#posthoc_comparisons(infer_SUBS_BaTotalRTs, rm = TRUE)
+```
+
+We can also assess the association between symptom progression and overall task performance.
+
+```{r contaskcorr_simpler_prog, echo = FALSE, message = FALSE, warning = FALSE}
+simpler_scatter(data=data_SUBS_ProgTotalRTs_mean, y='Up3OfTotal.1YearDelta', x='log(Mean)')
+f <- 'log1p(Mean) ~ Up3OfTotal.1YearDelta + Gender + scale(Age, center=TRUE, scale=FALSE)'
+print(paste('Fitting the following model:', f, sep=' '))
+infer_SUBS_ProgTotalRTs_mean <- lm(f, data=data_SUBS_ProgTotalRTs_mean)
+interrogate_mod(infer_SUBS_ProgTotalRTs_mean)
+#posthoc_comparisons(infer_SUBS_ProgTotalRTs_mean, rm = TRUE)
+```
+
+## Subtypes
+
+We see that there is indeed an association between baseline symptom severity and overall task performance. We can do a further test to assess whether the association between baseline symptom severity and overall task performance depends on PD subtype.
+
+```{r clintaskcorr_simple, echo = FALSE, message = FALSE, warning = FALSE}
+simple_scatter(data=data_SUBS_BaTotalRTs_mean, y='log(Up3OfTotal)', x='log(Mean)', lines='Group')
+f <- 'log1p(Mean) ~ Group*log1p(Up3OfTotal) + Gender + scale(Age, center=TRUE, scale=FALSE)'
+print(paste('Fitting the following model:', f, sep=' '))
+infer_SUBS_BaTotalRTs_mean <- lm(f, data=data_SUBS_BaTotalRTs_mean)
+interrogate_mod(infer_SUBS_BaTotalRTs_mean)
+#posthoc_comparisons(infer_SUBS_BaTotalRTs_mean, rm = FALSE)
+```
+
+We do the same thing for symptom progression.
+
+```{r clintaskcorr_simple_prog, echo = FALSE, message = FALSE, warning = FALSE}
+simple_scatter(data=data_SUBS_ProgTotalRTs_mean, y='Up3OfTotal.1YearDelta', x='log(Mean)', lines='Group')
+f <- 'log1p(Mean) ~ Group*Up3OfTotal.1YearDelta + Gender + scale(Age, center=TRUE, scale=FALSE)'
+print(paste('Fitting the following model:', f, sep=' '))
+infer_SUBS_ProgTotalRTs_mean <- lm(f, data=data_SUBS_ProgTotalRTs_mean)
+interrogate_mod(infer_SUBS_ProgTotalRTs_mean)
+#posthoc_comparisons(infer_SUBS_ProgTotalRTs_mean, rm = FALSE)
+```
+
+## Subtypes x Condition
+
+We failed to find evidence for a an influence of PD subtype on the association between baseline symptom severity and overall task performance. But we can be even more specific than this. If we drop the idea of assessing overall task performance we can ask whether the association between baseline symptom severity and task performance depends on the task condition, in addition to PD subtype.
+
+```{r clintaskcorr_facet, echo = FALSE, message = FALSE, warning = FALSE}
+facet_scatter(data=data_SUBS_BaTotalRTs, y='log(Up3OfTotal)', x='log(Response.Time)', lines='Group', facets='Condition')
+f <- 'log1p(Response.Time) ~ Group*Condition*log1p(Up3OfTotal) + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+print(paste('Fitting the following model:', f, sep=' '))
+infer_SUBS_BaTotalRTs <- lmer(f, data=data_SUBS_BaTotalRTs)
+interrogate_mod(infer_SUBS_BaTotalRTs)
+#posthoc_comparisons(infer_SUBS_BaTotalRTs, rm = TRUE)
+```
+
+Again, same thing for symptom progression.
+
+```{r lintaskcorr_facet, echo = FALSE, message = FALSE, warning = FALSE}
+facet_scatter(data=data_SUBS_ProgTotalRTs, y='Up3OfTotal.1YearDelta', x='log(Response.Time)', lines='Group', facets='Condition')
+f <- 'log1p(Response.Time) ~ Group*Condition*Up3OfTotal.1YearDelta + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+print(paste('Fitting the following model:', f, sep=' '))
+infer_SUBS_ProgTotalRTs <- lmer(f, data=data_SUBS_ProgTotalRTs)
+interrogate_mod(infer_SUBS_ProgTotalRTs)
+#posthoc_comparisons(infer_SUBS_ProgTotalRTs, rm = TRUE)
 ```
