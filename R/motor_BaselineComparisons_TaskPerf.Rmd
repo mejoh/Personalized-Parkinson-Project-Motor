@@ -1,8 +1,12 @@
 ---
-title: "Motor task - Baseline comparisons"
+title: "Baseline comparisons of motor task performance"
 author: "M.E. Johansson"
 date: "8/4/2021"
-output: html_document
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+    number_sections: true
 editor_options: 
   chunk_output_type: console
 ---
@@ -30,6 +34,128 @@ library(effectsize)
 library(car)
 ```
 
+```{r functions_plot, echo=FALSE}
+#For measurements where values differ per condition (Response.Time and Percentage.Correct)
+raincloudplot <- function(data, sumrepdat, title){
+ggplot(data, aes(x = Condition, y = Score, fill = Group)) +
+  geom_flat_violin(aes(fill = Group),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.5, 
+                   trim = FALSE, 
+                   alpha = .5, 
+                   colour = NA)+
+  geom_point(aes(x = as.numeric(Condition)-.1, y = Score, colour = Group),
+             position = position_jitterdodge(jitter.width = .04, dodge.width = .05),
+             size = .25,
+             shape = 20)+
+  geom_boxplot(aes(x = Condition, y = Score, fill = Group),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  geom_line(data = sumrepdat,
+            aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group),
+            linetype = 3)+
+  geom_point(data = sumrepdat, 
+             aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group), 
+             shape = 18) +
+  geom_errorbar(data = sumrepdat, 
+                aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group, ymin = Score_mean-se, ymax = Score_mean+se),
+                width = .05)+
+  scale_colour_brewer(palette = "Dark2")+
+  scale_fill_brewer(palette = "Dark2")+
+  ggtitle(title)+
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme_cowplot()
+}
+
+#For measurements where values do not differ per condition (Button.Press.CoV, Button.Press.SwitchRatio)
+raincloudplot2 <- function(data, sumrepdat, title){
+ggplot(data, aes(x = Group, y = Score)) +
+  geom_flat_violin(aes(fill = Group),
+                   position = position_nudge(x = .1, y = 0), 
+                   adjust = 1.5, 
+                   trim = FALSE, 
+                   alpha = .5, 
+                   colour = NA)+
+  geom_jitter(aes(x = as.numeric(Group)-.1, y = Score, colour = Group),
+             size = .25,
+             shape = 20,
+             width = .01)+
+  geom_boxplot(aes(x = Group, y = Score, fill = Group),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .1, 
+               colour = "black")+
+  geom_point(data = sumrepdat, 
+             aes(x = as.numeric(Group)+.1, y = Score_mean, group = Group, colour = Group), 
+             shape = 18) +
+  geom_errorbar(data = sumrepdat, 
+                aes(x = as.numeric(Group)+.1, y = Score_mean, ymin = Score_mean-se, ymax = Score_mean+se, group = Group, colour = Group),
+                width = .05)+
+  scale_colour_brewer(palette = "Dark2")+
+  scale_fill_brewer(palette = "Dark2")+
+  ggtitle(title)+
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme_cowplot()
+}
+```
+
+```{r functions_inference, echo=FALSE}
+posthoc_comparisons <-function(model, rm = TRUE){
+        
+        if(rm){
+                cond <- emmeans(model, pairwise ~ Condition, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>%
+                        as.data.frame()
+                group <-emmeans(model, pairwise ~ Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                        as.data.frame()
+                cond_group <- rbind(cond, group) %>%
+                        mutate_if(is.numeric, round, digits = 6)
+                group_by_cond <- emmeans(model, pairwise ~ Group|Condition, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                       as.data.frame() %>%
+                        mutate_if(is.numeric, round, digits = 6)
+                cond_by_group <- emmeans(model, pairwise ~ Condition|Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                        as.data.frame() %>%
+                        mutate_if(is.numeric, round, digits = 6)
+                #all <- emmeans(model, pairwise ~ Condition:Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                 #       summary(infer = TRUE) %>% 
+                 #       as.data.frame() %>%
+                 #       mutate_if(is.numeric, round, digits = 6)
+        
+                print('Simple comparisons')
+                print(cond_group)
+                print('Comparisons between groups within conditions')
+                print(group_by_cond)
+                print('Comparisons between conditions within groups')
+                print(cond_by_group) 
+                #print('Comparisons between all levels of group and conditon')
+                #print(all)
+        }else{
+                group <- emmeans(model, pairwise ~ Group, type = 'response', adjust = 'mvt')$contrasts %>% 
+                        summary(infer = TRUE) %>% 
+                        as.data.frame()
+                print('Simple comparisons')
+                print(group)
+        }
+        
+}
+
+interrogate_mod <- function(model){
+        print(anova(model))
+        #print(Anova(model, type=2))
+        #print(Anova(model, type=3))
+        #print(plot(model))
+        #print(summary(model))
+        #print(eta_squared(model))
+        #print(confint(model))
+}
+
+```
+
 # Load data
 
 ```{r datafile}
@@ -46,7 +172,8 @@ data_task <- read_csv(datafile_task)
 
 #Read clinical data
 
-data_clin_pom <- read_csv(datafile_clin_pom)
+data_clin_pom <- read_csv(datafile_clin_pom) %>%
+        filter(MriNeuroPsychTask == 'Motor')
 data_clin_subtypes <- read_csv(datafile_clin_subtypes)
 data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
 data_clin_pom_orig$Timepoint <- str_remove(data_clin_pom_orig$Timepoint, 'POM')
@@ -165,16 +292,24 @@ data_SUBSvsHC_RT <- data_SUBSvsHC %>%
 
 ```{r PC_data, echo=FALSE}
 data_ONvsHC_PC <- data_ONvsHC %>%
-        mutate(Score = Percentage.Correct)
+        mutate(Score = Percentage.Correct) %>%
+        select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
+        na.omit
 
 data_OFFvsHC_PC <- data_OFFvsHC %>%
-        mutate(Score = Percentage.Correct)
+        mutate(Score = Percentage.Correct) %>%
+        select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
+        na.omit
 
 data_ONvsOFF_PC <- data_ONvsOFF %>%
-        mutate(Score = Percentage.Correct)
+        mutate(Score = Percentage.Correct) %>%
+        select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
+        na.omit
 
 data_SUBSvsHC_PC <- data_SUBSvsHC %>%
-        mutate(Score = Percentage.Correct)
+        mutate(Score = Percentage.Correct) %>%
+        select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
+        na.omit
 ```
 
 ## Button selection variability
@@ -241,7 +376,9 @@ n <- data_task_clin %>%
 msg <- paste('Number of unique pseudonyms:', n)
 print(msg)
 ```
+
 - Participants without data
+
 ```{r missing, echo=FALSE}
 no_task <- data_task_clin %>%
         filter(Timepoint == 'ses-Visit1') %>%
@@ -261,7 +398,9 @@ msg <- paste('Number of subjects without clinical data (defined as Age):', nrow(
 print(msg)
 print(no_clin$pseudonym)
 ```
+
 - Participants who performed at or below 25% correct responses in the 1-choice condition
+
 ```{r poor_performance, echo=FALSE}
 poor_performance <- data_task_clin %>%
         filter(Timepoint == 'ses-Visit1') %>%
@@ -273,173 +412,6 @@ print(msg)
 print(poor_performance$pseudonym)
 ```
 
-# Visualize task data
-
-```{r functions_plot, echo=FALSE}
-#For measurements where values differ per condition (Response.Time and Percentage.Correct)
-raincloudplot <- function(data, sumrepdat, title){
-ggplot(data, aes(x = Condition, y = Score, fill = Group)) +
-  geom_flat_violin(aes(fill = Group),
-                   position = position_nudge(x = .1, y = 0), 
-                   adjust = 1.5, 
-                   trim = FALSE, 
-                   alpha = .5, 
-                   colour = NA)+
-  geom_point(aes(x = as.numeric(Condition)-.1, y = Score, colour = Group),
-             position = position_jitterdodge(jitter.width = .04, dodge.width = .05),
-             size = .25,
-             shape = 20)+
-  geom_boxplot(aes(x = Condition, y = Score, fill = Group),
-               outlier.shape = NA, 
-               alpha = .5, 
-               width = .1, 
-               colour = "black")+
-  geom_line(data = sumrepdat,
-            aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group),
-            linetype = 3)+
-  geom_point(data = sumrepdat, 
-             aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group), 
-             shape = 18) +
-  geom_errorbar(data = sumrepdat, 
-                aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group, ymin = Score_mean-se, ymax = Score_mean+se),
-                width = .05)+
-  scale_colour_brewer(palette = "Dark2")+
-  scale_fill_brewer(palette = "Dark2")+
-  ggtitle(title)+
-  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
-  theme_cowplot()
-}
-
-#For measurements where values do not differ per condition (Button.Press.CoV, Button.Press.SwitchRatio)
-raincloudplot2 <- function(data, sumrepdat, title){
-ggplot(data, aes(x = Group, y = Score)) +
-  geom_flat_violin(aes(fill = Group),
-                   position = position_nudge(x = .1, y = 0), 
-                   adjust = 1.5, 
-                   trim = FALSE, 
-                   alpha = .5, 
-                   colour = NA)+
-  geom_jitter(aes(x = as.numeric(Group)-.1, y = Score, colour = Group),
-             size = .25,
-             shape = 20,
-             width = .01)+
-  geom_boxplot(aes(x = Group, y = Score, fill = Group),
-               outlier.shape = NA, 
-               alpha = .5, 
-               width = .1, 
-               colour = "black")+
-  geom_point(data = sumrepdat, 
-             aes(x = as.numeric(Group)+.1, y = Score_mean, group = Group, colour = Group), 
-             shape = 18) +
-  geom_errorbar(data = sumrepdat, 
-                aes(x = as.numeric(Group)+.1, y = Score_mean, ymin = Score_mean-se, ymax = Score_mean+se, group = Group, colour = Group),
-                width = .05)+
-  scale_colour_brewer(palette = "Dark2")+
-  scale_fill_brewer(palette = "Dark2")+
-  ggtitle(title)+
-  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
-  theme_cowplot()
-}
-```
-
-## Response times
-
-```{r RT_summary, echo=FALSE}
-sumrepdat_ONvsHC_RT <- summarySE(data_ONvsHC_RT, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_ONvsHC_RT)
-raincloudplot(data_ONvsHC_RT, sumrepdat_ONvsHC_RT, 'Response times for healthy controls versus on-state PD patients')
-
-sumrepdat_OFFvsHC_RT <- summarySE(data_OFFvsHC_RT, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_OFFvsHC_RT)
-raincloudplot(data_OFFvsHC_RT, sumrepdat_OFFvsHC_RT, 'Response times for healthy controls versus off-state PD patients')
-
-sumrepdat_ONvsOFF_RT <- summarySE(data_ONvsOFF_RT, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_ONvsOFF_RT)
-raincloudplot(data_ONvsOFF_RT, sumrepdat_ONvsOFF_RT, 'Response times for on-state versus off-state PD patients')
-
-sumrepdat_SUBSvsHC_RT <- summarySE(data_SUBSvsHC_RT, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_SUBSvsHC_RT)
-raincloudplot(data_SUBSvsHC_RT, sumrepdat_SUBSvsHC_RT, 'Response times for subtypes versus healthy controls')
-```
-
-## Percentage correct
-
-```{r PC_summary, echo=FALSE}
-sumrepdat_ONvsHC_PC <- summarySE(data_ONvsHC_PC, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_ONvsHC_PC)
-raincloudplot(data_ONvsHC_PC, sumrepdat_ONvsHC_PC, 'Percentage correct for healthy controls versus on-state PD patients')
-
-sumrepdat_OFFvsHC_PC <- summarySE(data_OFFvsHC_PC, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_OFFvsHC_PC)
-raincloudplot(data_OFFvsHC_PC, sumrepdat_OFFvsHC_PC, 'Percentage correct for healthy controls versus off-state PD patients')
-
-sumrepdat_ONvsOFF_PC <- summarySE(data_ONvsOFF_PC, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_ONvsOFF_PC)
-raincloudplot(data_ONvsOFF_PC, sumrepdat_ONvsOFF_PC, 'Percentage correct for on-state versus off-state PD patients')
-
-sumrepdat_SUBSvsHC_PC <- summarySE(data_SUBSvsHC_PC, measurevar = "Score",
-                       groupvars=c("Group", "Condition"))
-print(sumrepdat_SUBSvsHC_PC)
-raincloudplot(data_SUBSvsHC_PC, sumrepdat_SUBSvsHC_PC, 'Percentage correct for subtypes versus healthy controls')
-```
-
-## Button selection variability
-
-```{r CoV_summary, echo=FALSE}
-sumrepdat_ONvsHC_CoV <- summarySE(data_ONvsHC_CoV, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_ONvsHC_CoV)
-raincloudplot2(data_ONvsHC_CoV, sumrepdat_ONvsHC_CoV, 'Button variability for healthy controls versus on-state PD patients')
-
-sumrepdat_OFFvsHC_CoV <- summarySE(data_OFFvsHC_CoV, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_OFFvsHC_CoV)
-raincloudplot2(data_OFFvsHC_CoV, sumrepdat_OFFvsHC_CoV, 'Button variability for healthy controls versus off-state PD patients')
-
-sumrepdat_ONvsOFF_CoV <- summarySE(data_ONvsOFF_CoV, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_ONvsOFF_CoV)
-raincloudplot2(data_ONvsOFF_CoV, sumrepdat_ONvsOFF_CoV, 'Button variability for on-state versus off-state PD patients')
-
-sumrepdat_SUBSvsHC_CoV <- summarySE(data_SUBSvsHC_CoV, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_SUBSvsHC_CoV)
-raincloudplot2(data_SUBSvsHC_CoV, sumrepdat_SUBSvsHC_CoV, 'Button variability for subtypes versus healthy controls')
-```
-
-## Switch ratio
-
-```{r Switch_summary, echo=FALSE}
-sumrepdat_ONvsHC_Switch <- summarySE(data_ONvsHC_Switch, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_ONvsHC_Switch)
-raincloudplot2(data_ONvsHC_Switch, sumrepdat_ONvsHC_Switch, 'Switch ratio for healthy controls versus on-state PD patients')
-
-sumrepdat_OFFvsHC_Switch <- summarySE(data_OFFvsHC_Switch, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_OFFvsHC_Switch)
-raincloudplot2(data_OFFvsHC_Switch, sumrepdat_OFFvsHC_Switch, 'Switch ratio for healthy controls versus off-state PD patients')
-
-sumrepdat_ONvsOFF_Switch <- summarySE(data_ONvsOFF_Switch, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_ONvsOFF_Switch)
-raincloudplot2(data_ONvsOFF_Switch, sumrepdat_ONvsOFF_Switch, 'Switch ratio for on-state versus off-state PD patients')
-
-sumrepdat_SUBSvsHC_Switch <- summarySE(data_SUBSvsHC_Switch, measurevar = "Score",
-                       groupvars=c("Group"))
-print(sumrepdat_SUBSvsHC_Switch)
-raincloudplot2(data_SUBSvsHC_Switch, sumrepdat_SUBSvsHC_Switch, 'Switch ratio for subtypes versus healthy controls')
-```
-
-# Inferences on task performance
-
 Summaries are provided for all types of sums of squares. Below is a guideline for what to look at:
 -Type I (default for lm summaries): Tests the main effect of factor A, followed by the main effect of factor B after the main effect of A,
 followed by the interaction effect AB after the main effects. This type is dependent on factor order in model formula and is never really what we want.
@@ -447,292 +419,240 @@ followed by the interaction effect AB after the main effects. This type is depen
 -Type III (default for lmer summaries): Tests for the presence of a main effect after the other main effect and interaction. This approach
 is therefore valid in the presence of significant interactions. However, it is less powerful than Type II.
 
-```{r functions_inference}
-posthoc_comparisons <-function(model, rm = TRUE){
-        
-        if(rm){
-                cond <- emmeans(model, pairwise ~ Condition, type = 'response', adjust = 'mvt')$contrasts %>% 
-                        summary(infer = TRUE) %>%
-                        as.data.frame()
-                group <-emmeans(model, pairwise ~ Group, type = 'response', adjust = 'mvt')$contrasts %>% 
-                        summary(infer = TRUE) %>% 
-                        as.data.frame()
-                cond_group <- rbind(cond, group) %>%
-                        mutate_if(is.numeric, round, digits = 6)
-                group_by_cond <- emmeans(model, pairwise ~ Group|Condition, type = 'response', adjust = 'mvt')$contrasts %>% 
-                        summary(infer = TRUE) %>% 
-                       as.data.frame() %>%
-                        mutate_if(is.numeric, round, digits = 6)
-                cond_by_group <- emmeans(model, pairwise ~ Condition|Group, type = 'response', adjust = 'mvt')$contrasts %>% 
-                        summary(infer = TRUE) %>% 
-                        as.data.frame() %>%
-                        mutate_if(is.numeric, round, digits = 6)
-                #all <- emmeans(model, pairwise ~ Condition:Group, type = 'response', adjust = 'mvt')$contrasts %>% 
-                 #       summary(infer = TRUE) %>% 
-                 #       as.data.frame() %>%
-                 #       mutate_if(is.numeric, round, digits = 6)
-        
-                print('Simple comparisons')
-                print(cond_group)
-                print('Comparisons between groups within conditions')
-                print(group_by_cond)
-                print('Comparisons between conditions within groups')
-                print(cond_by_group) 
-                #print('Comparisons between all levels of group and conditon')
-                #print(all)
-        }else{
-                group <- emmeans(model, pairwise ~ Group, type = 'response', adjust = 'mvt')$contrasts %>% 
-                        summary(infer = TRUE) %>% 
-                        as.data.frame()
-                print('Simple comparisons')
-                print(group)
-        }
-        
-}
+# Response times {.tabset}
 
-interrogate_mod <- function(model){
-        print(anova(model))
-        print(Anova(model, type=2))
-        print(Anova(model, type=3))
-        #print(plot(model))
-        #print(summary(model))
-        #print(eta_squared(model))
-        #print(confint(model))
-}
-
-```
-
-## Response times
-
-```{r infer_rt, echo=FALSE, warning=FALSE, message=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 f <- 'log1p(Response.Time) ~ 1 + Group*Condition*Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
 print(paste('Fitting the following model:', f, sep=' '))
+```
+
+## ON vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsHC_RT <- summarySE(data_ONvsHC_RT, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_ONvsHC_RT)
+raincloudplot(data_ONvsHC_RT, sumrepdat_ONvsHC_RT, 'Response times for healthy controls versus on-state PD patients')
 
 infer_ONvsHC_RT <- lmer(f, data=data_ONvsHC_RT)
 interrogate_mod(infer_ONvsHC_RT)
 #posthoc_comparisons(infer_ONvsHC_RT, rm = TRUE)
+```
+
+## OFF vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_OFFvsHC_RT <- summarySE(data_OFFvsHC_RT, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_OFFvsHC_RT)
+raincloudplot(data_OFFvsHC_RT, sumrepdat_OFFvsHC_RT, 'Response times for healthy controls versus off-state PD patients')
 
 infer_OFFvsHC_RT <- lmer(f, data=data_OFFvsHC_RT)
 interrogate_mod(infer_OFFvsHC_RT)
 #posthoc_comparisons(infer_OFFvsHC_RT, rm = TRUE)
+```
+
+## ON vs. OFF
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsOFF_RT <- summarySE(data_ONvsOFF_RT, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_ONvsOFF_RT)
+raincloudplot(data_ONvsOFF_RT, sumrepdat_ONvsOFF_RT, 'Response times for on-state versus off-state PD patients')
 
 infer_ONvsOFF_RT <- lmer(f, data=data_ONvsOFF_RT)
 interrogate_mod(infer_ONvsOFF_RT)
 #posthoc_comparisons(infer_ONvsOFF_RT, rm = TRUE)
+```
+
+## Subtypes vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_SUBSvsHC_RT <- summarySE(data_SUBSvsHC_RT, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_SUBSvsHC_RT)
+raincloudplot(data_SUBSvsHC_RT, sumrepdat_SUBSvsHC_RT, 'Response times for subtypes versus healthy controls')
 
 infer_SUBSvsHC_RT <- lmer(f, data=data_SUBSvsHC_RT)
 interrogate_mod(infer_SUBSvsHC_RT)
 #posthoc_comparisons(infer_SUBSvsHC_RT, rm = TRUE)
 ```
 
-## Percentage correct
+# Percentage correct {.tabset}
 
-Ceiling effects render the following analysis of percentage correct responses somewhat inappropriate. Consider another analysis.
-
-```{r infer_pc, echo=FALSE, warning=FALSE, message=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 f <- 'Percentage.Correct ~ 1 + Group*Condition*Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
 print(paste('Fitting the following model:', f, sep=' '))
+```
+
+## ON vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsHC_PC <- summarySE(data_ONvsHC_PC, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_ONvsHC_PC)
+raincloudplot(data_ONvsHC_PC, sumrepdat_ONvsHC_PC, 'Percentage correct for healthy controls versus on-state PD patients')
 
 infer_ONvsHC_PC <- lmer(f, data=data_ONvsHC_PC)
 interrogate_mod(infer_ONvsHC_PC)
 #posthoc_comparisons(infer_ONvsHC_PC, rm = TRUE)
+```
+
+## OFF vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_OFFvsHC_PC <- summarySE(data_OFFvsHC_PC, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_OFFvsHC_PC)
+raincloudplot(data_OFFvsHC_PC, sumrepdat_OFFvsHC_PC, 'Percentage correct for healthy controls versus off-state PD patients')
 
 infer_OFFvsHC_PC <- lmer(f, data=data_OFFvsHC_PC)
 interrogate_mod(infer_OFFvsHC_PC)
 #posthoc_comparisons(infer_OFFvsHC_PC, rm = TRUE)
+```
+
+## ON vs. OFF
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsOFF_PC <- summarySE(data_ONvsOFF_PC, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_ONvsOFF_PC)
+raincloudplot(data_ONvsOFF_PC, sumrepdat_ONvsOFF_PC, 'Percentage correct for on-state versus off-state PD patients')
 
 infer_ONvsOFF_PC <- lmer(f, data=data_ONvsOFF_PC)
 interrogate_mod(infer_ONvsOFF_PC)
 #posthoc_comparisons(infer_ONvsOFF_PC, rm = TRUE)
+```
+
+## Subtypes vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_SUBSvsHC_PC <- summarySE(data_SUBSvsHC_PC, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(sumrepdat_SUBSvsHC_PC)
+raincloudplot(data_SUBSvsHC_PC, sumrepdat_SUBSvsHC_PC, 'Percentage correct for subtypes versus healthy controls')
 
 infer_SUBSvsHC_PC <- lmer(f, data=data_SUBSvsHC_PC)
 interrogate_mod(infer_SUBSvsHC_PC)
 #posthoc_comparisons(infer_SUBSvsHC_PC, rm = TRUE)
 ```
 
-## Button selection variability
+# Button selection {.tabset}
 
-```{r infer_bpvar, echo=FALSE, warning=FALSE, message=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 f <- 'log1p(Button.Press.CoV) ~ 1 + Group*Gender + scale(Age, center=TRUE, scale=FALSE)'
 print(paste('Fitting the following model:', f, sep=' '))
+```
+
+## ON vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsHC_CoV <- summarySE(data_ONvsHC_CoV, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_ONvsHC_CoV)
+raincloudplot2(data_ONvsHC_CoV, sumrepdat_ONvsHC_CoV, 'Button variability for healthy controls versus on-state PD patients')
 
 infer_ONvsHC_CoV <- lm(f, data=data_ONvsHC_CoV)
 interrogate_mod(infer_ONvsHC_CoV)
 #posthoc_comparisons(infer_ONvsHC_CoV, rm = FALSE)
+```
+
+## OFF vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_OFFvsHC_CoV <- summarySE(data_OFFvsHC_CoV, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_OFFvsHC_CoV)
+raincloudplot2(data_OFFvsHC_CoV, sumrepdat_OFFvsHC_CoV, 'Button variability for healthy controls versus off-state PD patients')
 
 infer_OFFvsHC_CoV <- lm(f, data=data_OFFvsHC_CoV)
 interrogate_mod(infer_OFFvsHC_CoV)
 #posthoc_comparisons(infer_OFFvsHC_CoV, rm = FALSE)
+```
+
+## OFF vs. ON
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsOFF_CoV <- summarySE(data_ONvsOFF_CoV, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_ONvsOFF_CoV)
+raincloudplot2(data_ONvsOFF_CoV, sumrepdat_ONvsOFF_CoV, 'Button variability for on-state versus off-state PD patients')
 
 infer_ONvsOFF_CoV <- lm(f, data=data_ONvsOFF_CoV)
 interrogate_mod(infer_ONvsOFF_CoV)
 #posthoc_comparisons(infer_ONvsOFF_CoV, rm = FALSE)
+```
+
+## Subtypes vs HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_SUBSvsHC_CoV <- summarySE(data_SUBSvsHC_CoV, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_SUBSvsHC_CoV)
+raincloudplot2(data_SUBSvsHC_CoV, sumrepdat_SUBSvsHC_CoV, 'Button variability for subtypes versus healthy controls')
 
 infer_SUBSvsHC_CoV <- lm(f, data=data_SUBSvsHC_CoV)
 interrogate_mod(infer_SUBSvsHC_CoV)
 #posthoc_comparisons(infer_SUBSvsHC_CoV, rm = FALSE)
 ```
 
-## Switch ratio
+# Switch ratio {.tabset}
 
-```{r infer_switch, echo=FALSE, warning=FALSE, message=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 f <- 'log(Button.Press.SwitchRatio) ~ 1 + Group*Gender + scale(Age, center=TRUE, scale=FALSE)'
 print(paste('Fitting the following model:', f, sep=' '))
+```
+
+## ON vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsHC_Switch <- summarySE(data_ONvsHC_Switch, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_ONvsHC_Switch)
+raincloudplot2(data_ONvsHC_Switch, sumrepdat_ONvsHC_Switch, 'Switch ratio for healthy controls versus on-state PD patients')
 
 infer_ONvsHC_Switch <- lm(f, data=data_ONvsHC_Switch)
 interrogate_mod(infer_ONvsHC_Switch)
 #posthoc_comparisons(infer_ONvsHC_Switch, rm = FALSE)
+```
+
+## OFF vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_OFFvsHC_Switch <- summarySE(data_OFFvsHC_Switch, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_OFFvsHC_Switch)
+raincloudplot2(data_OFFvsHC_Switch, sumrepdat_OFFvsHC_Switch, 'Switch ratio for healthy controls versus off-state PD patients')
 
 infer_OFFvsHC_Switch <- lm(f, data=data_OFFvsHC_Switch)
 interrogate_mod(infer_OFFvsHC_Switch)
 #posthoc_comparisons(infer_OFFvsHC_Switch, rm = FALSE)
+```
+
+## ON vs. OFF
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sumrepdat_ONvsOFF_Switch <- summarySE(data_ONvsOFF_Switch, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_ONvsOFF_Switch)
+raincloudplot2(data_ONvsOFF_Switch, sumrepdat_ONvsOFF_Switch, 'Switch ratio for on-state versus off-state PD patients')
 
 infer_ONvsOFF_Switch <- lm(f, data=data_ONvsOFF_Switch)
 interrogate_mod(infer_ONvsOFF_Switch)
 #posthoc_comparisons(infer_ONvsOFF_Switch, rm = FALSE)
+```
+
+## Subtypes vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+sumrepdat_SUBSvsHC_Switch <- summarySE(data_SUBSvsHC_Switch, measurevar = "Score",
+                       groupvars=c("Group"))
+print(sumrepdat_SUBSvsHC_Switch)
+raincloudplot2(data_SUBSvsHC_Switch, sumrepdat_SUBSvsHC_Switch, 'Switch ratio for subtypes versus healthy controls')
 
 infer_SUBSvsHC_Switch <- lm(f, data=data_SUBSvsHC_Switch)
 interrogate_mod(infer_SUBSvsHC_Switch)
 #posthoc_comparisons(infer_SUBSvsHC_Switch, rm = FALSE)
 ```
-
-# Visualize clinical data
-
-```{r facetscatter}
-
-facet_scatter <- function(data, y,x,lines,facets){
-     g <- ggplot(data, aes_string(y=y, x=x, color = lines, group = lines)) +
-                geom_point(alpha = .5) +
-                geom_smooth(method='lm', se = FALSE) +
-                facet_wrap(as.formula(paste("~", facets)))+
-                scale_colour_brewer(palette = "Dark2")+
-                scale_fill_brewer(palette = "Dark2")+
-                theme_cowplot()   
-     print(g)
-}
-
-```
-
-## Clinical-Task correlations
-
-```{r data_clintaskcorr}
-data_SUBS_tmp <- data_SUBS %>%
-        select(pseudonym, Timepoint, Condition, Group, Age, Gender, Up3OfTotal, Up3OfTotal.1YearDelta,
-               Up3OfBradySum, Up3OfBradySum.1YearDelta, Up3OfPegRLBSum, Up3OfPegRLBSum.1YearDelta,
-               Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio) %>%
-        filter(Timepoint == 'ses-Visit1')
-data_SUBS_BaTotalRTs <- data_SUBS_tmp %>%
-        select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal, Response.Time) %>%
-        na.omit
-data_SUBS_ProgTotalRTs <- data_SUBS_tmp %>%
-        select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal.1YearDelta, Response.Time) %>%
-        na.omit
-```
-
-```{r}
-facet_scatter(data=data_SUBS_BaTotalRTs, y='log(Up3OfTotal)', x='log(Response.Time)', lines='Group', facets='Condition')
-facet_scatter(data=data_SUBS_ProgTotalRTs, y='Up3OfTotal.1YearDelta', x='log(Response.Time)', lines='Group', facets='Condition')
-```
-
-## Symptom progression
-
-```{r data_symprog}
-data_SUBS_SymProgTotal <- data_SUBS %>%
-        mutate(Score = Up3OfTotal) %>%
-        select(pseudonym, Timepoint, Group, Age, Gender, Score) %>%
-        mutate(Condition = Timepoint) %>%
-        na.omit
-sumrepdat_SUBS_SymProgTotal <- summarySE(data_SUBS_SymProgTotal, measurevar = "Score",
-                       groupvars=c("Group", 'Condition'))
-print(sumrepdat_SUBS_SymProgTotal)
-
-data_SUBS_SymProgBrady <- data_SUBS %>%
-        mutate(Score = Up3OfBradySum) %>%
-        select(pseudonym, Timepoint, Group, Age, Gender, Score) %>%
-        mutate(Condition = Timepoint) %>%
-        na.omit
-sumrepdat_SUBS_SymProgBrady <- summarySE(data_SUBS_SymProgBrady, measurevar = "Score",
-                       groupvars=c("Group", 'Condition'))
-print(sumrepdat_SUBS_SymProgBrady)
-
-data_SUBS_SymProgPeg <- data_SUBS %>%
-        mutate(Score = Up3OfPegRLBSum) %>%
-        select(pseudonym, Timepoint, Group, Age, Gender, Score) %>%
-        mutate(Condition = Timepoint) %>%
-        na.omit
-sumrepdat_SUBS_SymProgPeg <- summarySE(data_SUBS_SymProgPeg, measurevar = "Score",
-                       groupvars=c("Group", 'Condition'))
-print(sumrepdat_SUBS_SymProgPeg)
-```
-
-```{r raincloud_symprog}
-raincloudplot(data_SUBS_SymProgTotal, sumrepdat_SUBS_SymProgTotal, 'Progression of MDS-UPDRS III total between subtypes')
-
-raincloudplot(data_SUBS_SymProgBrady, sumrepdat_SUBS_SymProgBrady, 'Progression of MDS-UPDRS III bradykinesia between subtypes')
-
-raincloudplot(data_SUBS_SymProgPeg, sumrepdat_SUBS_SymProgPeg, 'Progression of pegboard performance between subtypes')
-```
-
-# Inferences on clinical data
-
-This section is much more experimental than the sections above. This is where I am still exploring different questions and options for assessing those questions. 
-
-## Clinical-task correlations
-
-We would like to know whether baseline symptom severity is associated with task performance. One way to do this is to average response times across conditions and correlate it with some clinical score. The question we are testing here is whether overall task performance can be predicted by baseline symptom severity. This question might be interesting. But it is possible to be even more specific. 
-
-```{r echo=FALSE}
-data_SUBS_BaTotalRTs_mean <- data_SUBS_BaTotalRTs %>%
-        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal'), names_from = Condition, values_from = Response.Time) %>%
-        mutate(Mean = (Ext+Int2+Int3)/3)
-infer_SUBS_BaTotalRTs_mean <- lm(log1p(Mean) ~ Up3OfTotal + 
-                                         Gender + scale(Age, center=TRUE, scale=FALSE), data=data_SUBS_BaTotalRTs_mean)
-interrogate_mod(infer_SUBS_BaTotalRTs_mean)
-#posthoc_comparisons(infer_SUBS_BaTotalRTs, rm = TRUE)
-```
-
-Here we see that there is indeed an association between baseline symptom severity and overall task performance. We can do a further test to assess whether the association between baseline symptom severity and overall task performance depends on PD subtype. 
-
-```{r echo=FALSE}
-infer_SUBS_BaTotalRTs_mean <- lm(log1p(Mean) ~ Group*Up3OfTotal + 
-                                      Gender + scale(Age, center=TRUE, scale=FALSE), data=data_SUBS_BaTotalRTs_mean)
-interrogate_mod(infer_SUBS_BaTotalRTs_mean)
-#posthoc_comparisons(infer_SUBS_BaTotalRTs_mean, rm = FALSE)
-```
-
-Here, we fail to find evidence for a an influence of PD subtype on the association between baseline symptom severity and overall task performance. But we can be even more specific than this. If we drop the idea of assessing overall task performance we can ask whether the association between baseline symptom severity and task performance depends on the task condition, in addition to PD subtype.
-
-```{r echo=FALSE}
-
-infer_SUBS_BaTotalRTs <- lmer(log1p(Response.Time) ~ Group*Condition*Up3OfTotal + 
-                                      Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym), data=data_SUBS_BaTotalRTs)
-interrogate_mod(infer_SUBS_BaTotalRTs)
-#posthoc_comparisons(infer_SUBS_BaTotalRTs, rm = TRUE)
-
-```
-
-## Symptom progression
-
-Here, we want to assess whether patients worsen over the course of a single year. Note that I recoded Condition to mean Timepoint...
-
-```{r infer_symprog}
-f <- 'log1p(Score) ~ 1 + Group*Condition + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
-print(paste('Fitting the following model:', f, sep=' '))
-
-infer_SUBS_ProgTotal <- lmer(f, data=data_SUBS_SymProgTotal)
-interrogate_mod(infer_SUBS_ProgTotal)
-#posthoc_comparisons(infer_SUBS_ProgTotal, rm = TRUE)
-
-infer_SUBS_ProgBrady <- lmer(f, data=data_SUBS_SymProgBrady)
-interrogate_mod(infer_SUBS_ProgBrady)
-#posthoc_comparisons(infer_SUBS_ProgBrady, rm = TRUE)
-
-infer_SUBS_ProgPeg <- lmer(f, data=data_SUBS_SymProgPeg)
-interrogate_mod(infer_SUBS_ProgPeg)
-#posthoc_comparisons(infer_SUBS_ProgPeg, rm = TRUE)
-```
-
-
-
-
 
