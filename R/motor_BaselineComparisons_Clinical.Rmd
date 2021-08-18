@@ -240,13 +240,13 @@ data_SUBS_subset <- bind_rows(data_SUBS_t1, data_SUBS_t2) %>%
 data_SUBS_SymProgTotal_NoSubtype <- data_SUBS_subset %>%
         mutate(Score = Up3OfTotal,
                Group = 'PD_POM') %>%
-        select(pseudonym, Timepoint, Group, Age, Gender, Score) %>%
+        select(pseudonym, Timepoint, Group, Age, Gender, Up3OfTotal, Score) %>%
         mutate(Condition = Timepoint) %>%
         na.omit
 
 data_SUBS_SymProgTotal <- data_SUBS_subset %>%
         mutate(Score = Up3OfTotal) %>%
-        select(pseudonym, Timepoint, Group, Age, Gender, Score) %>%
+        select(pseudonym, Timepoint, Group, Age, Gender, Up3OfTotal, Score) %>%
         mutate(Condition = Timepoint) %>%
         na.omit
 
@@ -326,7 +326,7 @@ We can also assess the association between symptom progression and overall task 
 
 ```{r contaskcorr_simpler_prog, echo = FALSE, message = FALSE, warning = FALSE}
 simpler_scatter(data=data_SUBS_ProgTotalRTs_mean, y='Up3OfTotal.1YearDelta', x='log(Mean)')
-f <- 'log1p(Mean) ~ Up3OfTotal.1YearDelta + Gender + scale(Age, center=TRUE, scale=FALSE)'
+f <- 'log1p(Mean) ~ Up3OfTotal.1YearDelta + Up3OfTotal + Gender + scale(Age, center=TRUE, scale=FALSE)'
 print(paste('Fitting the following model:', f, sep=' '))
 infer_SUBS_ProgTotalRTs_mean <- lm(f, data=data_SUBS_ProgTotalRTs_mean)
 interrogate_mod(infer_SUBS_ProgTotalRTs_mean)
@@ -350,7 +350,7 @@ We do the same thing for symptom progression.
 
 ```{r clintaskcorr_simple_prog, echo = FALSE, message = FALSE, warning = FALSE}
 simple_scatter(data=data_SUBS_ProgTotalRTs_mean, y='Up3OfTotal.1YearDelta', x='log(Mean)', lines='Group')
-f <- 'log1p(Mean) ~ Group*Up3OfTotal.1YearDelta + Gender + scale(Age, center=TRUE, scale=FALSE)'
+f <- 'log1p(Mean) ~ Group*Up3OfTotal.1YearDelta + Up3OfTotal + Gender + scale(Age, center=TRUE, scale=FALSE)'
 print(paste('Fitting the following model:', f, sep=' '))
 infer_SUBS_ProgTotalRTs_mean <- lm(f, data=data_SUBS_ProgTotalRTs_mean)
 interrogate_mod(infer_SUBS_ProgTotalRTs_mean)
@@ -374,7 +374,7 @@ Again, same thing for symptom progression.
 
 ```{r lintaskcorr_facet, echo = FALSE, message = FALSE, warning = FALSE}
 facet_scatter(data=data_SUBS_ProgTotalRTs, y='Up3OfTotal.1YearDelta', x='log(Response.Time)', lines='Group', facets='Condition')
-f <- 'log1p(Response.Time) ~ Group*Condition*Up3OfTotal.1YearDelta + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+f <- 'log1p(Response.Time) ~ Group*Condition*Up3OfTotal.1YearDelta + Up3OfTotal + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
 print(paste('Fitting the following model:', f, sep=' '))
 infer_SUBS_ProgTotalRTs <- lmer(f, data=data_SUBS_ProgTotalRTs)
 interrogate_mod(infer_SUBS_ProgTotalRTs)
