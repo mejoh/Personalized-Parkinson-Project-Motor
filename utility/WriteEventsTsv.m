@@ -27,7 +27,7 @@ BIDSDir  = fullfile(Root, 'bids');
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-PIT2.*'));
 % BIDS     = spm_BIDS(BIDSDir);
 
-Run = {'2'}; 
+Run = {'1', '2'}; 
 % Run = {'1', '2', '3'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
 for r = 1:length(Run)
 %   Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
