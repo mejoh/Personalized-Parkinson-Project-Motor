@@ -262,11 +262,11 @@ data_SUBS_BaTotalRTs_mean <- data_SUBS_BaTotalRTs %>%
 
 data_SUBS_ProgTotalRTs <- data_SUBS %>%
   filter(Timepoint == 'ses-Visit1') %>%
-  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal.1YearDelta, Response.Time) %>%
+  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal, Up3OfTotal.1YearDelta, Response.Time) %>%
   na.omit
 
 data_SUBS_ProgTotalRTs_mean <- data_SUBS_ProgTotalRTs %>%
-        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal.1YearDelta'), names_from = Condition, values_from = Response.Time) %>%
+        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal','Up3OfTotal.1YearDelta'), names_from = Condition, values_from = Response.Time) %>%
         mutate(Mean = (Ext+Int2+Int3)/3)
         
 ```
