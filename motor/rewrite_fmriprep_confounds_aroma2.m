@@ -13,7 +13,6 @@ end
 session = 'ses-POMVisit1';
 BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-ANALYSESDir   = strcat('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem');  
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
 % Sub = {'sub-POMU94E6A93D782CE718'};
 
