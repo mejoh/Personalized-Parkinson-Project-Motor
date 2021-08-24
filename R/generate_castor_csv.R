@@ -251,74 +251,92 @@ generate_castor_csv <- function(bidsdir){
         
         # Define an approximate disease onset and estimated disease duration
         # NOTE: Warnings in this step come from NAs in Visit2, nothing to be concerned about
-        DefineDiseaseDuration <- function(dataframe){
-                
-                # Convert assessment time to date format
-                dataframe <- dataframe %>%
-                        mutate(Up3OfAssesTime = sub(';.*', '', Up3OfAssesTime)) %>%
-                        mutate(Up3OfAssesTime = dmy(Up3OfAssesTime))
-                
-                # Calculate time of diagnosis (which is only available for Visit1)
-                YearOnly <- dataframe %>%
-                        select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
-                               Up3OfAssesTime) %>%
-                        filter(!is.na(DiagParkYear)) %>%
-                        filter(is.na(DiagParkMonth))
-                YearOnly$DiagParkYear <- as.numeric(YearOnly$DiagParkYear)
-                YearOnly$DiagParkMonth <- c(6)
-                YearOnly$DiagParkDay <- c(15)
-                
-                YearMonthOnly <- dataframe %>%
-                        select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
-                               Up3OfAssesTime) %>%
-                        filter(!is.na(DiagParkYear)) %>%
-                        filter(!is.na(DiagParkMonth)) %>%
-                        filter(is.na(DiagParkDay))
-                YearMonthOnly$DiagParkYear <- as.numeric(YearMonthOnly$DiagParkYear)
-                YearMonthOnly$DiagParkMonth <- as.numeric(YearMonthOnly$DiagParkMonth)
-                YearMonthOnly$DiagParkDay <- c(15) 
-                
-                YearMonthDay <- dataframe %>%
-                        select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
-                               Up3OfAssesTime) %>%
-                        filter(!is.na(DiagParkYear)) %>%
-                        filter(!is.na(DiagParkMonth)) %>%
-                        filter(!is.na(DiagParkDay))
-                YearMonthDay$DiagParkYear <- as.numeric(YearMonthDay$DiagParkYear)
-                YearMonthDay$DiagParkMonth <- as.numeric(YearMonthDay$DiagParkMonth)
-                YearMonthDay$DiagParkDay <- as.numeric(YearMonthDay$DiagParkDay)
-                
-                YearMissing <- dataframe %>%
-                        select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
-                               Up3OfAssesTime) %>%
-                        filter(is.na(DiagParkYear))
-                YearMissing$DiagParkYear <- as.numeric(YearMissing$DiagParkYear)
-                YearMissing$DiagParkMonth <- as.numeric(YearMissing$DiagParkMonth)
-                YearMissing$DiagParkDay <- as.numeric(YearMissing$DiagParkDay)
-                
-                # Bind estimated diagnosis dates and sort
-                EstDiagnosisDates <- bind_rows(YearOnly, YearMonthOnly, YearMonthDay, YearMissing) %>%
-                        arrange(pseudonym, Timepoint) %>% 
-                        mutate(EstDiagDate = ymd(paste(DiagParkYear,DiagParkMonth,DiagParkDay))) %>%
-                        mutate(EstDisDurYears = as.numeric(Up3OfAssesTime - EstDiagDate) / 365) %>%
-                        mutate(TimeToFUYears = 0)
-                
-                # Compute time to follow-up and estimated disease duration
-                for(n in 1:nrow(EstDiagnosisDates)){
-                        if(EstDiagnosisDates$Timepoint[n] == 'ses-POMVisit2' && EstDiagnosisDates$Timepoint[n-1] == 'ses-POMVisit1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-1]){
-                                EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-1]) / 365
-                                EstDiagnosisDates$EstDisDurYears[n] <- EstDiagnosisDates$EstDisDurYears[n-1]
-                        }else if(EstDiagnosisDates$Timepoint[n] == 'ses-POMVisit3' && EstDiagnosisDates$Timepoint[n-2] == 'ses-POMVisit1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-2]){
-                                EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-2]) / 365
-                                EstDiagnosisDates$EstDisDurYears[n] <- EstDiagnosisDates$EstDisDurYears[n-2]
-                        }
+        # DefineDiseaseDuration <- function(dataframe){
+        # 
+        #         # Convert assessment time to date format
+        #         dataframe <- dataframe %>%
+        #                 mutate(Up3OfAssesTime = sub(';.*', '', Up3OfAssesTime)) %>%
+        #                 mutate(Up3OfAssesTime = dmy(Up3OfAssesTime))
+        # 
+        #         # Calculate time of diagnosis (which is only available for Visit1)
+        #         YearOnly <- dataframe %>%
+        #                 select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
+        #                        Up3OfAssesTime) %>%
+        #                 filter(!is.na(DiagParkYear)) %>%
+        #                 filter(is.na(DiagParkMonth))
+        #         YearOnly$DiagParkYear <- as.numeric(YearOnly$DiagParkYear)
+        #         YearOnly$DiagParkMonth <- c(6)
+        #         YearOnly$DiagParkDay <- c(15)
+        # 
+        #         YearMonthOnly <- dataframe %>%
+        #                 select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
+        #                        Up3OfAssesTime) %>%
+        #                 filter(!is.na(DiagParkYear)) %>%
+        #                 filter(!is.na(DiagParkMonth)) %>%
+        #                 filter(is.na(DiagParkDay))
+        #         YearMonthOnly$DiagParkYear <- as.numeric(YearMonthOnly$DiagParkYear)
+        #         YearMonthOnly$DiagParkMonth <- as.numeric(YearMonthOnly$DiagParkMonth)
+        #         YearMonthOnly$DiagParkDay <- c(15)
+        # 
+        #         YearMonthDay <- dataframe %>%
+        #                 select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
+        #                        Up3OfAssesTime) %>%
+        #                 filter(!is.na(DiagParkYear)) %>%
+        #                 filter(!is.na(DiagParkMonth)) %>%
+        #                 filter(!is.na(DiagParkDay))
+        #         YearMonthDay$DiagParkYear <- as.numeric(YearMonthDay$DiagParkYear)
+        #         YearMonthDay$DiagParkMonth <- as.numeric(YearMonthDay$DiagParkMonth)
+        #         YearMonthDay$DiagParkDay <- as.numeric(YearMonthDay$DiagParkDay)
+        # 
+        #         YearMissing <- dataframe %>%
+        #                 select(pseudonym, Timepoint, DiagParkYear, DiagParkMonth, DiagParkDay,
+        #                        Up3OfAssesTime) %>%
+        #                 filter(is.na(DiagParkYear))
+        #         YearMissing$DiagParkYear <- as.numeric(YearMissing$DiagParkYear)
+        #         YearMissing$DiagParkMonth <- as.numeric(YearMissing$DiagParkMonth)
+        #         YearMissing$DiagParkDay <- as.numeric(YearMissing$DiagParkDay)
+        # 
+        #         # Bind estimated diagnosis dates and sort
+        #         EstDiagnosisDates <- bind_rows(YearOnly, YearMonthOnly, YearMonthDay, YearMissing) %>%
+        #                 arrange(pseudonym, Timepoint) %>%
+        #                 mutate(EstDiagDate = ymd(paste(DiagParkYear,DiagParkMonth,DiagParkDay))) %>%
+        #                 mutate(EstDisDurYears = as.numeric(Up3OfAssesTime - EstDiagDate) / 365) %>%
+        #                 mutate(TimeToFUYears = 0)
+        # 
+        #         # Compute time to follow-up and estimated disease duration
+        #         for(n in 1:nrow(EstDiagnosisDates)){
+        #                 if(EstDiagnosisDates$Timepoint[n] == 'ses-POMVisit2' && EstDiagnosisDates$Timepoint[n-1] == 'ses-POMVisit1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-1]){
+        #                         EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-1]) / 365
+        #                         EstDiagnosisDates$EstDisDurYears[n] <- EstDiagnosisDates$EstDisDurYears[n-1]
+        #                 }else if(EstDiagnosisDates$Timepoint[n] == 'ses-POMVisit3' && EstDiagnosisDates$Timepoint[n-2] == 'ses-POMVisit1' && EstDiagnosisDates$pseudonym[n] == EstDiagnosisDates$pseudonym[n-2]){
+        #                         EstDiagnosisDates$TimeToFUYears[n] <- as.numeric(EstDiagnosisDates$Up3OfAssesTime[n] - EstDiagnosisDates$Up3OfAssesTime[n-2]) / 365
+        #                         EstDiagnosisDates$EstDisDurYears[n] <- EstDiagnosisDates$EstDisDurYears[n-2]
+        #                 }
+        #         }
+        # 
+        #         dataframe <- bind_cols(dataframe, tibble(EstDisDurYears = EstDiagnosisDates$EstDisDurYears, TimeToFUYears = EstDiagnosisDates$TimeToFUYears))
+        #         return(dataframe)
+        # 
+        # }
+        # df2 <- DefineDiseaseDuration(df2)
+        
+        # TEMPORARY #
+        # --------- #
+        df2 <- df1 %>%
+                mutate(EstDisDurYears = NA,
+                       TimeToFUYears = NA)
+        for(n in 1:length(df2$TimeToFUYears)){
+                if(str_detect(df2$Timepoint[n], 'POMVisit1')){
+                        df2$TimeToFUYears[n] <- 0
+                }else if(str_detect(df2$Timepoint[n], 'POMVisit2')){
+                        df2$TimeToFUYears[n] <- 1
+                }else if(str_detect(df2$Timepoint[n], 'POMVisit3')){
+                        df2$TimeToFUYears[n] <- 2
                 }
-                
-                dataframe <- bind_cols(dataframe, tibble(EstDisDurYears = EstDiagnosisDates$EstDisDurYears, TimeToFUYears = EstDiagnosisDates$TimeToFUYears))
-                return(dataframe)
-                
         }
-        df2 <- DefineDiseaseDuration(df2)
+        # --------- #
+        # TEMPORARY #
+        
         
         # Lists of subscores
         list.TotalOff <- c('Up3OfSpeech', 'Up3OfFacial', 'Up3OfRigNec', 'Up3OfRigRue', 'Up3OfRigLue', 'Up3OfRigRle', 'Up3OfRigLle',
@@ -359,8 +377,8 @@ generate_castor_csv <- function(bidsdir){
         list.QUIP_rs <- c(list.QUIP_icd, list.QUIP_hobbypund, list.QUIP_medication)
         list.AES12 <- c('Aes12Pd01', 'Aes12Pd02', 'Aes12Pd03', 'Aes12Pd04', 'Aes12Pd05', 'Aes12Pd06', 'Aes12Pd07', 'Aes12Pd08', 'Aes12Pd09',
                         'Aes12Pd10', 'Aes12Pd11', 'Aes12Pd12')
-        list.Apat <- c('Apat01','Apat02','Apat03','Apat04','Apat05','Apat06','Apat07','Apat08','Apat09','Apat10','Apat11','Apat12',
-                       'Apat13','Apat14')
+        #list.Apat <- c('Apat01','Apat02','Apat03','Apat04','Apat05','Apat06','Apat07','Apat08','Apat09','Apat10','Apat11','Apat12',
+        #               'Apat13','Apat14')
         list.BDI2 <- c('Bdi2It01', 'Bdi2It02', 'Bdi2It03', 'Bdi2It04', 'Bdi2It05', 'Bdi2It06', 'Bdi2It07', 'Bdi2It08', 'Bdi2It09',  'Bdi2It10',
                        'Bdi2It11', 'Bdi2It12', 'Bdi2It13', 'Bdi2It14', 'Bdi2It15', 'Bdi2It16', 'Bdi2It17', 'Bdi2It18', 'Bdi2It19', 'Bdi2It20', 'Bdi2It21')
         list.TalkProb <- c('TalkProb01', 'TalkProb02', 'TalkProb03', 'TalkProb04', 'TalkProb05', 'TalkProb06', 'TalkProb07')
@@ -449,7 +467,6 @@ generate_castor_csv <- function(bidsdir){
                                QUIPicdSum = rowSums(.[list.QUIP_icd]),
                                QUIPrsSum = rowSums(.[list.QUIP_rs]),
                                AES12Sum = rowSums(.[list.AES12]),
-                               ApatSum = rowSums(.[list.Apat]),
                                BDI2Sum = rowSums(.[list.BDI2]),
                                TalkProbSum = rowSums(.[list.TalkProb]),
                                VisualProb23Sum = rowSums(.[list.VisualProb23]),
@@ -463,6 +480,8 @@ generate_castor_csv <- function(bidsdir){
                                PDQ39_communicationSum = rowSums(.[list.PDQ39_communication]) / (4*3) * 100,
                                PDQ39_bodilydiscomfortSum = rowSums(.[list.PDQ39_bodilydiscomfort]) / (4*3) * 100) %>%
                         mutate(Group = 'PD_POM')
+                # Variables temporarily left out: 
+                # ApatSum = rowSums(.[list.Apat])
                 
                 
                 for(v in 1:length(dataframe$PDQ39_socialsupportSum)){
@@ -540,27 +559,28 @@ generate_castor_csv <- function(bidsdir){
         }
         df4 <- ExtendVars(df3,varlist)
         
-        # Transformations
-        TransformVariables <- function(dataframe){
-                dataframe$Up3OfHoeYah <- as.factor(dataframe$Up3OfHoeYah)                     # Hoen & Yahr stage
-                dataframe$Up3OnHoeYah <- as.factor(dataframe$Up3OnHoeYah)
-                dataframe$MriNeuroPsychTask <- as.factor(dataframe$MriNeuroPsychTask)         # Which task was done?
-                dataframe$DiagParkCertain <- as.factor(dataframe$DiagParkCertain)             # Certainty of diagnosis
-                levels(dataframe$DiagParkCertain) <- c('PD','DoubtAboutPD','Parkinsonism','DoubtAboutParkinsonism', 'NeitherDisease')
-                dataframe$MostAffSide <- as.factor(dataframe$MostAffSide)                     # Most affected side
-                levels(dataframe$MostAffSide) <- c('RightOnly', 'LeftOnly', 'BiR>L', 'BiL>R', 'BiR=L', 'None')
-                dataframe$PrefHand <- as.factor(dataframe$PrefHand)                           # Dominant hand
-                levels(dataframe$PrefHand) <- c('Right', 'Left', 'NoPref')
-                dataframe$Gender <- as.factor(dataframe$Gender)                               # Gender
-                levels(dataframe$Gender) <- c('Male', 'Female')
-                dataframe$Age <- as.numeric(dataframe$Age)                                    # Age
-                dataframe$ParkinMedUser <- as.factor(dataframe$ParkinMedUser)                 # Parkinson's medication use
-                levels(dataframe$ParkinMedUser) <- c('No','Yes')
-                dataframe$NpsEducYears <- as.numeric(dataframe$NpsEducYears)                  # Education years
-                dataframe$Timepoint <- as.factor(dataframe$Timepoint)                         # Timepoint
-                return(dataframe)
-        }
-        df5 <- TransformVariables(df4)
+        # Transformations (necessary?)
+        # TransformVariables <- function(dataframe){
+        #         dataframe$Up3OfHoeYah <- as.factor(dataframe$Up3OfHoeYah)                     # Hoen & Yahr stage
+        #         dataframe$Up3OnHoeYah <- as.factor(dataframe$Up3OnHoeYah)
+        #         dataframe$MriNeuroPsychTask <- as.factor(dataframe$MriNeuroPsychTask)         # Which task was done?
+        #         dataframe$DiagParkCertain <- as.factor(dataframe$DiagParkCertain)             # Certainty of diagnosis
+        #         levels(dataframe$DiagParkCertain) <- c('PD','DoubtAboutPD','Parkinsonism','DoubtAboutParkinsonism', 'NeitherDisease')
+        #         dataframe$MostAffSide <- as.factor(dataframe$MostAffSide)                     # Most affected side
+        #         levels(dataframe$MostAffSide) <- c('RightOnly', 'LeftOnly', 'BiR>L', 'BiL>R', 'BiR=L', 'None')
+        #         dataframe$PrefHand <- as.factor(dataframe$PrefHand)                           # Dominant hand
+        #         levels(dataframe$PrefHand) <- c('Right', 'Left', 'NoPref')
+        #         dataframe$Gender <- as.factor(dataframe$Gender)                               # Gender
+        #         levels(dataframe$Gender) <- c('Male', 'Female')
+        #         dataframe$Age <- as.numeric(dataframe$Age)                                    # Age
+        #         dataframe$ParkinMedUser <- as.factor(dataframe$ParkinMedUser)                 # Parkinson's medication use
+        #         levels(dataframe$ParkinMedUser) <- c('No','Yes')
+        #         dataframe$NpsEducYears <- as.numeric(dataframe$NpsEducYears)                  # Education years
+        #         dataframe$Timepoint <- as.factor(dataframe$Timepoint)                         # Timepoint
+        #         return(dataframe)
+        # }
+        # df5 <- TransformVariables(df4)
+        df5 <- df4
         
         # Calculate disease progression (Year2 - Year1) and indicate which participants have FU data
         CalculateDiseaseProgression <- function(dataframe){
@@ -681,11 +701,6 @@ generate_castor_csv <- function(bidsdir){
                                AES12Sum.2YearDelta = NA,
                                AES12Sum.2YearROC = NA,
                                
-                               ApatSum.1YearDelta = NA,
-                               ApatSum.1YearROC = NA,
-                               ApatSum.2YearDelta = NA,
-                               ApatSum.2YearROC = NA,
-                               
                                BDI2Sum.1YearDelta = NA,
                                BDI2Sum.1YearROC = NA,
                                BDI2Sum.2YearDelta = NA,
@@ -712,6 +727,11 @@ generate_castor_csv <- function(bidsdir){
                                VisualProb17Sum.2YearROC = NA,
                                
                                MultipleSessions = 0)
+                #Left out
+                #ApatSum.1YearDelta = NA,
+                #ApatSum.1YearROC = NA,
+                #ApatSum.2YearDelta = NA,
+                #ApatSum.2YearROC = NA,
                 
                 alpha <- 0.5
                 for(n in 1:nrow(dataframe)){
@@ -768,9 +788,6 @@ generate_castor_csv <- function(bidsdir){
                                 
                                 dataframe$AES12Sum.1YearDelta[(n-1):n] <- dataframe$AES12Sum[n] - dataframe$AES12Sum[n-1]
                                 dataframe$AES12Sum.1YearROC[(n-1):n] <- elble.change(dataframe$AES12Sum[n-1], dataframe$AES12Sum[n], length(list.AES12), alpha = 0.5/length(list.AES12))
-                                
-                                dataframe$ApatSum.1YearDelta[(n-1):n] <- dataframe$Apat12Sum[n] - dataframe$Apat12Sum[n-1]
-                                dataframe$ApatSum.1YearROC[(n-1):n] <- elble.change(dataframe$Apat12Sum[n-1], dataframe$Apat12Sum[n], length(list.Apat), alpha = 0.5/length(list.Apat))
                                 
                                 dataframe$BDI2Sum.1YearDelta[(n-1):n] <- dataframe$BDI2Sum[n] - dataframe$BDI2Sum[n-1]
                                 dataframe$BDI2Sum.1YearROC[(n-1):n] <- elble.change(dataframe$BDI2Sum[n-1], dataframe$BDI2Sum[n], length(list.BDI2), alpha = 0.5/length(list.BDI2))
@@ -859,6 +876,10 @@ generate_castor_csv <- function(bidsdir){
                                 dataframe$MultipleSessions[(n-2):n] = 1
                         }
                 }
+                #Left out
+                # dataframe$ApatSum.1YearDelta[(n-1):n] <- dataframe$Apat12Sum[n] - dataframe$Apat12Sum[n-1]
+                # dataframe$ApatSum.1YearROC[(n-1):n] <- elble.change(dataframe$Apat12Sum[n-1], dataframe$Apat12Sum[n], length(list.Apat), alpha = 0.5/length(list.Apat))
+                
                 dataframe$MultipleSessions <- as.factor(dataframe$MultipleSessions)
                 levels(dataframe$MultipleSessions) <- c('No','Yes')
                 return(dataframe)
@@ -891,6 +912,8 @@ generate_castor_csv <- function(bidsdir){
                          TalkProbSum, TalkProbSum.1YearDelta, TalkProbSum.1YearROC, TalkProbSum.2YearDelta, TalkProbSum.2YearROC,
                          VisualProb23Sum, VisualProb23Sum.1YearDelta, VisualProb23Sum.1YearROC, VisualProb23Sum.2YearDelta, VisualProb23Sum.2YearROC,
                          VisualProb17Sum, VisualProb17Sum.1YearDelta, VisualProb17Sum.1YearROC, VisualProb17Sum.2YearDelta, VisualProb17Sum.2YearROC)
+        #Left out
+        #
         
         # Define the task that was used
         
