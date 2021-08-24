@@ -205,7 +205,13 @@ for n = 1:numel(Files)
     Inputs{4}{n} = 1;
 	
 	% fMRI model specification: Multiple conditions - cfg_files
-    InMat		 = extract_onsets_and_duration_pm(EventsTsvFile, InMat, 1);
+    StimulusEvents	= extract_onsets_and_duration_pm(EventsTsvFile, 1);
+    names = StimulusEvents.names;
+    onsets = StimulusEvents.onsets;
+    durations = StimulusEvents.durations;
+    pmod = StimulusEvents.pmod;
+    disp(['Saving stimulus / response events in: ' InMat])
+    save(InMat, 'names', 'onsets', 'durations', 'pmod')
     Inputs{5}{n} = {InMat};
 	
 	% fMRI model specification: Multiple regressors - cfg_files
