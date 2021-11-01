@@ -1,21 +1,15 @@
 % Copy 1st-level contrasts to group directory in analysis folder
 
-function motor_copycontrasts(Swap)
+function motor_copycontrasts(session, Swap)
 %% Swap
 
 if nargin<1 || isempty(Swap)
-	Swap = false;               % A left-right swap of the con-images
+	Swap = true;               % A left-right swap of the con-images
 end
-
-%% Paths
-
-addpath('/home/common/matlab/spm12');
-spm('defaults', 'FMRI');
 
 %% Directories
 
-session = 'ses-POMVisit3';
-consession = 'ses-Visit2';
+consession = [session(1:4) session(8:13)];
 FDThresh = 1;
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005' 'con_0006' 'con_0007'  'con_0008'  'con_0009'  'con_0010'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
@@ -142,7 +136,7 @@ fprintf('%i subjects will be copied\n', length(SubInfo.Sub))
 
 for c = 1:numel(ConList)
     
-    ConDir = fullfile(ANALYSESDir, 'Group', ConList{c});
+    ConDir = fullfile(ANALYSESDir, 'Group_NoSwap', ConList{c});
     if ~exist(ConDir, 'dir')
         mkdir(ConDir);
 %     else
