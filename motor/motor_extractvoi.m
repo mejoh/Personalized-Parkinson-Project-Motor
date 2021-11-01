@@ -1,70 +1,52 @@
 % Description:
-% Loads VOI files, removes Catch scans, and saves to new VOI file + csv file for use in R
+% Searches an SPM group analysis directory for VOI files
+% Writes CSV file containing VOI information intended for plotting in R
+% Columns: pseudonym, group, condition, eigenvariate values
 
-function motor_extractvoi()
+function motor_extractvoi(AnalysisDirectory)
 
-dOutput = '/project/3024006.02/Analyses/brain_behavior_corrs/HcOn_ExtInt2Int3Catch';
-% Load SPM.mat file
-dAnalysis = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_ExtInt2Int3Catch';
-fSPM = load(fullfile(dAnalysis, 'SPM.mat'));
+fSPM = load(fullfile(AnalysisDirectory, 'SPM.mat'));
+VOI_list = cellstr(spm_select('FPList', AnalysisDirectory, '^VOI.*.mat'));
 
-% List all available VOIs (except ones that have been edited)
-VOI_list = cellstr(spm_select('FPList', dAnalysis, '^VOI.*.mat'));
-VOI_list = VOI_list(~contains(VOI_list, 'NoCatch'));
 for v = 1:numel(VOI_list)
 
     % Load info from SPM.mat and voi file
     fVOI = load(VOI_list{v});
+    fprintf('Generating table: %s, %s \n', fVOI.xY.name, fVOI.xY.str)
     Vals = fVOI.Y;                                  % Extract eigenvariate
     Scans = {fSPM.SPM.xY.VY.fname}';                % List scans that the eigenvariate is based on
+    [~, Scans] = fileparts(Scans);
     pseudonym = extractBetween(Scans, '_sub-', '_ses');   % Define pseudonyms
-    pseudonym = insertBefore(pseudonym,'POM','sub-');
-    nHC = sum(contains(Scans,'HC_PIT'))/4;
-    nPD = sum(contains(Scans,'PD_POM'))/4;
-    Cond_HC = [cellstr(repmat('Ext', nHC, 1)); cellstr(repmat('Int2', nHC, 1)); cellstr(repmat('Int3', nHC, 1)); cellstr(repmat('Catch', nHC, 1))];
-    Cond_PD = [cellstr(repmat('Ext', nPD, 1)); cellstr(repmat('Int2', nPD, 1)); cellstr(repmat('Int3', nPD, 1)); cellstr(repmat('Catch', nPD, 1))];
-    Cond = [Cond_HC;Cond_PD];                       % Label scans by condition (note that order matters here)
+    pseudonym = insertBefore(pseudonym, 1, 'sub-');
+    group = extractBefore(Scans, '_sub-');
     
     % Define structure of csv file
-    Dat.Scans = Scans;
+    Dat = [];
+    Dat.scans = Scans;
     Dat.pseudonym = pseudonym;
-    Dat.Vals = Vals;
-    Dat.Cond = Cond;
-    Dat.Group = cell(numel(Dat.pseudonym),1);
-    for n = 1:numel(Dat.pseudonym)
-        if contains(Dat.Scans{n}, 'HC_PIT')
-            Dat.Group{n} = 'Healthy';
-        else
-            Dat.Group{n} = 'Patient';
+    Dat.Group = group;
+    Dat.Vals = round(Vals, 8);
+    Dat.Cond = cell(size(Dat.scans));
+    for i = 1:numel(Dat.Cond)
+        if contains(Dat.scans{i}, 'con_0001')
+            Dat.Cond{i} = 'Ext';
+        elseif contains(Dat.scans{i}, 'con_0002')
+            Dat.Cond{i} = 'Int2';
+        elseif contains(Dat.scans{i}, 'con_0003')
+            Dat.Cond{i} = 'Int3';
+        elseif contains(Dat.scans{i}, 'con_0004')
+            Dat.Cond{i} = 'Catch';
+        elseif contains(Dat.scans{i}, 'con_0007')
+            Dat.Cond{i} = 'Mean_ExtInt';
+        elseif contains(Dat.scans{i}, 'con_0010')
+            Dat.Cond{i} = 'Int>Ext';
         end
     end
-    Dat = removefields(Dat, 'Scans');
-
-    % Remove data related to the Catch condition
-    Sel = true(numel(Dat.Cond),1);
-    for n = 1:numel(Cond)
-        if strcmp(Cond{n}, 'Catch')
-            Sel(n) = false;
-        end
-    end
-    Dat.pseudonym = Dat.pseudonym(Sel);
-    Dat.Vals = Dat.Vals(Sel);
-    Dat.Cond = Dat.Cond(Sel);
-%     Dat.Cond2 = extractBefore(Dat.Cond,4);
-    Dat.Group = Dat.Group(Sel);
-    
-    % Write VOI without Catch condition
-    fVOI_edit = fVOI;
-    fVOI_edit.Y = fVOI_edit.Y(Sel);
-    fVOI_edit.xY.y = fVOI_edit.xY.y(Sel);
-    fVOI_edit.xY.u = fVOI_edit.xY.u(Sel);
-    OutputName = insertBefore(VOI_list{v}, '.mat', '_NoCatch');
-    spm_save(OutputName, fVOI_edit)
 
     % Write table to csv file for use in R
     Dat_tab = struct2table(Dat);
-    OutputName = fullfile(dOutput, ['VOI_' fVOI.xY.name '.csv']);
-    writetable(Dat_tab, OutputName)
+    OutputName = replace(VOI_list{v}, '.mat', '.csv');
+    writetable(Dat_tab, OutputName, 'WriteMode', 'overwrite')
     
 end
 
