@@ -40,12 +40,12 @@ for i = 1:numel(ImageList)
         end
     end
 
-    % Define outliers as +-IQR*2
+    % Define outliers as +-IQR*3
     m = mean(SubInfo.GrandMean);
-%     lower = m - iqr(SubInfo.GrandMean)*2;
-%     upper = m + iqr(SubInfo.GrandMean)*2;
-    lower = m - std(SubInfo.GrandMean)*2;
-    upper = m + std(SubInfo.GrandMean)*2;
+%     lower = m - iqr(SubInfo.GrandMean)*3;
+%     upper = m + iqr(SubInfo.GrandMean)*3;
+    lower = m - std(SubInfo.GrandMean)*3;
+    upper = m + std(SubInfo.GrandMean)*3;
     SubInfo.Outlier = false(size(SubInfo.GrandMean));
     for n = 1:length(SubInfo.Outlier)
         if SubInfo.GrandMean(n) < lower || SubInfo.GrandMean(n) > upper
