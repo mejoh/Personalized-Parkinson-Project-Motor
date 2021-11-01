@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r set-options, echo=FALSE, cache=FALSE}
-options(width = 2500)
+options(width = 150)
 ```
 
 # Load libraries and functions.
@@ -24,7 +24,13 @@ options(width = 2500)
 ```{r libraries, message=FALSE}
 source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
 source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/summarySE.R")
+funcdir <- '/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/'
+funcs <- list.files(funcdir, full.names = TRUE)
+sapply(funcs, source)
 library(emmeans)
+emm_options(lmerTest.df = 'satterthwaite')  # Calculates DFs in the same way as lmerTest
+emm_options(pbkrtest.limit = 3000)             # A limit is set at 3000 observations to keep DF calculations from 
+emm_options(lmerTest.limit = 50000)            # being too computationally intense. Here, we increase the limit.
 library(cowplot)
 library(readr)
 library(tidyverse)
@@ -32,39 +38,43 @@ library(lme4)
 library(lmerTest)
 library(effectsize)
 library(car)
+library(plyr)           # Invoked by the summarySE function. Load it last to avoid dependency issues
 ```
 
 ```{r functions_plot, echo=FALSE}
 #For measurements where values differ per condition (Response.Time and Percentage.Correct)
-raincloudplot <- function(data, sumrepdat, title){
+raincloudplot <- function(data, sumrepdat, title='', xlab='', ylab=''){
 ggplot(data, aes(x = Condition, y = Score, fill = Group)) +
   geom_flat_violin(aes(fill = Group),
-                   position = position_nudge(x = .1, y = 0), 
+                   position = position_nudge(x = .15, y = 0), 
                    adjust = 1.5, 
                    trim = FALSE, 
                    alpha = .5, 
                    colour = NA)+
-  geom_point(aes(x = as.numeric(Condition)-.1, y = Score, colour = Group),
-             position = position_jitterdodge(jitter.width = .04, dodge.width = .05),
-             size = .25,
-             shape = 20)+
+  geom_point(aes(x = as.numeric(Condition)-.15, y = Score, colour = Group),
+             position = position_jitterdodge(jitter.width = .03, dodge.width = .05),
+             size = 1.5,
+             shape = 20,
+             alpha = .7)+
   geom_boxplot(aes(x = Condition, y = Score, fill = Group),
                outlier.shape = NA, 
                alpha = .5, 
-               width = .1, 
+               width = .25, 
+               size = .7,
                colour = "black")+
   geom_line(data = sumrepdat,
-            aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group),
-            linetype = 3)+
+            aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group),
+            linetype = 3, size = .9)+
   geom_point(data = sumrepdat, 
-             aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group), 
-             shape = 18) +
+             aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group), 
+             shape = 18,
+             size = 2.5) +
   geom_errorbar(data = sumrepdat, 
-                aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group, ymin = Score_mean-se, ymax = Score_mean+se),
-                width = .05)+
-  scale_colour_brewer(palette = "Dark2")+
-  scale_fill_brewer(palette = "Dark2")+
-  ggtitle(title)+
+                aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group,
+                    ymin = Score_mean-se, ymax = Score_mean+se), width = .04, size = .9)+
+  scale_colour_brewer(palette = "Dark2", direction = -1)+
+  scale_fill_brewer(palette = "Dark2", direction = -1)+
+  ggtitle(title)+labs(x=xlab,y=ylab)+
   coord_cartesian(xlim = c(1.2, NA), clip = "off") +
   theme_cowplot()
 }
@@ -93,8 +103,8 @@ ggplot(data, aes(x = Group, y = Score)) +
   geom_errorbar(data = sumrepdat, 
                 aes(x = as.numeric(Group)+.1, y = Score_mean, ymin = Score_mean-se, ymax = Score_mean+se, group = Group, colour = Group),
                 width = .05)+
-  scale_colour_brewer(palette = "Dark2")+
-  scale_fill_brewer(palette = "Dark2")+
+  scale_colour_brewer(palette = "Pastel1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle(title)+
   coord_cartesian(xlim = c(1.2, NA), clip = "off") +
   theme_cowplot()
@@ -102,9 +112,9 @@ ggplot(data, aes(x = Group, y = Score)) +
 ```
 
 ```{r functions_inference, echo=FALSE}
-posthoc_comparisons <-function(model, rm = TRUE){
+posthoc_comparisons <-function(model, repeated = TRUE, allcomps = FALSE){
         
-        if(rm){
+        if(repeated){
                 cond <- emmeans(model, pairwise ~ Condition, type = 'response', adjust = 'mvt')$contrasts %>% 
                         summary(infer = TRUE) %>%
                         as.data.frame()
@@ -121,10 +131,12 @@ posthoc_comparisons <-function(model, rm = TRUE){
                         summary(infer = TRUE) %>% 
                         as.data.frame() %>%
                         mutate_if(is.numeric, round, digits = 6)
-                #all <- emmeans(model, pairwise ~ Condition:Group, type = 'response', adjust = 'mvt')$contrasts %>% 
-                 #       summary(infer = TRUE) %>% 
-                 #       as.data.frame() %>%
-                 #       mutate_if(is.numeric, round, digits = 6)
+                if(allcomps){
+                        all <- emmeans(model, pairwise ~ Condition:Group, type = 'response', adjust = 'mvt')$contrasts %>%
+                                summary(infer = TRUE) %>%
+                                as.data.frame() %>%
+                                mutate_if(is.numeric, round, digits = 6)
+                }
         
                 print('Simple comparisons')
                 print(cond_group)
@@ -132,8 +144,11 @@ posthoc_comparisons <-function(model, rm = TRUE){
                 print(group_by_cond)
                 print('Comparisons between conditions within groups')
                 print(cond_by_group) 
-                #print('Comparisons between all levels of group and conditon')
-                #print(all)
+                if(allcomps){
+                        print('Comparisons between all levels of group and conditon')
+                        print(emmeans(model, pairwise ~ Condition:Group, type = 'response', adjust = 'mvt')$emmeans)
+                        print(all)
+                }
         }else{
                 group <- emmeans(model, pairwise ~ Group, type = 'response', adjust = 'mvt')$contrasts %>% 
                         summary(infer = TRUE) %>% 
@@ -160,6 +175,7 @@ interrogate_mod <- function(model){
 
 ```{r datafile}
 datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
+datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_verylongformat_2021-08-30.csv'
 datafile_clin_pom <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_clinical_variables_2021-05-27.csv'
 datafile_clin_pit <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_PIT_clinical_variables_2021-05-21.csv'
 datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
@@ -179,7 +195,7 @@ data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
 data_clin_pom_orig$Timepoint <- str_remove(data_clin_pom_orig$Timepoint, 'POM')
 data_clin_pom_subset <- data_clin_pom_orig %>% 
         filter(Timepoint == 'ses-Visit1') %>% 
-        select(pseudonym, Timepoint, Age, Gender, Group, Subtype)
+        select(pseudonym, Timepoint, Age, Gender, Group, Subtype, Up3OfTotal)
 
 data_clin_pit_orig <- read_csv(datafile_clin_pit)
 data_clin_pit_orig$Timepoint <- str_remove(data_clin_pit_orig$Timepoint, 'PIT')
@@ -199,9 +215,10 @@ data_ONvsHC <- data_task_clin %>%
   filter(Timepoint == 'ses-Visit1') %>%
   filter(Group == 'PD_POM' | Group == 'HC_PIT') %>%
   filter(Poor.Performance == 'No') %>%
-  select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
+  select(pseudonym, Group, Condition, Response.Time, Block, TrialNumber, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
   mutate(Group = as.factor(Group),
-         Condition = as.factor(Condition))
+         Condition = as.factor(Condition),
+         Block = as.factor(Block))
 
 #Select data for OFF vs HC
 
@@ -209,20 +226,59 @@ data_OFFvsHC <- data_task_clin %>%
   filter(Timepoint == 'ses-Visit1') %>%
   filter(Group == 'PD_PIT' | Group == 'HC_PIT') %>%
   filter(Poor.Performance == 'No') %>%
-  select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
+  select(pseudonym, Group, Condition, Response.Time, Block, TrialNumber, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
   mutate(Group = as.factor(Group),
-         Condition = as.factor(Condition))
+         Condition = as.factor(Condition),
+         Block = as.factor(Block))
 
 #Select data for ON vs OFF
-
+POM_subs <- data_task_clin %>% filter(Group == 'PD_POM' & Condition == 'Ext' & Timepoint == 'ses-Visit1') %>% select(pseudonym) %>% unique()
+PIT_subs <- data_task_clin %>% filter(Group == 'PD_PIT' & Condition == 'Ext' & Timepoint == 'ses-Visit1') %>% select(pseudonym) %>% unique()
+All_subs <- c(POM_subs$pseudonym, PIT_subs$pseudonym)
+All_subs_duplicates <- All_subs[duplicated(All_subs)]
+for(t in 1:nrow(data_task_clin)){
+        s <- data_task_clin$pseudonym[t]
+        if(sum(str_count(All_subs_duplicates, s))>0){
+               data_task_clin$On.And.Off.Meds[t] <- 'Yes'
+        }else{
+                data_task_clin$On.And.Off.Meds[t] <- 'No'
+        }
+}
 data_ONvsOFF <- data_task_clin %>%
   filter(Timepoint == 'ses-Visit1') %>%
   filter(Group == 'PD_POM' | Group == 'PD_PIT') %>%
   filter(Poor.Performance == 'No') %>%
   filter(On.And.Off.Meds == 'Yes') %>%
-  select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender) %>%
+  select(pseudonym, Group, Condition, Response.Time, Block, TrialNumber, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender, Up3OfTotal) %>%
   mutate(Group = as.factor(Group),
-         Condition = as.factor(Condition))
+         Condition = as.factor(Condition),
+         Block = as.factor(Block))
+for(id in unique(data_ONvsOFF$pseudonym)){
+        # Subset data based on current pseudonym and current variable
+        vals <- data_ONvsOFF %>%
+                filter(pseudonym == id) %>%
+                select(matches('Up3OfTotal'))
+        # Perform the same subsetting as above and look for NAs
+        na.idx <- data_ONvsOFF %>%
+                filter(pseudonym == id) %>%
+                select(matches('Up3OfTotal')) %>%
+                is.na %>%
+                as.vector
+        # Skip ids with no real values
+        if(length(na.idx) == sum(na.idx)) next
+        # Define index for non-NA values
+        val.idx <- !na.idx
+        # Find the value that is not NA
+        non.na.val <- vals[val.idx,]
+        non.na.val <- non.na.val[1,1]
+        # Replace NAs with real values
+        vals[na.idx,] <- non.na.val
+        #Find column and row index in data frame where values should be replaced
+        col.idx <- colnames(data_ONvsOFF) == 'Up3OfTotal'
+        row.idx <- data_ONvsOFF$pseudonym == id
+        # Perform replacement
+        data_ONvsOFF[row.idx, col.idx] <- vals
+}
 
 #Select data for Subtypes vs HC
 
@@ -231,15 +287,16 @@ data_tmp_pdpom <- data_task_clin %>%
         filter(Group == 'PD_POM') %>%
         filter(Poor.Performance == 'No') %>%
         mutate(Group = Subtype) %>%
-        select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
+        select(pseudonym, Group, Condition, Response.Time, Block, TrialNumber, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
 data_tmp_hcpit <- data_task_clin %>%
         filter(Timepoint == 'ses-Visit1') %>%
         filter(Group == 'HC_PIT') %>%
         filter(Poor.Performance == 'No') %>%
-        select(pseudonym, Group, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
+        select(pseudonym, Group, Condition, Response.Time, Block, TrialNumber, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
 data_SUBSvsHC <- rbind(data_tmp_hcpit, data_tmp_pdpom) %>%
-        mutate(Group = as.factor(Group),
-               Condition = as.factor(Condition))
+        mutate(Group = factor(Group, levels = c('HC_PIT','Mild-Motor','Intermediate','Diffuse-Malignant')),
+               Condition = as.factor(Condition),
+         Block = as.factor(Block))
 
 #Select data for Subtypes
 
@@ -251,121 +308,152 @@ data_SUBS_clin <- data_clin_pom_orig %>%
 data_SUBS_task <- data_task_clin %>%
         filter(Group == 'PD_POM') %>%
         filter(Timepoint != 'ses-Visit3') %>%
-        select(pseudonym, Timepoint, Condition,Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Poor.Performance)
+        select(pseudonym, Timepoint, Condition,Response.Time, Block, TrialNumber, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Poor.Performance)
 data_SUBS <- full_join(data_SUBS_clin, data_SUBS_task, by = c('pseudonym', 'Timepoint')) %>%
         mutate(Group = Subtype,
                Group = as.factor(Group),
                Condition = as.factor(Condition),
-               Timepoint = as.factor(Timepoint))
+               Timepoint = as.factor(Timepoint),
+               Block = as.factor(Block))
         
 ```
 
 ## Response times
 
+Response times are stored in what I refer to as a very long format.
+Every trial for every participant goes into a data frame.
+These are passed to mixed-effects models without aggregation.
+That is, we do not express response times as means per condition.
+We let each trial be an observation in and of itself.
+
 ```{r RT_data, echo=FALSE}
+collapse_RT <- function(d){
+        d %>%
+        mutate(Score = Response.Time) %>%
+        select(pseudonym, Group, Condition, Response.Time, Age, Gender, Score) %>%
+        group_by(pseudonym, Group, Condition, Gender) %>%
+        dplyr::summarise(Response.Time=mean(Response.Time), Score=mean(Score), Age=mean(Age)) %>%
+        na.omit %>%
+        ungroup()
+}
+
 data_ONvsHC_RT <- data_ONvsHC %>%
         filter(Condition != 'Catch') %>%
+        filter(Response.Time > 0.25) %>%
         mutate(Condition = droplevels(Condition),
-               Score = Response.Time) %>%
+               Score = Response.Time,
+               Age.demean = scale(Age, center = TRUE, scale = FALSE)) %>%
         na.omit
 
 data_OFFvsHC_RT <- data_OFFvsHC %>%
         filter(Condition != 'Catch') %>%
+        filter(Response.Time > 0.25) %>%
         mutate(Condition = droplevels(Condition),
-               Score = Response.Time) %>%
+               Score = Response.Time,
+               Age.demean = scale(Age, center = TRUE, scale = FALSE)) %>%
         na.omit
 
 data_ONvsOFF_RT <- data_ONvsOFF %>%
         filter(Condition != 'Catch') %>%
+        filter(Response.Time > 0.25) %>%
         mutate(Condition = droplevels(Condition),
-               Score = Response.Time) %>%
+               Score = Response.Time,
+               Age.demean = scale(Age, center = TRUE, scale = FALSE),
+               Up3OfTotal.demean = scale(Up3OfTotal, center = TRUE, scale = FALSE)) %>%
         na.omit
 
 data_SUBSvsHC_RT <- data_SUBSvsHC %>%
         filter(Condition != 'Catch') %>%
+        filter(Response.Time > 0.25) %>%
         mutate(Condition = droplevels(Condition),
-               Score = Response.Time) %>%
+               Score = Response.Time,
+               Age.demean = scale(Age, center = TRUE, scale = FALSE)) %>%
         na.omit
 ```
 
 ## Percentage correct
 
-```{r PC_data, echo=FALSE}
-data_ONvsHC_PC <- data_ONvsHC %>%
-        mutate(Score = Percentage.Correct) %>%
-        select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
-        na.omit
+Percentage correct are stored as the percentage of trials that were correctly responded to
+for each condition.
 
-data_OFFvsHC_PC <- data_OFFvsHC %>%
+```{r PC_data, echo=FALSE, message=FALSE}
+collapse_PC <- function(d){
+        d %>%
         mutate(Score = Percentage.Correct) %>%
         select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
-        na.omit
+        group_by(pseudonym, Group, Condition, Gender) %>%
+        dplyr::summarise(Percentage.Correct=mean(Percentage.Correct), Score=mean(Score), Age=mean(Age)) %>%
+        na.omit %>%
+        ungroup()
+}
 
-data_ONvsOFF_PC <- data_ONvsOFF %>%
-        mutate(Score = Percentage.Correct) %>%
-        select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
-        na.omit
+data_ONvsHC_PC <- collapse_PC(data_ONvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 
-data_SUBSvsHC_PC <- data_SUBSvsHC %>%
-        mutate(Score = Percentage.Correct) %>%
-        select(pseudonym, Group, Condition, Percentage.Correct, Age, Gender, Score) %>%
-        na.omit
+data_ONvsHC_PC <- collapse_PC(data_ONvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
+
+data_OFFvsHC_PC <- collapse_PC(data_OFFvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
+
+data_ONvsOFF_PC <- collapse_PC(data_ONvsOFF) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
+
+data_SUBSvsHC_PC <- collapse_PC(data_SUBSvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 ```
 
 ## Button selection variability
 
-```{r CoV_data, echo=FALSE}
-data_ONvsHC_CoV <- data_ONvsHC %>%
-        filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.CoV) %>%
-        na.omit
+Button selection variability is defined as the coefficient of variation, calculated
+as the standard deviation of button presses over the mean of button presses.
+This measure tells us whether participants used all the different buttons, or
+whether they preferred sticking to a subset.
 
-data_OFFvsHC_CoV <- data_OFFvsHC %>%
+```{r CoV_data, echo=FALSE, message=FALSE}
+collapse_CoV <- function(d){
+        d %>%
         filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.CoV) %>%
-        na.omit
+        mutate(Score = Button.Press.CoV) %>%
+        select(pseudonym, Group, Condition, Button.Press.CoV, Age, Gender, Score) %>%
+        group_by(pseudonym,Group,Condition,Gender) %>%
+        dplyr::summarise(Button.Press.CoV=mean(Button.Press.CoV), Score=mean(Score), Age=mean(Age)) %>%
+        na.omit %>%
+        ungroup()
+}
+data_ONvsHC_CoV <- collapse_CoV(data_ONvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 
-data_ONvsOFF_CoV <- data_ONvsOFF %>%
-        filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.CoV) %>%
-        na.omit
+data_OFFvsHC_CoV <- collapse_CoV(data_OFFvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 
-data_SUBSvsHC_CoV <- data_SUBSvsHC %>%
-        filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.CoV) %>%
-        na.omit
+data_ONvsOFF_CoV <- collapse_CoV(data_ONvsOFF) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
+
+data_SUBSvsHC_CoV <- collapse_CoV(data_SUBSvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 ```
 
 ## Switch ratio
 
-```{r Switch_data, echo=FALSE}
-data_ONvsHC_Switch <- data_ONvsHC %>%
-        filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.SwitchRatio)
+The switch ratio is calculated from trials where a switch in which button to press was possible. 
+The number of times that participants switched, when that was an option, was divided by the number
+of times that participants did not switch, even if that was as possibility.
 
-data_OFFvsHC_Switch <- data_OFFvsHC %>%
+```{r Switch_data, echo=FALSE, message=FALSE}
+collapse_Switch <- function(d){
+        d %>%
         filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.SwitchRatio)
+        mutate(Score = Button.Press.SwitchRatio) %>%
+        select(pseudonym, Group, Condition, Button.Press.SwitchRatio, Age, Gender, Score) %>%
+        group_by(pseudonym,Group,Condition,Gender) %>%
+        dplyr::summarise(Button.Press.SwitchRatio=mean(Button.Press.SwitchRatio), Score=mean(Score), Age=mean(Age)) %>%
+        na.omit %>%
+        ungroup()
+}
+data_ONvsHC_Switch <- collapse_Switch(data_ONvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 
-data_ONvsOFF_Switch <- data_ONvsOFF %>%
-        filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.SwitchRatio)
+data_OFFvsHC_Switch <- collapse_Switch(data_OFFvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 
-data_SUBSvsHC_Switch <- data_SUBSvsHC %>%
-        filter(Condition == 'Ext') %>%
-        mutate(Group = droplevels(Group),
-               Score = Button.Press.SwitchRatio) %>%
-        na.omit
+data_ONvsOFF_Switch <- collapse_Switch(data_ONvsOFF) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
+
+data_SUBSvsHC_Switch <- collapse_Switch(data_SUBSvsHC) %>% mutate(Age.demean = scale(Age, center = TRUE, scale = FALSE))
 ```
 
 ## Exclusion criteria
+
+This section tells us a bit about how many participants were analyzed and how many were excluded.
 
 ```{r number, echo=FALSE}
 n <- data_task_clin %>%
@@ -385,18 +473,18 @@ no_task <- data_task_clin %>%
         filter(Condition == 'Ext') %>%
         select(pseudonym, Response.Time, Age) %>%
         filter(is.na(Response.Time))
-msg <- paste('Number of subjects without task data (defined as RTs on Ext):', nrow(no_task))
+msg <- paste('Number of subjects without task data (defined as RTs on Ext):', length(unique(no_task$pseudonym)))
 print(msg)
-print(no_task$pseudonym)
+print(unique(no_task$pseudonym))
 
 no_clin <- data_task_clin %>%
         filter(Timepoint == 'ses-Visit1') %>%
         filter(Condition == 'Ext') %>%
         select(pseudonym, Response.Time, Age) %>%
         filter(is.na(Age))
-msg <- paste('Number of subjects without clinical data (defined as Age):', nrow(no_clin))
+msg <- paste('Number of subjects without clinical data (defined as Age):', length(unique(no_clin$pseudonym)))
 print(msg)
-print(no_clin$pseudonym)
+print(unique(no_clin$pseudonym))
 ```
 
 - Participants who performed at or below 25% correct responses in the 1-choice condition
@@ -407,87 +495,291 @@ poor_performance <- data_task_clin %>%
         filter(Condition == 'Ext') %>%
         filter(Poor.Performance == 'Yes') %>%
         select(pseudonym)
-msg <- paste('Number of subjects with poor performance:', nrow(poor_performance))
+msg <- paste('Number of subjects with poor performance:', length(unique(poor_performance$pseudonym)))
 print(msg)
-print(poor_performance$pseudonym)
+print(unique(poor_performance$pseudonym))
 ```
 
 Summaries are provided for all types of sums of squares. Below is a guideline for what to look at:
--Type I (default for lm summaries): Tests the main effect of factor A, followed by the main effect of factor B after the main effect of A,
+
+- Type I (default for lm summaries): Tests the main effect of factor A, followed by the main effect of factor B after the main effect of A,
 followed by the interaction effect AB after the main effects. This type is dependent on factor order in model formula and is never really what we want.
--Type II: Tests for each main effect after the other main effect and assumes that there are no significant interactions.
--Type III (default for lmer summaries): Tests for the presence of a main effect after the other main effect and interaction. This approach
+
+- Type II: Tests for each main effect after the other main effect and assumes that there are no significant interactions.
+
+- Type III (default for lmer summaries): Tests for the presence of a main effect after the other main effect and interaction. This approach
 is therefore valid in the presence of significant interactions. However, it is less powerful than Type II.
 
 # Response times {.tabset}
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-f <- 'log1p(Response.Time) ~ 1 + Group*Condition*Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
-print(paste('Fitting the following model:', f, sep=' '))
+This section contains all analyses of response times. You can find the different comparisons organized as tabs.
+
+Dependent variable: Response times are usually pretty skewed, so we use a log-transformation to correct for this.
+
+Group and Condition are the fixed effects of most interest to us.
+
+Gender and Age are included as covariates. Age is centered so that our estimates reflect what they would be for a participant of average age.
+
+We include block as a covariate, since participants are likely to become faster as they become more familiar with the task.
+
+We include a random intercept per subject to account for repeated measures.
+
+We include by-subject random slopes for block, because subjects likely differ in how much faster they become as the task progresses.
+
+I have attempted to include Condition as a by-subject random slope, but this tends to lead to singularity-issues and I'm 
+not sure those random slopes account for much variability.
+
+Are there more covariates that would be important to include? Would it be useful to include interactions with Gender?
+
+Post-hoc tests are performed using the 'emmeans' package. It involves computations of estimated marginal means (i.e. for each covariate, a mean at each level of each factor, corrected for confounders) and comparisons between them. 
+
+```{r echo=FALSE}
+
+g1.ext  <- c(1, 0, 0, 0, 0, 0)
+g1.int2 <- c(0, 1, 0, 0, 0, 0)
+g1.int3 <- c(0, 0, 1, 0, 0, 0)
+g1.int2gtext <- c(-1, 1, 0, 0, 0, 0)
+g1.int3gtext <- c(-1, 0, 1, 0, 0, 0)
+g1.int3gtint2 <- c(0, -1, 1, 0, 0, 0)
+g2.ext  <- c(0, 0, 0, 1, 0, 0)
+g2.int2 <- c(0, 0, 0, 0, 1, 0)
+g2.int3 <- c(0, 0, 0, 0, 0, 1)
+g2.int2gtext <- c(0, 0, 0, -1, 1, 0)
+g2.int3gtext <- c(0, 0, 0, -1, 0, 1)
+g2.int3gtint2 <- c(0, 0, 0, 0, -1, 1)
+posthoc_comparisons2 <- function(emmy){
+        comps <- contrast(emmy, method = list('G1:int2>ext - G2.int2>ext' = g1.int2gtext - g2.int2gtext,
+         'G1:int3>ext - G2.int3>ext' = g1.int3gtext - g2.int3gtext,
+         'G1:int3>int2 - G2.int3>int2' = g1.int3gtint2 - g2.int3gtint2),
+         adjust = 'mvt')
+        print(comps)
+}
+
+posthoc_interactionplot <- function(dataframe){
+        tempdata <- dataframe %>% 
+        collapse_RT() %>%
+        pivot_wider(id_cols = c('pseudonym','Group'), names_from = Condition, values_from = Response.Time) %>%
+        mutate(INT2gtEXT = Int2 - Ext,
+               INT3gtEXT = Int3 - Ext,
+               INT3gtINT2 = Int3 - Int2) %>%
+        select(-c(Ext,Int2,Int3)) %>%
+        pivot_longer(cols = c(INT2gtEXT,INT3gtEXT,INT3gtINT2),names_to = 'Condition',values_to = 'Score') %>%
+        mutate(Condition=as.factor(Condition)) %>%
+        na.omit()
+tempsum <- summarySE(tempdata, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+print(tempsum)
+raincloudplot(tempdata, tempsum, '', 'Condition','Response time (s)')
+}
+
 ```
 
 ## ON vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-sumrepdat_ONvsHC_RT <- summarySE(data_ONvsHC_RT, measurevar = "Score",
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+f <- 'log(Response.Time) ~ 1 + Group*Condition + Gender + Age.demean + Block + (1+Block|pseudonym)'
+print(paste('Fitting the following model:', f, sep=' '))
+```
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+tmp <- data_ONvsHC_RT %>% collapse_RT()
+sumrepdat_ONvsHC_RT <- summarySE(tmp, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_ONvsHC_RT)
-raincloudplot(data_ONvsHC_RT, sumrepdat_ONvsHC_RT, 'Response times for healthy controls versus on-state PD patients')
+raincloudplot(tmp, sumrepdat_ONvsHC_RT, 'Response times for healthy controls versus on-state PD patients')
 
 infer_ONvsHC_RT <- lmer(f, data=data_ONvsHC_RT)
 interrogate_mod(infer_ONvsHC_RT)
-#posthoc_comparisons(infer_ONvsHC_RT, rm = TRUE)
+emmip(infer_ONvsHC_RT, Group ~ Condition | Block)
+emmy <- emmeans(infer_ONvsHC_RT, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# contrast(emmeans(infer_ONvsHC_RT, ~ Condition*Group), interaction = c('consec'), adjust = 'bonferroni')
+# posthoc_comparisons(infer_ONvsHC_RT, repeated = TRUE, allcomps = TRUE)
+posthoc_interactionplot(data_ONvsHC_RT)
 ```
 
 ## OFF vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-sumrepdat_OFFvsHC_RT <- summarySE(data_OFFvsHC_RT, measurevar = "Score",
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+tmp <- data_OFFvsHC_RT %>% collapse_RT()
+levels(tmp$Group) <- c('Healthy','Off-state')
+tmp$Group <- factor(tmp$Group, levels = c('Off-state','Healthy'))
+sumrepdat_OFFvsHC_RT <- summarySE(tmp, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_OFFvsHC_RT)
-raincloudplot(data_OFFvsHC_RT, sumrepdat_OFFvsHC_RT, 'Response times for healthy controls versus off-state PD patients')
+raincloudplot(tmp, sumrepdat_OFFvsHC_RT, '','Condition','Response time (s)')
 
 infer_OFFvsHC_RT <- lmer(f, data=data_OFFvsHC_RT)
 interrogate_mod(infer_OFFvsHC_RT)
-#posthoc_comparisons(infer_OFFvsHC_RT, rm = TRUE)
+emmip(infer_OFFvsHC_RT, Group ~ Condition | Block)
+emmy <- emmeans(infer_OFFvsHC_RT, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# contrast(emmeans(infer_OFFvsHC_RT, ~ Condition*Group), interaction = c('consec'), adjust = 'bonferroni')
+# posthoc_comparisons(infer_OFFvsHC_RT, repeated = TRUE, allcomps = TRUE)
+posthoc_interactionplot(tmp)
 ```
 
 ## ON vs. OFF
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-sumrepdat_ONvsOFF_RT <- summarySE(data_ONvsOFF_RT, measurevar = "Score",
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+tmp <- data_ONvsOFF_RT %>% collapse_RT()
+levels(tmp$Group) <- c('On-state','Off-state')
+tmp$Group <- factor(tmp$Group, levels = c('Off-state','On-state'))
+sumrepdat_ONvsOFF_RT <- summarySE(tmp, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_ONvsOFF_RT)
-raincloudplot(data_ONvsOFF_RT, sumrepdat_ONvsOFF_RT, 'Response times for on-state versus off-state PD patients')
+raincloudplot(tmp, sumrepdat_ONvsOFF_RT, '','Condition','Response time (s)')
 
-infer_ONvsOFF_RT <- lmer(f, data=data_ONvsOFF_RT)
+infer_ONvsOFF_RT <- lmer(f, data=data_ONvsOFF_RT, REML = FALSE)
 interrogate_mod(infer_ONvsOFF_RT)
-#posthoc_comparisons(infer_ONvsOFF_RT, rm = TRUE)
+emmip(infer_ONvsOFF_RT, Group ~ Condition | Block)
+emmy <- emmeans(infer_ONvsOFF_RT, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# contrast(emmeans(infer_ONvsOFF_RT, ~ Condition*Group), interaction = c('consec'), adjust = 'bonferroni')
+# posthoc_comparisons(infer_ONvsOFF_RT, repeated = TRUE, allcomps = TRUE)
+posthoc_interactionplot(tmp)
 ```
 
 ## Subtypes vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-sumrepdat_SUBSvsHC_RT <- summarySE(data_SUBSvsHC_RT, measurevar = "Score",
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+tmp <- data_SUBSvsHC_RT %>% collapse_RT()
+levels(tmp$Group) <- c('Healthy','Mild-Motor', 'Intermediate', 'Diffuse-Malignant')
+tmp$Group <- factor(tmp$Group, levels = c('Diffuse-Malignant', 'Intermediate', 'Mild-Motor','Healthy'))
+sumrepdat_SUBSvsHC_RT <- summarySE(tmp, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_SUBSvsHC_RT)
-raincloudplot(data_SUBSvsHC_RT, sumrepdat_SUBSvsHC_RT, 'Response times for subtypes versus healthy controls')
+raincloudplot(tmp, sumrepdat_SUBSvsHC_RT, '','Condition','Response time (s)')
 
 infer_SUBSvsHC_RT <- lmer(f, data=data_SUBSvsHC_RT)
 interrogate_mod(infer_SUBSvsHC_RT)
-#posthoc_comparisons(infer_SUBSvsHC_RT, rm = TRUE)
+emmip(infer_SUBSvsHC_RT, Group ~ Condition | Block)
+emmy <- emmeans(infer_SUBSvsHC_RT, ~ Condition*Group, type='response')
+emmy
+# posthoc_comparisons(infer_SUBSvsHC_RT, repeated = TRUE)
+posthoc_interactionplot(data_SUBSvsHC_RT)
+```
+
+### Healthy vs Mild-motor
+
+```{r echo=FALSE, message=FALSE}
+tmp <- data_SUBSvsHC_RT %>%
+        filter(Group == 'HC_PIT' | Group == 'Mild-Motor') %>%
+        mutate(Group = factor(Group))
+levels(tmp$Group) <- c('Healthy','Mild-Motor')
+tmp$Group <- factor(tmp$Group, levels = c('Mild-Motor','Healthy'))
+infer_SUBSvsHC_RT2 <- lmer(f, data=tmp)
+interrogate_mod(infer_SUBSvsHC_RT2)
+emmip(infer_SUBSvsHC_RT2, Group ~ Condition | Block)
+emmy <- emmeans(infer_SUBSvsHC_RT2, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_RT2, repeated = TRUE, allcomps=TRUE)
+posthoc_interactionplot(tmp)
+```
+
+### Healthy vs Intermediate
+
+```{r echo=FALSE, message=FALSE}
+tmp <- data_SUBSvsHC_RT %>%
+        filter(Group == 'HC_PIT' | Group == 'Intermediate') %>%
+        mutate(Group = factor(Group))
+levels(tmp$Group) <- c('Healthy','Intermediate')
+tmp$Group <- factor(tmp$Group, levels = c('Intermediate','Healthy'))
+infer_SUBSvsHC_RT3 <- lmer(f, data=tmp)
+interrogate_mod(infer_SUBSvsHC_RT3)
+emmip(infer_SUBSvsHC_RT3, Group ~ Condition | Block)
+emmy <- emmeans(infer_SUBSvsHC_RT3, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_RT3, repeated = TRUE, allcomps=TRUE)
+posthoc_interactionplot(tmp)
+```
+
+### Healthy vs Diffuse-malignant
+
+```{r echo=FALSE, message=FALSE}
+tmp <- data_SUBSvsHC_RT %>%
+        filter(Group == 'HC_PIT' | Group == 'Diffuse-Malignant') %>%
+        mutate(Group = factor(Group))
+levels(tmp$Group) <- c('Healthy','Diffuse-Malignant')
+tmp$Group <- factor(tmp$Group, levels = c('Diffuse-Malignant','Healthy'))
+infer_SUBSvsHC_RT4 <- lmer(f, data=tmp)
+interrogate_mod(infer_SUBSvsHC_RT4)
+emmip(infer_SUBSvsHC_RT4, Group ~ Condition | Block)
+emmy <- emmeans(infer_SUBSvsHC_RT4, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_RT4, repeated = TRUE, allcomps=TRUE)
+posthoc_interactionplot(tmp)
+```
+
+### Mild-motor vs Intermediate
+
+```{r echo=FALSE, message=FALSE}
+tmp <- data_SUBSvsHC_RT %>%
+        filter(Group == 'Mild-Motor' | Group == 'Intermediate') %>%
+        mutate(Group = factor(Group))
+tmp$Group <- factor(tmp$Group, levels = c('Intermediate','Mild-Motor'))
+infer_SUBSvsHC_RT5 <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa'))
+interrogate_mod(infer_SUBSvsHC_RT5)
+emmip(infer_SUBSvsHC_RT5, Group ~ Condition | Block)
+emmy <- emmeans(infer_SUBSvsHC_RT5, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_RT5, repeated = TRUE, allcomps=TRUE)
+posthoc_interactionplot(tmp)
+```
+
+### Mild-motor vs Diffuse-malignant
+
+```{r echo=FALSE, message=FALSE}
+tmp <- data_SUBSvsHC_RT %>%
+        filter(Group == 'Mild-Motor' | Group == 'Diffuse-Malignant') %>%
+        mutate(Group = factor(Group))
+tmp$Group <- factor(tmp$Group, levels = c('Diffuse-Malignant','Mild-Motor'))
+infer_SUBSvsHC_RT6 <- lmer(f, data=tmp, control = lmerControl(optimizer="bobyqa"))
+interrogate_mod(infer_SUBSvsHC_RT6)
+emmip(infer_SUBSvsHC_RT6, Group ~ Condition | Block)
+emmy <- emmeans(infer_SUBSvsHC_RT6, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_RT6, repeated = TRUE, allcomps=TRUE)
+posthoc_interactionplot(tmp)
+```
+
+### Intermediate vs Diffuse-malignant
+
+```{r echo=FALSE, message=FALSE}
+tmp <- data_SUBSvsHC_RT %>%
+        filter(Group == 'Intermediate' | Group == 'Diffuse-Malignant') %>%
+        mutate(Group = factor(Group))
+tmp$Group <- factor(tmp$Group, levels = c('Diffuse-Malignant','Intermediate'))
+infer_SUBSvsHC_RT7 <- lmer(f, data=tmp)
+interrogate_mod(infer_SUBSvsHC_RT7)
+emmip(infer_SUBSvsHC_RT7, Group ~ Condition | Block)
+emmy <- emmeans(infer_SUBSvsHC_RT7, ~ Condition*Group, type='response')
+emmy
+posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_RT7, repeated = TRUE, allcomps=TRUE)
+posthoc_interactionplot(tmp)
 ```
 
 # Percentage correct {.tabset}
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-f <- 'Percentage.Correct ~ 1 + Group*Condition*Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+This section contains all analyses of percentage correct. You can find the different comparisons organized as tabs.
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+f <- 'Percentage.Correct ~ 1 + Group*Condition + Gender + Age.demean + (1|pseudonym)'
 print(paste('Fitting the following model:', f, sep=' '))
 ```
 
 ## ON vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_ONvsHC_PC <- summarySE(data_ONvsHC_PC, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_ONvsHC_PC)
@@ -495,12 +787,15 @@ raincloudplot(data_ONvsHC_PC, sumrepdat_ONvsHC_PC, 'Percentage correct for healt
 
 infer_ONvsHC_PC <- lmer(f, data=data_ONvsHC_PC)
 interrogate_mod(infer_ONvsHC_PC)
-#posthoc_comparisons(infer_ONvsHC_PC, rm = TRUE)
+emmip(infer_ONvsHC_PC, Group ~ Condition)
+emmeans(infer_ONvsHC_PC, ~ Condition*Group)
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_ONvsHC_PC, repeated = TRUE)
 ```
 
 ## OFF vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_OFFvsHC_PC <- summarySE(data_OFFvsHC_PC, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_OFFvsHC_PC)
@@ -508,12 +803,15 @@ raincloudplot(data_OFFvsHC_PC, sumrepdat_OFFvsHC_PC, 'Percentage correct for hea
 
 infer_OFFvsHC_PC <- lmer(f, data=data_OFFvsHC_PC)
 interrogate_mod(infer_OFFvsHC_PC)
-#posthoc_comparisons(infer_OFFvsHC_PC, rm = TRUE)
+emmip(infer_OFFvsHC_PC, Group ~ Condition)
+emmeans(infer_OFFvsHC_PC, ~ Condition*Group)
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_OFFvsHC_PC, repeated = TRUE)
 ```
 
 ## ON vs. OFF
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_ONvsOFF_PC <- summarySE(data_ONvsOFF_PC, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_ONvsOFF_PC)
@@ -521,12 +819,15 @@ raincloudplot(data_ONvsOFF_PC, sumrepdat_ONvsOFF_PC, 'Percentage correct for on-
 
 infer_ONvsOFF_PC <- lmer(f, data=data_ONvsOFF_PC)
 interrogate_mod(infer_ONvsOFF_PC)
-#posthoc_comparisons(infer_ONvsOFF_PC, rm = TRUE)
+emmip(infer_ONvsOFF_PC, Group ~ Condition)
+emmeans(infer_ONvsOFF_PC, ~ Condition*Group)
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_ONvsOFF_PC, repeated = TRUE)
 ```
 
 ## Subtypes vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_SUBSvsHC_PC <- summarySE(data_SUBSvsHC_PC, measurevar = "Score",
                        groupvars=c("Group", "Condition"))
 print(sumrepdat_SUBSvsHC_PC)
@@ -534,19 +835,24 @@ raincloudplot(data_SUBSvsHC_PC, sumrepdat_SUBSvsHC_PC, 'Percentage correct for s
 
 infer_SUBSvsHC_PC <- lmer(f, data=data_SUBSvsHC_PC)
 interrogate_mod(infer_SUBSvsHC_PC)
-#posthoc_comparisons(infer_SUBSvsHC_PC, rm = TRUE)
+emmip(infer_SUBSvsHC_PC, Group ~ Condition)
+emmeans(infer_SUBSvsHC_PC, ~ Condition*Group)
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_PC, repeated = TRUE)
 ```
 
-# Button selection {.tabset}
+# Button selection variability {.tabset}
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-f <- 'log1p(Button.Press.CoV) ~ 1 + Group*Gender + scale(Age, center=TRUE, scale=FALSE)'
+This section contains all analyses of button selection variability. You can find the different comparisons organized as tabs.
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+f <- 'log(Button.Press.CoV) ~ 1 + Group + Gender + scale(Age, center=TRUE, scale=FALSE)'
 print(paste('Fitting the following model:', f, sep=' '))
 ```
 
 ## ON vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_ONvsHC_CoV <- summarySE(data_ONvsHC_CoV, measurevar = "Score",
                        groupvars=c("Group"))
 print(sumrepdat_ONvsHC_CoV)
@@ -554,12 +860,14 @@ raincloudplot2(data_ONvsHC_CoV, sumrepdat_ONvsHC_CoV, 'Button variability for he
 
 infer_ONvsHC_CoV <- lm(f, data=data_ONvsHC_CoV)
 interrogate_mod(infer_ONvsHC_CoV)
-#posthoc_comparisons(infer_ONvsHC_CoV, rm = FALSE)
+emmeans(infer_ONvsHC_CoV, pairwise ~ Group, type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_ONvsHC_CoV, repeated = FALSE)
 ```
 
 ## OFF vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_OFFvsHC_CoV <- summarySE(data_OFFvsHC_CoV, measurevar = "Score",
                        groupvars=c("Group"))
 print(sumrepdat_OFFvsHC_CoV)
@@ -567,12 +875,14 @@ raincloudplot2(data_OFFvsHC_CoV, sumrepdat_OFFvsHC_CoV, 'Button variability for 
 
 infer_OFFvsHC_CoV <- lm(f, data=data_OFFvsHC_CoV)
 interrogate_mod(infer_OFFvsHC_CoV)
-#posthoc_comparisons(infer_OFFvsHC_CoV, rm = FALSE)
+emmeans(infer_OFFvsHC_CoV, pairwise ~ Group, type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_OFFvsHC_CoV, repeated = FALSE)
 ```
 
 ## OFF vs. ON
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_ONvsOFF_CoV <- summarySE(data_ONvsOFF_CoV, measurevar = "Score",
                        groupvars=c("Group"))
 print(sumrepdat_ONvsOFF_CoV)
@@ -580,12 +890,14 @@ raincloudplot2(data_ONvsOFF_CoV, sumrepdat_ONvsOFF_CoV, 'Button variability for 
 
 infer_ONvsOFF_CoV <- lm(f, data=data_ONvsOFF_CoV)
 interrogate_mod(infer_ONvsOFF_CoV)
-#posthoc_comparisons(infer_ONvsOFF_CoV, rm = FALSE)
+emmeans(infer_ONvsOFF_CoV, pairwise ~ Group, type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_ONvsOFF_CoV, repeated = FALSE)
 ```
 
 ## Subtypes vs HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_SUBSvsHC_CoV <- summarySE(data_SUBSvsHC_CoV, measurevar = "Score",
                        groupvars=c("Group"))
 print(sumrepdat_SUBSvsHC_CoV)
@@ -593,19 +905,23 @@ raincloudplot2(data_SUBSvsHC_CoV, sumrepdat_SUBSvsHC_CoV, 'Button variability fo
 
 infer_SUBSvsHC_CoV <- lm(f, data=data_SUBSvsHC_CoV)
 interrogate_mod(infer_SUBSvsHC_CoV)
-#posthoc_comparisons(infer_SUBSvsHC_CoV, rm = FALSE)
+emmeans(infer_SUBSvsHC_CoV, pairwise ~ Group, type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_CoV, repeated = FALSE)
 ```
 
 # Switch ratio {.tabset}
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-f <- 'log(Button.Press.SwitchRatio) ~ 1 + Group*Gender + scale(Age, center=TRUE, scale=FALSE)'
+This section contains all analyses of switch ratios. You can find the different comparisons organized as tabs.
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+f <- 'log(Button.Press.SwitchRatio) ~ 1 + Group + Gender + Age.demean'
 print(paste('Fitting the following model:', f, sep=' '))
 ```
 
 ## ON vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_ONvsHC_Switch <- summarySE(data_ONvsHC_Switch, measurevar = "Score",
                        groupvars=c("Group"))
 print(sumrepdat_ONvsHC_Switch)
@@ -613,12 +929,14 @@ raincloudplot2(data_ONvsHC_Switch, sumrepdat_ONvsHC_Switch, 'Switch ratio for he
 
 infer_ONvsHC_Switch <- lm(f, data=data_ONvsHC_Switch)
 interrogate_mod(infer_ONvsHC_Switch)
-#posthoc_comparisons(infer_ONvsHC_Switch, rm = FALSE)
+emmeans(infer_ONvsHC_Switch, pairwise ~ Group, type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_ONvsHC_Switch, repeated = FALSE)
 ```
 
 ## OFF vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_OFFvsHC_Switch <- summarySE(data_OFFvsHC_Switch, measurevar = "Score",
                        groupvars=c("Group"))
 print(sumrepdat_OFFvsHC_Switch)
@@ -626,12 +944,14 @@ raincloudplot2(data_OFFvsHC_Switch, sumrepdat_OFFvsHC_Switch, 'Switch ratio for 
 
 infer_OFFvsHC_Switch <- lm(f, data=data_OFFvsHC_Switch)
 interrogate_mod(infer_OFFvsHC_Switch)
-#posthoc_comparisons(infer_OFFvsHC_Switch, rm = FALSE)
+emmeans(infer_OFFvsHC_Switch, pairwise ~ Group, type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_OFFvsHC_Switch, repeated = FALSE)
 ```
 
 ## ON vs. OFF
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 sumrepdat_ONvsOFF_Switch <- summarySE(data_ONvsOFF_Switch, measurevar = "Score",
                        groupvars=c("Group"))
 print(sumrepdat_ONvsOFF_Switch)
@@ -639,12 +959,14 @@ raincloudplot2(data_ONvsOFF_Switch, sumrepdat_ONvsOFF_Switch, 'Switch ratio for 
 
 infer_ONvsOFF_Switch <- lm(f, data=data_ONvsOFF_Switch)
 interrogate_mod(infer_ONvsOFF_Switch)
-#posthoc_comparisons(infer_ONvsOFF_Switch, rm = FALSE)
+emmeans(infer_ONvsOFF_Switch, pairwise ~ Group, type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_ONvsOFF_Switch, repeated = FALSE)
 ```
 
 ## Subtypes vs. HC
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 
 sumrepdat_SUBSvsHC_Switch <- summarySE(data_SUBSvsHC_Switch, measurevar = "Score",
                        groupvars=c("Group"))
@@ -653,6 +975,8 @@ raincloudplot2(data_SUBSvsHC_Switch, sumrepdat_SUBSvsHC_Switch, 'Switch ratio fo
 
 infer_SUBSvsHC_Switch <- lm(f, data=data_SUBSvsHC_Switch)
 interrogate_mod(infer_SUBSvsHC_Switch)
-#posthoc_comparisons(infer_SUBSvsHC_Switch, rm = FALSE)
+emmeans(infer_SUBSvsHC_Switch, pairwise ~ Group, adjust = 'mvt', type='response')
+# posthoc_comparisons2(emmy)
+# posthoc_comparisons(infer_SUBSvsHC_Switch, repeated = FALSE)
 ```
 

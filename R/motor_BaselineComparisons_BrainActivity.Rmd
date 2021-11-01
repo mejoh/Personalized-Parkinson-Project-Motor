@@ -1,0 +1,328 @@
+---
+title: "motor_BaselineComparisons_BrainActivity"
+author: "M.E. Johansson"
+date: "9/21/2021"
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, message=FALSE}
+source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
+source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/summarySE.R")
+funcdir <- '/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/'
+funcs <- list.files(funcdir, full.names = TRUE)
+sapply(funcs, source)
+library(cowplot)
+library(readr)
+library(tidyverse)
+library(plyr)           # Invoked by the summarySE function. Load it last to avoid dependency issues
+```
+
+```{r functions_plot, echo=FALSE}
+#For measurements where values differ per condition (Response.Time and Percentage.Correct)
+raincloudplot <- function(data, sumrepdat, title, x_label = 'Condition', y_label = 'Score'){
+ggplot(data, aes(x = Condition, y = Score, fill = Group)) +
+  geom_flat_violin(aes(fill = Group),
+                   position = position_nudge(x = .15, y = 0), 
+                   adjust = 1.5, 
+                   trim = FALSE, 
+                   alpha = .5, 
+                   colour = NA)+
+  geom_point(aes(x = as.numeric(Condition)-.15, y = Score, colour = Group),
+             position = position_jitterdodge(jitter.width = .03, dodge.width = .05),
+             size = 1.5,
+             shape = 20,
+             alpha = .7)+
+  geom_boxplot(aes(x = Condition, y = Score, fill = Group),
+               outlier.shape = NA, 
+               alpha = .5, 
+               width = .25, 
+               size = .7,
+               colour = "black")+
+  geom_line(data = sumrepdat,
+            aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group),
+            linetype = 3, size = .9)+
+  geom_point(data = sumrepdat, 
+             aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group), 
+             shape = 18,
+             size = 2.5) +
+  geom_errorbar(data = sumrepdat, 
+                aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group,
+                    ymin = Score_mean-se, ymax = Score_mean+se), width = .04, size = .9)+
+  scale_colour_brewer(palette = "Dark2", direction = -1)+
+  scale_fill_brewer(palette = "Dark2", direction = -1)+
+  ggtitle(title)+labs(x=x_label,y=y_label) +
+  coord_cartesian(xlim = c(1.2, NA), clip = "off") +
+  theme_cowplot()
+}
+
+PlotBrainActivity <- function(dAnalysis, subtyping=FALSE){
+  
+VOIcsv <- dir(dAnalysis, '*.csv', full.names = TRUE)
+for(v in 1:length(VOIcsv)){
+  
+  voifile <- VOIcsv[v]      
+        
+  voi <- read_csv(voifile) %>%
+    select(-scans) %>%
+    filter(Cond != 'Catch') %>%
+    mutate(Cond = factor(Cond))
+  colnames(voi) <- c('pseudonym', 'Group', 'Score', 'Condition')
+  voi$Group[voi$Group == 'HC_PIT'] <- 'Healthy'
+  voi$Group[voi$Group == 'PD_PIT'] <- 'Off-state'
+  voi$Group[voi$Group == 'PD_POM'] <- 'On-state'
+  ug <- unique(voi$Group)
+  if(sum(str_detect(ug,'Off-state'))>0){
+          voi$Group <- factor(voi$Group, levels = c('Off-state','Healthy'))
+  }else if(sum(str_detect(ug,'On-state'))>0){
+          voi$Group <- factor(voi$Group, levels = c('On-state','Healthy'))
+  }
+  
+  
+  if(subtyping == TRUE){
+          
+          availgroups <- c('Healthy', 'Mild-Motor', 'Intermediate', 'Diffuse-Malignant', 'PD')
+          b <- basename(voifile) %>% 
+                str_remove(., 'VOI_') %>%  
+                str_remove(., '_[A-Z].*') %>% 
+                str_split(., 'gt', simplify = TRUE)
+          group <- rep('', 2)
+          
+          for(g in 1:ncol(b)){
+                if(b[g] == 'HC'){
+                        group[g] <- availgroups[1]
+                }else if(b[g] == 'MMP' | b[g] == 'MMD'){
+                        group[g] <- availgroups[2]
+                }else if(b[g] == 'INTER'){
+                        group[g] <- availgroups[3]
+                }else if(b[g] == 'MD'){
+                        group[g] <- availgroups[4]
+                }else if(b[g] == 'PD_PIT' | b[g] == 'PD_POM'){
+                        group(g) <- availgroups[5]
+                }
+          }
+          
+          subtypeclass <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
+          subtypeclass <- read_csv(subtypeclass)
+          tmp <- voi
+          tmp <- left_join(tmp, subtypeclass, by = 'pseudonym')
+          tmp$Group[tmp$Group == 'On-state'] <- NA
+          tmp <- tmp %>%
+                mutate(Group = coalesce(Group,Subtype)) %>%
+                select(-c(Subtype))
+          tmp <- tmp %>%
+                  filter(tmp$Group == group[1] | tmp$Group == group[2]) %>%
+                  mutate(Group=factor(Group))
+          voi <- tmp
+  }
+  
+  ug <- unique(voi$Group)
+  if(sum(str_detect(ug,'Healthy')) + sum(str_detect(ug,'Mild-Motor')) == 2){
+          voi$Group <- factor(voi$Group, levels = c('Mild-Motor','Healthy'))
+  }else if(sum(str_detect(ug,'Healthy')) + sum(str_detect(ug,'Intermediate')) == 2){
+          voi$Group <- factor(voi$Group, levels = c('Intermediate','Healthy'))
+  }else if(sum(str_detect(ug,'Healthy')) + sum(str_detect(ug,'Diffuse-Malignant')) == 2){
+          voi$Group <- factor(voi$Group, levels = c('Diffuse-Malignant','Healthy'))
+  }else if(sum(str_detect(ug,'Mild-Motor')) + sum(str_detect(ug,'Intermediate')) == 2){
+          voi$Group <- factor(voi$Group, levels = c('Intermediate','Mild-Motor'))
+  }else if(sum(str_detect(ug,'Mild-Motor')) + sum(str_detect(ug,'Diffuse-Malignant')) == 2){
+          voi$Group <- factor(voi$Group, levels = c('Diffuse-Malignant','Mild-Motor'))
+  }else if(sum(str_detect(ug,'Intermediate')) + sum(str_detect(ug,'Diffuse-Malignant')) == 2){
+          voi$Group <- factor(voi$Group, levels = c('Diffuse-Malignant','Intermediate'))
+  }
+  
+  sumrepdat <- summarySE(voi, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+  ti <- str_split(VOIcsv[v], 'VOI_')[[1]][2] %>% str_remove(., '.csv')
+  print(raincloudplot(voi, sumrepdat, ti, y_label = 'Estimated brain activity (beta)'))
+  print(sumrepdat)
+  
+  voi2 <- voi %>%
+          pivot_wider(id_cols = c('pseudonym','Group'), names_from = 'Condition', values_from = 'Score') %>%
+          mutate(INT2gtEXT = Int2-Ext,
+                 INT3gtEXT = Int3-Ext,
+                 INT3gtINT2 = Int3-Int2) %>%
+          select(-c(Ext,Int2,Int3)) %>%
+          pivot_longer(cols = c(INT2gtEXT, INT3gtEXT, INT3gtINT2), names_to = 'Condition', values_to = 'Score') %>%
+          mutate(Condition=factor(Condition))
+  sumrepdat <- summarySE(voi2, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+  ti <- str_split(VOIcsv[v], 'VOI_')[[1]][2] %>% str_remove(., '.csv')
+  print(raincloudplot(voi2, sumrepdat, paste(ti, ' - differences between conditions', sep=''), y_label = 'Estimated brain activity (beta)'))
+  print(sumrepdat)
+  
+}
+
+}
+
+PlotBrainActivityCorr <- function(dAnalysis){
+        
+VOIcsv <- dir(dAnalysis, '*.csv', full.names = TRUE)
+clindat <- '/project/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-08-30.csv'
+clindat <- read_csv(clindat) %>%
+        filter(MriNeuroPsychTask == 'Motor') %>%
+        filter(Timepoint == 'ses-POMVisit1') %>%
+        select(pseudonym, Up3OfAppendicularSum, Up3OfAppendicularSum.1YearDelta)
+
+for(v in 1:length(VOIcsv)){
+  
+  voifile <- VOIcsv[v]      
+        
+  voi <- read_csv(voifile) %>%
+    select(-scans) %>%
+    filter(Cond != 'Catch') %>%
+    mutate(Cond = factor(Cond))
+  colnames(voi) <- c('pseudonym', 'Group', 'Score', 'Condition')
+  voi <- left_join(voi, clindat, by = 'pseudonym')
+  
+  sumrepdat <- summarySE(voi, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+  ti <- str_split(VOIcsv[v], 'VOI_')[[1]][2] %>% str_remove(., '.csv')
+  print(raincloudplot(voi, sumrepdat, ti, y_label = 'Estimated brain activity (beta)'))
+  print(sumrepdat)
+  
+  if(str_detect(basename(voifile), 'Prog')){
+  g <- voi %>%
+          ggplot(aes(x=Score,y=Up3OfAppendicularSum.1YearDelta)) +
+          geom_point(alpha = .5) +
+          geom_smooth(method=lm, se = FALSE, color = 'black') + 
+          theme_cowplot() + 
+          xlab('Estimated brain activity (beta)') + 
+          ggtitle(ti)
+  print(g)
+  }else if(str_detect(basename(voifile), 'BA')){
+          g <- voi %>%
+          ggplot(aes(x=Score,y=Up3OfAppendicularSum)) +
+          geom_point(alpha = .5) +
+          geom_smooth(method=lm, se = FALSE, color = 'black') + 
+          theme_cowplot() + 
+          xlab('Estimated brain activity (beta)') + 
+          ggtitle(ti)
+  print(g)
+  }
+  
+}
+}
+```
+
+# Off-state PD patients compared against healthy controls
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+dAnalysis <- "/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOff_x_ExtInt2Int3Catch_NoOutliers"
+PlotBrainActivity(dAnalysis)
+
+```
+
+# Subtypes compared against each other and against healthy controls
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+dAnalysis <- "/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers"
+PlotBrainActivity(dAnalysis, TRUE)
+
+```
+
+## Differences between subtypes in putamen
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+subtypeclass <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
+subtypeclass <- read_csv(subtypeclass)
+
+file <- c("/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/clusterstats/Cluster_HCgtPD_Mean_Putamen_con_0001_ses-Visit1.txt","/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/clusterstats/Cluster_HCgtPD_Mean_Putamen_con_0002_ses-Visit1.txt","/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/clusterstats/Cluster_HCgtPD_Mean_Putamen_con_0003_ses-Visit1.txt")
+
+df1 <- read_delim(file[1], col_names = c('Score', 'Files'), delim = ' ', trim_ws = TRUE)
+df2 <- read_delim(file[2], col_names = c('Score', 'Files'), delim = ' ', trim_ws = TRUE)
+df3 <- read_delim(file[3], col_names = c('Score', 'Files'), delim = ' ', trim_ws = TRUE)
+df <- bind_rows(df1,df2,df3)
+
+df$Group <- substr(df$Files, 1,6)
+df$pseudonym <- substr(df$Files, 8,31)
+df$Condition <- substr(df$Files, 47,54)
+df <- df %>%
+        select(-Files) %>%
+        relocate(pseudonym, Group, Score, Condition) %>%
+        filter(Group == 'PD_POM') %>%
+        left_join(., subtypeclass, by = 'pseudonym') %>%
+        mutate(Group=Subtype) %>%
+        na.omit()
+df$Condition <- factor(df$Condition, levels = c('con_0001','con_0002','con_0003'), labels = c('Ext','Int2','Int3'))
+
+sumrepdat <- summarySE(df, measurevar = "Score",
+                       groupvars=c("Group", "Condition"))
+raincloudplot(df, sumrepdat, '', y_label = 'Estimated brain activity (beta)')
+
+
+```
+
+
+# Clinical correlations
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+dAnalysis <- "/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers"
+SubFolders <- c('Int>Ext','Mean_ExtInt')
+for(s in SubFolders){
+        d <- paste(dAnalysis, s, sep='/')
+        PlotBrainActivityCorr(d)
+}
+
+```
+
+## Correlations between putamen activity and severity
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+clindat <- '/project/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-08-30.csv'
+clindat <- read_csv(clindat) %>%
+        filter(MriNeuroPsychTask == 'Motor') %>%
+        filter(Timepoint == 'ses-POMVisit1') %>%
+        select(pseudonym, Up3OfAppendicularSum)
+
+file <- c("/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/clusterstats/Cluster_HCgtPD_Mean_Putamen_con_0010_ses-Visit1.txt","/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/clusterstats/Cluster_HCgtPD_Mean_Putamen_con_0007_ses-Visit1.txt")
+for(f in file){
+df <- read_delim(f, col_names = c('Score', 'Files'), delim = ' ', trim_ws = TRUE)
+df$Group <- substr(df$Files, 1,6)
+df$pseudonym <- substr(df$Files, 8,31)
+df$Condition <- rep('Mean', nrow(df))
+df <- df %>%
+        select(-Files) %>%
+        relocate(pseudonym, Group, Score, Condition) %>%
+        filter(Group == 'PD_POM')
+df <- left_join(df, clindat, by = 'pseudonym') %>% na.omit()
+
+ti <- basename(f)
+g <- df %>%
+          ggplot(aes(x=Score,y=Up3OfAppendicularSum)) +
+          geom_point(alpha = .5) +
+          geom_smooth(method=lm, se = FALSE, color = 'black') + 
+          theme_cowplot() + 
+          xlab('Estimated brain activity (beta)') + 
+          ggtitle(ti)
+print(g)
+}
+        
+```
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+# dAnalysis <- "/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-Prog-AppendicularSum_NoOutliers"
+# SubFolders <- c('Int>Ext')
+# for(s in SubFolders){
+#         d <- paste(dAnalysis, s, sep='/')
+#         PlotBrainActivityCorr(d)
+# }
+
+```
+
+

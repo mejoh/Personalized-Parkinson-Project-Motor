@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r set-options, echo=FALSE, cache=FALSE}
-options(width = 2500)
+options(width = 150)
 ```
 
 # Load libraries and functions.
@@ -24,7 +24,13 @@ options(width = 2500)
 ```{r libraries, message=FALSE}
 source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
 source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/summarySE.R")
+funcdir <- '/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/'
+funcs <- list.files(funcdir, full.names = TRUE)
+sapply(funcs, source)
 library(emmeans)
+emm_options(lmerTest.df = 'satterthwaite')  # Calculates DFs in the same way as lmerTest
+emm_options(pbkrtest.limit = 3000)             # A limit is set at 3000 observations to keep DF calculations from 
+emm_options(lmerTest.limit = 50000)            # being too computationally intense. Here, we increase the limit.
 library(cowplot)
 library(readr)
 library(tidyverse)
@@ -32,6 +38,7 @@ library(lme4)
 library(lmerTest)
 library(effectsize)
 library(car)
+library(plyr)           # Invoked by the summarySE function. Load it last to avoid dependency issues
 ```
 
 ```{r functions_plot, echo=FALSE}
@@ -39,29 +46,32 @@ library(car)
 raincloudplot <- function(data, sumrepdat, title){
 ggplot(data, aes(x = Condition, y = Score, fill = Group)) +
   geom_flat_violin(aes(fill = Group),
-                   position = position_nudge(x = .1, y = 0), 
+                   position = position_nudge(x = .15, y = 0), 
                    adjust = 1.5, 
                    trim = FALSE, 
                    alpha = .5, 
                    colour = NA)+
-  geom_point(aes(x = as.numeric(Condition)-.1, y = Score, colour = Group),
-             position = position_jitterdodge(jitter.width = .04, dodge.width = .05),
-             size = .25,
-             shape = 20)+
+  geom_point(aes(x = as.numeric(Condition)-.15, y = Score, colour = Group),
+             position = position_jitterdodge(jitter.width = .03, dodge.width = .05),
+             size = 1.5,
+             shape = 20,
+             alpha = .7)+
   geom_boxplot(aes(x = Condition, y = Score, fill = Group),
                outlier.shape = NA, 
                alpha = .5, 
-               width = .1, 
+               width = .25, 
+               size = .7,
                colour = "black")+
   geom_line(data = sumrepdat,
-            aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group),
-            linetype = 3)+
+            aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group),
+            linetype = 3, size = .9)+
   geom_point(data = sumrepdat, 
-             aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group), 
-             shape = 18) +
+             aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group), 
+             shape = 18,
+             size = 2.5) +
   geom_errorbar(data = sumrepdat, 
-                aes(x = as.numeric(Condition)+.1, y = Score_mean, group = Group, colour = Group, ymin = Score_mean-se, ymax = Score_mean+se),
-                width = .05)+
+                aes(x = as.numeric(Condition)+.15, y = Score_mean, group = Group, colour = Group,
+                    ymin = Score_mean-se, ymax = Score_mean+se), width = .04, size = .9)+
   scale_colour_brewer(palette = "Dark2")+
   scale_fill_brewer(palette = "Dark2")+
   ggtitle(title)+
@@ -102,32 +112,31 @@ ggplot(data, aes(x = Group, y = Score)) +
 ```
 
 ```{r facetscatter, echo=FALSE}
+simpler_scatter <- function(data, y, x){
+     g <- ggplot(data, aes_string(y=y, x=x)) +
+                geom_point(alpha = .3) +
+                geom_smooth(method='lm', se = FALSE) +
+                scale_colour_brewer(palette = "Dark2")+
+                scale_fill_brewer(palette = "Dark2")+
+                theme_cowplot()   
+     print(g)
+}
 
-facet_scatter <- function(data, y,x,lines,facets){
+simple_scatter <- function(data, y, x, lines){
      g <- ggplot(data, aes_string(y=y, x=x, color = lines, group = lines)) +
-                geom_point(alpha = .5) +
+                geom_point(alpha = .3) +
+                geom_smooth(method='lm', se = FALSE) +
+                scale_colour_brewer(palette = "Dark2")+
+                scale_fill_brewer(palette = "Dark2")+
+                theme_cowplot()   
+     print(g)
+}
+
+facet_scatter <- function(data, y, x, lines, facets){
+     g <- ggplot(data, aes_string(y=y, x=x, color = lines, group = lines)) +
+                geom_point(alpha = .3) +
                 geom_smooth(method='lm', se = FALSE) +
                 facet_wrap(as.formula(paste("~", facets)))+
-                scale_colour_brewer(palette = "Dark2")+
-                scale_fill_brewer(palette = "Dark2")+
-                theme_cowplot()   
-     print(g)
-}
-
-simple_scatter <- function(data, y,x,lines){
-     g <- ggplot(data, aes_string(y=y, x=x, color = lines, group = lines)) +
-                geom_point(alpha = .5) +
-                geom_smooth(method='lm', se = FALSE) +
-                scale_colour_brewer(palette = "Dark2")+
-                scale_fill_brewer(palette = "Dark2")+
-                theme_cowplot()   
-     print(g)
-}
-
-simpler_scatter <- function(data, y,x){
-     g <- ggplot(data, aes_string(y=y, x=x)) +
-                geom_point(alpha = .5) +
-                geom_smooth(method='lm', se = FALSE) +
                 scale_colour_brewer(palette = "Dark2")+
                 scale_fill_brewer(palette = "Dark2")+
                 theme_cowplot()   
@@ -189,44 +198,70 @@ interrogate_mod <- function(model){
         #print(confint(model))
 }
 
+DM.int2gtext   <- c(-1, 1, 0, 0, 0, 0, 0, 0, 0)
+DM.int3gtext   <- c(-1, 0, 1, 0, 0, 0, 0, 0, 0)
+DM.int3gtint2  <- c(0, -1, 1, 0, 0, 0, 0, 0, 0)
+IN.int2gtext   <- c(0, 0, 0, -1, 1, 0, 0, 0, 0)
+IN.int3gtext   <- c(0, 0, 0, -1, 0, 1, 0, 0, 0)
+IN.int3gtint2  <- c(0, 0, 0, 0, -1, 1, 0, 0, 0)
+MMP.int2gtext  <- c(0, 0, 0, 0, 0, 0, -1, 1, 0)
+MMP.int3gtext  <- c(0, 0, 0, 0, 0, 0, -1, 0, 1)
+MMP.int3gtint2 <- c(0, 0, 0, 0, 0, 0, 0, -1, 1)
+posthoc_comparisons2 <- function(emmy){
+        comps <- contrast(emmy, method = list('MMP:int2>ext - IN.int2>ext' = MMP.int2gtext - IN.int2gtext,
+         'MMP:int2>ext - MD.int2>ext' = MMP.int2gtext - DM.int2gtext,
+         'IN:int2>ext - MD.int2>ext' = IN.int2gtext - DM.int2gtext,
+         'MMP:int3>ext - IN.int3>ext' = MMP.int3gtext - IN.int3gtext,
+         'MMP:int3>ext - MD.int3>ext' = MMP.int3gtext - DM.int3gtext,
+         'IN:int3>ext - MD.int3>ext' = IN.int3gtext - DM.int3gtext,
+         'MMP:int3>int2 - IN.int3>int2' = MMP.int3gtint2 - IN.int3gtint2,
+         'MMP:int3>int2 - MD.int3>int2' = MMP.int3gtint2 - DM.int3gtint2,
+         'IN:int3>int2 - MD.int3>int2' = IN.int3gtint2 - DM.int3gtint2),
+         adjust = 'mvt')
+        print(comps)
+}
+
 ```
 
 # Load data
 
 ```{r datafile}
 datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
-datafile_clin_pom <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_clinical_variables_2021-05-27.csv'
+datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_verylongformat_2021-08-30.csv'
+datafile_clin_pom <- '/project/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-08-30.csv'
 datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
 ```
 
 ```{r data, echo=FALSE, message=FALSE}
 #Read task data
-
 data_task <- read_csv(datafile_task) %>%
   filter(Group == 'PD_POM') %>%
   filter(Timepoint != 'ses-Visit3') %>%
-  select(pseudonym, Timepoint, Condition, Response.Time, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Poor.Performance)
+  select(pseudonym, Timepoint, Condition, Response.Time, Block, TrialNumber, Percentage.Correct,
+         Button.Press.CoV, Button.Press.SwitchRatio, Poor.Performance, Block) %>%
+  filter(Response.Time>0.25)
 
 #Read clinical data
-
 data_clin_pom <- read_csv(datafile_clin_pom) %>%
         filter(MriNeuroPsychTask == 'Motor')
 data_clin_subtypes <- read_csv(datafile_clin_subtypes)
 data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
 data_clin_pom_orig$Timepoint <- str_remove(data_clin_pom_orig$Timepoint, 'POM')
 data_clin <- data_clin_pom_orig %>%
-  select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears)
-
-data_clin <- data_clin_pom_orig %>%
         filter(Group == 'PD_POM') %>%
-        select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears, Up3OfTotal, Up3OfTotal.1YearDelta)
+        select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears,
+               Up3OfTotal, Up3OfTotal.1YearDelta,
+               Up3OfAppendicularSum, Up3OfAppendicularSum.1YearDelta,
+               Up3OfCompositeTremorSum, Up3OfCompositeTremorSum.1YearDelta)
 
 #Merge clinical and task data
 data_SUBS <- full_join(data_clin, data_task, by = c('pseudonym', 'Timepoint')) %>%
         mutate(Group = Subtype,
                Group = as.factor(Group),
                Condition = as.factor(Condition),
-               Timepoint = as.factor(Timepoint))
+               Timepoint = as.factor(Timepoint),
+               Block = as.factor(Block),
+               Gender=as.factor(Gender))
 
 #Select data for symptom progression analyses
 data_SUBS_t1 <- data_SUBS %>%
@@ -237,146 +272,569 @@ data_SUBS_t2 <- data_SUBS %>%
 data_SUBS_subset <- bind_rows(data_SUBS_t1, data_SUBS_t2) %>%
   arrange(pseudonym)
 
-data_SUBS_SymProgTotal_NoSubtype <- data_SUBS_subset %>%
-        mutate(Score = Up3OfTotal,
-               Group = 'PD_POM') %>%
-        select(pseudonym, Timepoint, Group, Age, Gender, Up3OfTotal, Score) %>%
-        mutate(Condition = Timepoint) %>%
+collapse_rms1 <- function(d){
+        d %>%
+        select(pseudonym, Timepoint, Group, Age, Gender, Up3OfTotal, Up3OfAppendicularSum, Up3OfCompositeTremorSum) %>%
+        group_by(pseudonym, Timepoint, Group, Gender) %>%
+        dplyr::summarise(Age=mean(Age),
+                         Up3OfTotal=mean(Up3OfTotal), Up3OfAppendicularSum=mean(Up3OfAppendicularSum),
+                         Up3OfCompositeTremorSum=mean(Up3OfCompositeTremorSum)) %>%
         na.omit
-
+}
+data_SUBS_SymProgTotal_NoSubtype <- data_SUBS_subset %>%
+        mutate(Group = 'PD_POM') %>%
+        collapse_rms1() %>%
+        na.omit
 data_SUBS_SymProgTotal <- data_SUBS_subset %>%
-        mutate(Score = Up3OfTotal) %>%
-        select(pseudonym, Timepoint, Group, Age, Gender, Up3OfTotal, Score) %>%
-        mutate(Condition = Timepoint) %>%
+        collapse_rms1() %>%
         na.omit
 
 #Select data for correlation analyses
+
+        # Baseline severity versus response times
 data_SUBS_BaTotalRTs <- data_SUBS %>%
   filter(Timepoint == 'ses-Visit1') %>%
-  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal, Response.Time) %>%
+  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal, Up3OfAppendicularSum, Up3OfCompositeTremorSum, Response.Time, Block) %>%
   na.omit
 
-data_SUBS_BaTotalRTs_mean <- data_SUBS_BaTotalRTs %>%
-        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal'), names_from = Condition, values_from = Response.Time) %>%
-        mutate(Mean = (Ext+Int2+Int3)/3)
+collapse_rms3 <- function(d){
+        d %>%
+        select(pseudonym, Group, Condition, Response.Time, Age, Gender, Up3OfTotal, Up3OfAppendicularSum, Up3OfCompositeTremorSum) %>%
+        group_by(pseudonym, Group, Condition, Gender) %>%
+        dplyr::summarise(Response.Time=mean(Response.Time), Age=mean(Age),
+                         Up3OfTotal=mean(Up3OfTotal), Up3OfAppendicularSum=mean(Up3OfAppendicularSum),
+                         Up3OfCompositeTremorSum=mean(Up3OfCompositeTremorSum)) %>%
+        na.omit
+}
+data_SUBS_BaTotalRTs_mean_long <- collapse_rms3(data_SUBS_BaTotalRTs)
+data_SUBS_BaTotalRTs_mean <- collapse_rms3(data_SUBS_BaTotalRTs) %>%
+        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal',
+                                'Up3OfAppendicularSum', 'Up3OfCompositeTremorSum'),
+                    names_from = Condition, values_from = Response.Time) %>%
+        mutate(Mean = (Ext+Int2+Int3)/3,
+               INTgtEXT = (Int2+Int3)/2 - Ext)
 
+        # Progression versus response times
 data_SUBS_ProgTotalRTs <- data_SUBS %>%
   filter(Timepoint == 'ses-Visit1') %>%
-  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal, Up3OfTotal.1YearDelta, Response.Time) %>%
+  select(pseudonym, Condition, Group, Gender, Age, Up3OfTotal, Up3OfTotal.1YearDelta,
+         Up3OfAppendicularSum, Up3OfAppendicularSum.1YearDelta,
+         Up3OfCompositeTremorSum, Up3OfCompositeTremorSum.1YearDelta, Response.Time, Block) %>%
   na.omit
 
-data_SUBS_ProgTotalRTs_mean <- data_SUBS_ProgTotalRTs %>%
-        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal','Up3OfTotal.1YearDelta'), names_from = Condition, values_from = Response.Time) %>%
-        mutate(Mean = (Ext+Int2+Int3)/3)
+collapse_rms4 <- function(d){
+        d %>%
+        select(pseudonym, Group, Condition, Response.Time, Age, Gender, Up3OfTotal, Up3OfTotal.1YearDelta,
+               Up3OfAppendicularSum, Up3OfAppendicularSum.1YearDelta, Up3OfCompositeTremorSum, Up3OfCompositeTremorSum.1YearDelta) %>%
+        group_by(pseudonym, Group, Condition, Gender) %>%
+        dplyr::summarise(Response.Time=mean(Response.Time), Age=mean(Age),
+                         Up3OfTotal=mean(Up3OfTotal), Up3OfTotal.1YearDelta=mean(Up3OfTotal.1YearDelta),
+                         Up3OfAppendicularSum=mean(Up3OfAppendicularSum), Up3OfAppendicularSum.1YearDelta=mean(Up3OfAppendicularSum.1YearDelta),
+                         Up3OfCompositeTremorSum=mean(Up3OfCompositeTremorSum), Up3OfCompositeTremorSum.1YearDelta=mean(Up3OfCompositeTremorSum.1YearDelta)) %>%
+        na.omit
+}
+data_SUBS_ProgTotalRTs_mean_long <- collapse_rms4(data_SUBS_ProgTotalRTs)
+data_SUBS_ProgTotalRTs_mean <- collapse_rms4(data_SUBS_ProgTotalRTs) %>%
+        pivot_wider(id_cols = c('pseudonym','Group','Gender','Age','Up3OfTotal','Up3OfTotal.1YearDelta',
+                                'Up3OfAppendicularSum','Up3OfAppendicularSum.1YearDelta',
+                                'Up3OfCompositeTremorSum','Up3OfCompositeTremorSum.1YearDelta'),
+                    names_from = Condition, values_from = Response.Time) %>%
+        mutate(Mean = (Ext+Int2+Int3)/3,
+               INTgtEXT = (Int2+Int3)/2 - Ext)
         
 ```
 
 # Symptom progression {.tabset}
 
-We would like to test whether patients worsen over the course of a single year. We are also interested in testing whether this worsening differs between PD subtypes. Note that I recoded Condition to mean Timepoint so I could make use of the functions that were defined for the task inferences.
+We would like to test whether patients worsen over the course of a single year. We are also interested in testing whether this worsening differs between PD subtypes. Note that I recoded Condition to mean Timepoint so I could make use of the functions that were defined for the task inferences. We will focus on MDS-UPDRS III total. In principle, we could do this same analysis for any MDS-UPDRS III subdomain.
 
 ## Whole sample
-```{r data_symprog, echo = FALSE, message = FALSE}
-sumrepdat_SUBS_SymProgTotal_NoSubtype <- summarySE(data_SUBS_SymProgTotal_NoSubtype, measurevar = "Score",
-                       groupvars=c("Group", 'Condition'))
-print(sumrepdat_SUBS_SymProgTotal_NoSubtype)
-raincloudplot(data_SUBS_SymProgTotal_NoSubtype, sumrepdat_SUBS_SymProgTotal_NoSubtype, 'Progression of MDS-UPDRS III across the whole cohort')
 
-f <- 'log1p(Score) ~ 1 + Condition + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+```{r echo = FALSE}
+f <- 'Score ~ 1 + Timepoint + Gender + Age.demean + (1|pseudonym)'
 print(paste('Fitting the following model:', f, sep=' '))
-infer_SUBS_ProgTotal_NoSubtype <- lmer(f, data=data_SUBS_SymProgTotal_NoSubtype)
-interrogate_mod(infer_SUBS_ProgTotal_NoSubtype)
-#posthoc_comparisons(infer_SUBS_ProgTotal, rm = TRUE)
 ```
+
+```{r echo = FALSE}
+infer_progression <- function(dataframe, variable){
+        dataframe <- dataframe %>%
+        plyr::mutate(Age.demean = scale(Age,center=TRUE,scale=FALSE),
+               Score=dataframe[[variable]],
+               Condition=Timepoint)
+        sumrepdat <- summarySE(dataframe, measurevar = "Score",
+                       groupvars=c("Group", 'Condition'))
+        print(sumrepdat)
+        print(raincloudplot(dataframe, sumrepdat, paste('Progression of ', variable, ' across the whole cohort', sep='')))
+
+        inference <- lmer(f, data=dataframe, lmerControl(optimizer = 'nloptwrap'), REML=TRUE)
+        interrogate_mod(inference)
+        emmeans(inference, ~ Timepoint)
+        #posthoc_comparisons(infer_SUBS_ProgTotal, rm = TRUE)
+}
+```
+
+### MDS-UPDRS III Total score
+
+```{r echo = FALSE, message = FALSE}
+infer_progression(data_SUBS_SymProgTotal_NoSubtype, 'Up3OfTotal')
+```
+
+### MDS-UPDRS III Bradykinesia + Rigidity score
+
+```{r echo = FALSE, message = FALSE}
+infer_progression(data_SUBS_SymProgTotal_NoSubtype, 'Up3OfAppendicularSum')
+```
+
+### MDS-UPDRS III Composite tremor score
+
+```{r echo = FALSE, message = FALSE}
+infer_progression(data_SUBS_SymProgTotal_NoSubtype, 'Up3OfCompositeTremorSum')
+```
+
+We see that there is a clear effect of time (coded as 'Condition' in the plot) on MDS-UPDRS III total score (coded as 'Score' in the plot).
 
 ## Subtypes
 
-```{r data_symprog_subtypes, echo = FALSE, message = FALSE}
-sumrepdat_SUBS_SymProgTotal <- summarySE(data_SUBS_SymProgTotal, measurevar = "Score",
-                       groupvars=c("Group", 'Condition'))
-print(sumrepdat_SUBS_SymProgTotal)
-raincloudplot(data_SUBS_SymProgTotal, sumrepdat_SUBS_SymProgTotal, 'Progression of MDS-UPDRS III total between subtypes')
-
-f <- 'log1p(Score) ~ 1 + Group*Condition + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
+```{r echo = FALSE}
+f <- 'Score ~ 1 + Group*Timepoint + Gender + Age.demean + (1|pseudonym)'
 print(paste('Fitting the following model:', f, sep=' '))
-
-infer_SUBS_ProgTotal <- lmer(f, data=data_SUBS_SymProgTotal)
-interrogate_mod(infer_SUBS_ProgTotal)
-#posthoc_comparisons(infer_SUBS_ProgTotal, rm = TRUE)
 ```
+
+```{r echo = FALSE}
+infer_progression <- function(dataframe, variable){
+        dataframe <- dataframe %>%
+        plyr::mutate(Age.demean = scale(Age,center=TRUE,scale=FALSE),
+               Score=dataframe[[variable]],
+               Condition=Timepoint)
+        sumrepdat <- summarySE(dataframe, measurevar = "Score",
+                       groupvars=c("Group", 'Condition'))
+        print(sumrepdat)
+        print(raincloudplot(dataframe, sumrepdat, paste('Progression of ', variable, ' across the whole cohort', sep='')))
+
+        inference <- lmer(f, data=dataframe, lmerControl(optimizer = 'nloptwrap'), REML=TRUE)
+        interrogate_mod(inference)
+        emmeans(inference, ~ Timepoint*Group)
+        #posthoc_comparisons(infer_SUBS_ProgTotal, rm = TRUE)
+}
+```
+
+### MDS-UPDRS III Total score
+```{r echo = FALSE, message = FALSE}
+infer_progression(data_SUBS_SymProgTotal, 'Up3OfTotal')
+```
+
+### MDS-UPDRS III Bradykinesia + Rigidity score
+
+```{r echo = FALSE, message = FALSE}
+infer_progression(data_SUBS_SymProgTotal, 'Up3OfAppendicularSum')
+```
+
+### MDS-UPDRS III Composite tremor score
+```{r echo = FALSE, message = FALSE}
+infer_progression(data_SUBS_SymProgTotal, 'Up3OfCompositeTremorSum')
+```
+
+We see that more severe subtypes have more severe symptoms, which makes sense given that this was one of the criteria used in the classification. However, we don't see a difference in the effect of time between subtypes. Over one year, all subtypes progresses at the same pace.
+
+To show that this is not a feature of the particular analysis that was carried out, I will include a delta type analysis below.
+
+```{r alternative, echo = FALSE, message=FALSE}
+data_SUBS_SymProgTotal_alt <- data_SUBS_SymProgTotal %>%
+        pivot_wider(id_cols=c('pseudonym', 'Group', 'Gender', 'Age'), values_from = Up3OfTotal, names_from = Timepoint, names_repair = 'universal') %>%
+        na.omit %>%
+        mutate(delta = ses.Visit1 - ses.Visit2)
+
+infer_SUBS_SymProgTotal_alt <- lm(delta ~ Group + ses.Visit1 + Gender + scale(Age,center=TRUE,scale=FALSE), data = data_SUBS_SymProgTotal_alt)
+anova(infer_SUBS_SymProgTotal_alt)
+```
+
+This shows the same effects as above. There is no difference between subtypes in terms of progression.
 
 # Clinical-Task correlations {.tabset}
 
-This section is more experimental than the sections above. This is where I am still exploring different questions and options for assessing those questions.
+In this section, we explore the relationship between response times and symptom severity. In principle, we could do this same analysis for any MDS-UPDRS III subdomain.
 
 ## Whole sample
 
-We would like to know whether baseline symptom severity is associated with task performance. One way to do this is to average response times across conditions and correlate it with some clinical score. The question we are testing here is whether overall task performance can be predicted by baseline symptom severity.
+We would like to know whether baseline symptom severity is associated with task performance. One way to do this is to aggregate response times within conditions, average response times across conditions and correlate with some clinical score. The question we are testing here is whether overall task performance can be predicted by baseline symptom severity. This is a very simple way of looking into the relationship between response times and symptom severity. However, it is also the weakest.
 
-```{r clintaskcorr_simpler, echo = FALSE, message = FALSE, warning = FALSE}
-simpler_scatter(data=data_SUBS_BaTotalRTs_mean, y='log(Up3OfTotal)', x='log(Mean)')
-f <- 'log1p(Mean) ~ log1p(Up3OfTotal) + Gender + scale(Age, center=TRUE, scale=FALSE)'
-print(paste('Fitting the following model:', f, sep=' '))
-infer_SUBS_BaTotalRTs_mean <- lm(f, data=data_SUBS_BaTotalRTs_mean)
-interrogate_mod(infer_SUBS_BaTotalRTs_mean)
-#posthoc_comparisons(infer_SUBS_BaTotalRTs, rm = TRUE)
+```{r echo = FALSE}
+infer_RTandCLIN <- function(dataframe, clin='Up3OfTotal', rt='Mean', prog=FALSE, mm=FALSE, grouplines=FALSE, conditionfacets=FALSE, mmoptimizer='nloptwrap'){
+        if(!prog){
+                dataframe <- dataframe %>%
+                mutate(Age.demean = scale(Age,center=TRUE,scale=FALSE),
+                        RT=dataframe[[rt]],
+                        Clin=dataframe[[clin]])
+                if(grouplines & !conditionfacets){
+                        simple_scatter(data=dataframe, y=rt, x=clin, lines = 'Group')
+                }else if(!grouplines & conditionfacets){
+                        simple_scatter(data=dataframe, y=rt, x=clin, lines = 'Condition')
+                }else if(grouplines & conditionfacets){
+                        facet_scatter(data=dataframe, y=rt, x=clin, lines = 'Group', facets = 'Condition')
+                }else{
+                        simpler_scatter(data=dataframe, y=rt, x=clin)
+                }
+                if(mm){
+                        inference <- lmer(formula = f_ba, data=dataframe, lmerControl(optimizer = mmoptimizer), REML=TRUE)
+                }else{
+                        inference <- lm(f_ba, data=dataframe)
+                }
+                interrogate_mod(inference)
+                inference
+        }else{
+                dataframe <- dataframe %>%
+                mutate(Age.demean = scale(Age,center=TRUE,scale=FALSE),
+                        RT=dataframe[[rt]],
+                        Clin=dataframe[[clin]],
+                        ClinDemean=scale(Clin,center=TRUE,scale=FALSE),
+                        ClinProg=dataframe[[paste(clin, '.1YearDelta',sep='')]])
+                if(grouplines & !conditionfacets){
+                        simple_scatter(data=dataframe, y=rt, x=paste(clin, '.1YearDelta',sep=''), lines = 'Group')
+                }else if(!grouplines & conditionfacets){
+                        simple_scatter(data=dataframe, y=rt, x=paste(clin, '.1YearDelta',sep=''), lines = 'Condition')
+                }else if(grouplines & conditionfacets){
+                        facet_scatter(data=dataframe, y=rt, x=paste(clin, '.1YearDelta',sep=''), lines = 'Group', facets = 'Condition')
+                }else{
+                        simpler_scatter(data=dataframe, y=rt, x=paste(clin, '.1YearDelta',sep=''))
+                }
+                if(mm){
+                        inference <- lmer(f_prog, data=dataframe, lmerControl(optimizer = mmoptimizer), REML=TRUE)
+                }else{
+                        inference <- lm(f_prog, data=dataframe)
+                }
+                interrogate_mod(inference)
+                inference
+        }
+}
 ```
 
-We can also assess the association between symptom progression and overall task performance.
-
-```{r contaskcorr_simpler_prog, echo = FALSE, message = FALSE, warning = FALSE}
-simpler_scatter(data=data_SUBS_ProgTotalRTs_mean, y='Up3OfTotal.1YearDelta', x='log(Mean)')
-f <- 'log1p(Mean) ~ Up3OfTotal.1YearDelta + Up3OfTotal + Gender + scale(Age, center=TRUE, scale=FALSE)'
-print(paste('Fitting the following model:', f, sep=' '))
-infer_SUBS_ProgTotalRTs_mean <- lm(f, data=data_SUBS_ProgTotalRTs_mean)
-interrogate_mod(infer_SUBS_ProgTotalRTs_mean)
-#posthoc_comparisons(infer_SUBS_ProgTotalRTs_mean, rm = TRUE)
+```{r echo = FALSE}
+f_ba <- 'log(RT) ~ Clin + Gender + Age.demean'
+print(paste('Fitting the following model:', f_ba, sep=' '))
+f_prog <- 'log(RT) ~ ClinProg + ClinDemean + Gender + Age.demean'
+print(paste('Fitting the following model:', f_prog, sep=' '))
 ```
+
+### MDS-UPDRS III Total score ~ Mean(RT)
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin='Up3OfTotal', rt='Mean', prog = FALSE, mm = FALSE)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfTotal', rt = 'Mean', prog = TRUE, mm = FALSE)
+```
+
+### MDS-UPDRS III Bradykinesia + Rigidity score ~ Mean(RT)
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin='Up3OfAppendicularSum', rt='Mean', prog = FALSE, mm = FALSE)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfAppendicularSum', rt = 'Mean', prog = TRUE, mm = FALSE)
+```
+
+### MDS-UPDRS III Composite tremor score ~ Mean(RT)
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin='Up3OfCompositeTremorSum', rt='Mean', prog = FALSE, mm = FALSE)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfCompositeTremorSum', rt = 'Mean', prog = TRUE, mm = FALSE)
+```
+
+We see a very clear relationship between response times and symptom severity. There does not appear to be a relationship between response times and symptom progression.
+
+Let's also have a look at the correlation with Int - Ext.
+
+```{r echo=FALSE, message=FALSE}
+f_ba <- str_replace(f_ba, fixed('log(RT)'), 'RT')
+f_prog <- str_replace(f_prog, fixed('log(RT)'), 'RT')
+```
+
+### MDS-UPDRS III Total score ~ Int - Ext
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin='Up3OfTotal', rt='INTgtEXT', prog = FALSE, mm = FALSE)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfTotal', rt = 'INTgtEXT', prog = TRUE, mm = FALSE)
+```
+
+### MDS-UPDRS III Bradykinesia + Rigidity ~ Int - Ext
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin='Up3OfAppendicularSum', rt='INTgtEXT', prog = FALSE, mm = FALSE)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfAppendicularSum', rt = 'INTgtEXT', prog = TRUE, mm = FALSE)
+```
+
+### MDS-UPDRS III Composite tremor ~ Int - Ext
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin='Up3OfCompositeTremorSum', rt='INTgtEXT', prog = FALSE, mm = FALSE)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfCompositeTremorSum', rt = 'INTgtEXT', prog = TRUE, mm = FALSE)
+```
+
+We can also test whether the association between clinical measurements and response times differ between conditions. Mixed effects models are used to account for repeated measurements, giving each subject a unique intercept.
+
+```{r echo = FALSE}
+f_ba <- 'log(RT) ~ Clin*Condition + Gender + Age.demean + (1|pseudonym)'
+print(paste('Fitting the following model:', f_ba, sep=' '))
+f_prog <- 'log(RT) ~ ClinProg*Condition + ClinDemean + Gender + Age.demean + (1|pseudonym)'
+print(paste('Fitting the following model:', f_prog, sep=' '))
+```
+
+### MDS-UPDRS III Total score ~ Mean(RT) by condition
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean_long, clin='Up3OfTotal', rt='Response.Time', prog = FALSE, mm = TRUE, conditionfacets = TRUE)
+emmip(m, Condition ~ Clin, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfTotal', rt = 'Response.Time', prog = TRUE, mm = TRUE, conditionfacets = TRUE)
+emmip(m, Condition ~ ClinProg, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'ClinProg', adjust = 'none')
+```
+
+### MDS-UPDRS III Bradykinesia + Rigidity score ~ Mean(RT) by condition
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean_long, clin='Up3OfAppendicularSum', rt='Response.Time', prog = FALSE, mm = TRUE, conditionfacets = TRUE)
+emmip(m, Condition ~ Clin, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, conditionfacets = TRUE)
+emmip(m, Condition ~ ClinProg, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'ClinProg', adjust = 'none')
+```
+
+### MDS-UPDRS III Composite tremor score ~ Mean(RT) by condition
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean_long, clin='Up3OfCompositeTremorSum', rt='Response.Time', prog = FALSE, mm = TRUE, conditionfacets = TRUE)
+emmip(m, Condition ~ Clin, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, conditionfacets = TRUE)
+emmip(m, Condition ~ ClinProg, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'ClinProg', adjust = 'none')
+```
+
+Now, let's try a more advanced mixed-effects modelling approach. Here, we do not aggregate and average response times. We let each trial be a single observation for a subject. When we do this, we also need to control for the fact that trials are repeatead measures. We handle this by including by-subject random intercepts. We can also control for the effect of block, which we do by including it as a covariate, and account for the fact that there may be variability in the effect of block between subjects, which we handle by including by-subject random slopes for block. Also, rather than aggregating across conditions, we will include Condition and its interaction with our clinical measurement in the model.
+
+```{r echo = FALSE, message=FALSE}
+f_ba <- 'log(RT) ~ Clin*Condition + Gender + Age.demean + Block + (1+Block|pseudonym)'
+print(paste('Fitting the following model:', f_ba, sep=' '))
+f_prog <- 'log(RT) ~ ClinProg*Condition + ClinDemean + Gender + Age.demean + Block + (1+Block|pseudonym)'
+print(paste('Fitting the following model:', f_prog, sep=' '))
+```
+
+```{r echo=FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfTotal', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = FALSE, conditionfacets = TRUE, mmoptimizer = 'bobyqa')
+emmip(m, Condition ~ Clin, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfTotal', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = FALSE, conditionfacets = TRUE)
+emmip(m, Condition ~ ClinProg, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'ClinProg', adjust = 'none')
+```
+
+```{r echo=FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = FALSE, conditionfacets = TRUE)
+emmip(m, Condition ~ Clin, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = FALSE, conditionfacets = TRUE)
+emmip(m, Condition ~ ClinProg, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'ClinProg', adjust = 'none')
+```
+
+```{r echo=FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = FALSE, conditionfacets = TRUE)
+emmip(m, Condition ~ Clin, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = FALSE, conditionfacets = TRUE)
+emmip(m, Condition ~ ClinProg, cov.reduce = range)
+emtrends(m, pairwise ~ Condition, var = 'ClinProg', adjust = 'none')
+```
+
+Unsurprisingly, these models give us the same results as the simpler ones did. An advantage of these more complicated mixed-effects models is that their estimates are more accurate. 
 
 ## Subtypes
 
-We see that there is indeed an association between baseline symptom severity and overall task performance. We can do a further test to assess whether the association between baseline symptom severity and overall task performance depends on PD subtype.
+In the previous section, we observed an association between baseline symptom severity and overall task performance. We can do a further test to assess whether the association between baseline symptom severity and overall task performance depends on PD subtype.
 
-```{r clintaskcorr_simple, echo = FALSE, message = FALSE, warning = FALSE}
-simple_scatter(data=data_SUBS_BaTotalRTs_mean, y='log(Up3OfTotal)', x='log(Mean)', lines='Group')
-f <- 'log1p(Mean) ~ Group*log1p(Up3OfTotal) + Gender + scale(Age, center=TRUE, scale=FALSE)'
-print(paste('Fitting the following model:', f, sep=' '))
-infer_SUBS_BaTotalRTs_mean <- lm(f, data=data_SUBS_BaTotalRTs_mean)
-interrogate_mod(infer_SUBS_BaTotalRTs_mean)
-#posthoc_comparisons(infer_SUBS_BaTotalRTs_mean, rm = FALSE)
+```{r echo = FALSE, message=FALSE}
+f_ba <- 'log(RT) ~ Group*Clin + Gender + Age.demean'
+print(paste('Fitting the following model:', f_ba, sep=' '))
+f_prog <- 'log(RT) ~ Group*ClinProg + ClinDemean + Gender + Age.demean'
+print(paste('Fitting the following model:', f_prog, sep=' '))
 ```
 
-We do the same thing for symptom progression.
+### MDS-UPDRS III Total score ~ Response time
 
-```{r clintaskcorr_simple_prog, echo = FALSE, message = FALSE, warning = FALSE}
-simple_scatter(data=data_SUBS_ProgTotalRTs_mean, y='Up3OfTotal.1YearDelta', x='log(Mean)', lines='Group')
-f <- 'log1p(Mean) ~ Group*Up3OfTotal.1YearDelta + Up3OfTotal + Gender + scale(Age, center=TRUE, scale=FALSE)'
-print(paste('Fitting the following model:', f, sep=' '))
-infer_SUBS_ProgTotalRTs_mean <- lm(f, data=data_SUBS_ProgTotalRTs_mean)
-interrogate_mod(infer_SUBS_ProgTotalRTs_mean)
-#posthoc_comparisons(infer_SUBS_ProgTotalRTs_mean, rm = FALSE)
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin = 'Up3OfTotal', rt = 'Mean', prog = FALSE, mm = FALSE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ Clin | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfTotal', rt = 'Mean', prog = TRUE, mm = FALSE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ ClinProg | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'ClinProg', adjust = 'none')
 ```
+
+### MDS-UPDRS III Bradykinesia+Rigidity score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin = 'Up3OfAppendicularSum', rt = 'Mean', prog = FALSE, mm = FALSE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ Clin | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfAppendicularSum', rt = 'Mean', prog = TRUE, mm = FALSE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ ClinProg | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'ClinProg', adjust = 'none')
+```
+
+### MDS-UPDRS III Composite tremor score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs_mean, clin = 'Up3OfCompositeTremorSum', rt = 'Mean', prog = FALSE, mm = FALSE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ Clin | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean, clin = 'Up3OfCompositeTremorSum', rt = 'Mean', prog = TRUE, mm = FALSE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ ClinProg | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'ClinProg', adjust = 'none')
+```
+
+Again, there is a clear relationship between response times and symptom severity. We also see that the is an effect of group on response times. However, the relationship between response times and symptom severity does not appear to differ between groups. The association between symptom progression and response times does not appear to differ between groups. And there does not appear to be an association between symptom progression and repsonse times averaged across groups either. 
+
+Here, we can also take advantage of mixed-effects modelling. 
+
+```{r echo = FALSE, message=FALSE}
+f_ba <- 'log(RT) ~ 1 + Group*Clin + Condition + Gender + Age.demean + Block + (1+Block|pseudonym)'
+print(paste('Fitting the following model:', f_ba, sep=' '))
+f_prog <- 'log(RT) ~ Group*ClinProg + Condition + ClinDemean + Gender + Age.demean + Block + (1+Block|pseudonym)'
+print(paste('Fitting the following model:', f_prog, sep=' '))
+```
+
+### MDS-UPDRS III Total score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfTotal', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ Clin | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfTotal', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ ClinProg | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'ClinProg', adjust = 'none')
+```
+
+### MDS-UPDRS III Bradykinesia+Rigidity score ~ Response time
+
+```{r echo = FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = FALSE, mmoptimizer = 'bobyqa')
+emmip(m, ~ Clin | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = FALSE, mmoptimizer = 'bobyqa')
+emmip(m, ~ ClinProg | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'ClinProg', adjust = 'none')
+```
+
+### MDS-UPDRS III Composite tremor score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ Clin | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'Clin', adjust = 'none')
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = FALSE)
+emmip(m, ~ ClinProg | Group, cov.reduce = range)
+emtrends(m, pairwise ~ Group, var = 'ClinProg', adjust = 'none')
+```
+
+Again, the mixed-effects modelling approach leads to roughly the same conclusions as the previous analysis. 
 
 ## Subtypes x Condition
 
-We failed to find evidence for a an influence of PD subtype on the association between baseline symptom severity and overall task performance. But we can be even more specific than this. If we drop the idea of assessing overall task performance we can ask whether the association between baseline symptom severity and task performance depends on the task condition, in addition to PD subtype.
+In the previous models we actually miss something that might be interesting: the interaction between group, progression, and condition. Let's include that interaction.
 
-```{r clintaskcorr_facet, echo = FALSE, message = FALSE, warning = FALSE}
-facet_scatter(data=data_SUBS_BaTotalRTs, y='log(Up3OfTotal)', x='log(Response.Time)', lines='Group', facets='Condition')
-f <- 'log1p(Response.Time) ~ Group*Condition*log1p(Up3OfTotal) + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
-print(paste('Fitting the following model:', f, sep=' '))
-infer_SUBS_BaTotalRTs <- lmer(f, data=data_SUBS_BaTotalRTs)
-interrogate_mod(infer_SUBS_BaTotalRTs)
-#posthoc_comparisons(infer_SUBS_BaTotalRTs, rm = TRUE)
+```{r echo = FALSE, message=FALSE}
+f_ba <- 'log(RT) ~ Group*Condition*Clin + Gender + Age.demean + (1|pseudonym)'
+print(paste('Fitting the following model:', f_ba, sep=' '))
+f_prog <- 'log(RT) ~ Group*Condition*ClinProg + ClinDemean + Gender + Age.demean + (1|pseudonym)'
+print(paste('Fitting the following model:', f_prog, sep=' '))
 ```
 
-Again, same thing for symptom progression.
+### MDS-UPDRS III Total score ~ Response time
 
-```{r lintaskcorr_facet, echo = FALSE, message = FALSE, warning = FALSE}
-facet_scatter(data=data_SUBS_ProgTotalRTs, y='Up3OfTotal.1YearDelta', x='log(Response.Time)', lines='Group', facets='Condition')
-f <- 'log1p(Response.Time) ~ Group*Condition*Up3OfTotal.1YearDelta + Up3OfTotal + Gender + scale(Age, center=TRUE, scale=FALSE) + (1|pseudonym)'
-print(paste('Fitting the following model:', f, sep=' '))
-infer_SUBS_ProgTotalRTs <- lmer(f, data=data_SUBS_ProgTotalRTs)
-interrogate_mod(infer_SUBS_ProgTotalRTs)
-#posthoc_comparisons(infer_SUBS_ProgTotalRTs, rm = TRUE)
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfTotal', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ Clin | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'Clin', adjust = 'none')
+posthoc_comparisons2(emmy)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfTotal', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ ClinProg | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'ClinProg', adjust = 'none')
+posthoc_comparisons2(emmy)
 ```
+
+### MDS-UPDRS III Bradykinesia+Rigidity score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ Clin | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'Clin', adjust = 'none')
+posthoc_comparisons2(emmy)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ ClinProg | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'ClinProg', adjust = 'none')
+emtrends(m, pairwise ~ Condition, var = 'ClinProg', adjust = 'none')
+posthoc_comparisons2(emmy)
+```
+
+### MDS-UPDRS III Composite tremor score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ Clin | Condition, cov.reduce = range)
+emmy <- emtrends(m,  ~ Condition*Group, var = 'Clin', adjust = 'none')
+posthoc_comparisons2(emmy)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs_mean_long, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ ClinProg | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'ClinProg', adjust = 'none')
+posthoc_comparisons2(emmy)
+```
+
+So that's pretty interesting. We get a 3-way interaction indicating that the interaction between Group and Severity might be differing between conditions. Let's do the same kind of analyses, but now with mixed-effects modelling.
+
+```{r echo = FALSE, message=FALSE}
+f_ba <- 'log(RT) ~ Group*Condition*Clin + Gender + Age.demean + Block + (1+Block|pseudonym)'
+print(paste('Fitting the following model:', f_ba, sep=' '))
+f_prog <- 'log(RT) ~ Group*Condition*ClinProg + ClinDemean + Gender + Age.demean + Block + (1+Block|pseudonym)'
+print(paste('Fitting the following model:', f_prog, sep=' '))
+```
+
+### MDS-UPDRS III Total score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfTotal', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE, mmoptimizer = 'bobyqa')
+emmip(m, Group ~ Clin | Condition, cov.reduce = range)
+emmy <- emtrends(m,  ~ Condition*Group, var = 'Clin', adjust = 'none')
+posthoc_comparisons2(emmy)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfTotal', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ ClinProg | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'ClinProg', adjust = 'none')
+posthoc_comparisons2(emmy)
+```
+
+### MDS-UPDRS III Bradykinesia+Rigidity score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ Clin | Condition, cov.reduce = range)
+emmy <- emtrends(m,  ~ Condition*Group, var = 'Clin', adjust = 'none')
+posthoc_comparisons2(emmy)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfAppendicularSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ ClinProg | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'ClinProg', adjust = 'none')
+posthoc_comparisons2(emmy)
+```
+
+### MDS-UPDRS III Composite tremor score ~ Response time
+
+```{r echo = FALSE, message=FALSE}
+m <- infer_RTandCLIN(data_SUBS_BaTotalRTs, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = FALSE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ Clin | Condition, cov.reduce = range)
+emmy <- emtrends(m,  ~ Condition*Group, var = 'Clin', adjust = 'none')
+posthoc_comparisons2(emmy)
+m <- infer_RTandCLIN(data_SUBS_ProgTotalRTs, clin = 'Up3OfCompositeTremorSum', rt = 'Response.Time', prog = TRUE, mm = TRUE, grouplines = TRUE, conditionfacets = TRUE)
+emmip(m, Group ~ ClinProg | Condition, cov.reduce = range)
+emmy <- emtrends(m, ~ Condition*Group, var = 'ClinProg', adjust = 'none')
+posthoc_comparisons2(emmy)
+```
+
+Here we see some promising results. First, we see that there is a 3-way interaction between Group, Condition, and Baseline severity. The significant 2-way interaction between between Condition and Severity, in combination with the non-significant interaction between Group and Severity, suggests that the 3-way interaction results from a difference in the Condition x Severity interaction between subtypes. From the graph, we see that the slope for MD is flatter for Ext compared to Int, whereas the slope for MMP is flatter for Int compared to Ext. The slopes for Intermediate appear to be roughly the same.
+
+For progression, we see a trend towards a significant 3-way interaction, suggesting that the interaction between Condition and Progression may differ between subtypes. From the graph, we see that this is probably a result of negative slopes for MMP but positive slopes for Intermediate and MD.
