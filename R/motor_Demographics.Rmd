@@ -1,0 +1,112 @@
+---
+title: "motor_Demographics"
+author: "M.E. Johansson"
+date: "9/22/2021"
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo = FALSE}
+datafile_clin_pom <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_clinical_variables_2021-05-27.csv'
+datafile_clin_pit <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_PIT_clinical_variables_2021-05-21.csv'
+datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
+datafile_ledd <- '/project/3024006.02/Data/LEDD/MedicationTable.csv'
+
+pom <- read_csv(datafile_clin_pom)
+pit <- read_csv(datafile_clin_pit)
+subtypes <- read_csv(datafile_clin_subtypes)
+ledd <- read_csv(datafile_ledd)
+
+pom <- pom %>% 
+  filter(Timepoint == 'ses-POMVisit1') %>%
+  filter(MriNeuroPsychTask == 'Motor') %>%
+  select(pseudonym,Age,Gender,Group, Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfRestTremAmpSum, Up3OfActionTremorSum, Up3OfHoeYah)
+pom <- left_join(pom, subtypes, by = 'pseudonym')
+
+pit <- pit %>%
+  filter(Timepoint == 'ses-PITVisit1') %>%
+  select(pseudonym,Age,Gender,Group,Up3OfHoeYah_1)
+
+ledd <- ledd %>%
+        filter(Timepoint=='ses-Visit1') %>%
+        select(pseudonym,LEDD)
+
+df <- full_join(pom,pit)
+
+pom %>%
+  group_by(Group) %>%
+  dplyr::summarise(n=n(), Age.avg=mean(Age,na.rm=TRUE),Age.sd=sd(Age,na.rm=TRUE))
+pit %>%
+  group_by(Group) %>%
+  dplyr::summarise(n=n(), Age.avg=mean(Age,na.rm=TRUE),Age.sd=sd(Age,na.rm=TRUE))
+
+pom %>%
+  group_by(Group, Gender) %>%
+  dplyr::summarise(n=n())
+pit %>%
+  group_by(Group, Gender) %>%
+  dplyr::summarise(n=n())
+
+pom %>%
+  dplyr::summarise(Total.avg=mean(Up3OfTotal,na.rm=TRUE),Total.sd=sd(Up3OfTotal,na.rm=TRUE),
+                   Brady.avg=mean(Up3OfBradySum,na.rm=TRUE),Brady.sd=sd(Up3OfBradySum,na.rm=TRUE),
+                   Rig.avg=mean(Up3OfRigiditySum,na.rm=TRUE),Rig.sd=sd(Up3OfRigiditySum,na.rm=TRUE),
+                   PIGD.avg=mean(Up3OfPIGDSum,na.rm=TRUE),PIGD.sd=sd(Up3OfPIGDSum,na.rm=TRUE),
+                   RestTrem.avg=mean(Up3OfRestTremAmpSum,na.rm=TRUE),RestTrem.sd=sd(Up3OfRestTremAmpSum,na.rm=TRUE),
+                   ActTrem.avg=mean(Up3OfActionTremorSum,na.rm=TRUE),ActTrem.sd=sd(Up3OfActionTremorSum,na.rm=TRUE))
+
+pom %>%
+  group_by(Up3OfHoeYah) %>%
+  dplyr::summarise(n=n(), hy=mean(Up3OfHoeYah,na.rm=TRUE))
+pit %>%
+  filter(Group=='PD_PIT') %>%
+  group_by(Up3OfHoeYah_1) %>%
+  dplyr::summarise(n=n(), hy=mean(Up3OfHoeYah,na.rm=TRUE))
+pom %>%
+  dplyr::summarise(hy.avg=mean(Up3OfHoeYah,na.rm=TRUE),hy.sd=sd(Up3OfHoeYah,na.rm=TRUE))
+pit %>%
+  filter(Group=='PD_PIT') %>%
+  dplyr::summarise(hy.avg=mean(Up3OfHoeYah_1,na.rm=TRUE), hy.sd=sd(Up3OfHoeYah_1,na.rm=TRUE))
+
+
+pom %>%
+  group_by(Subtype) %>%
+  dplyr::summarise(n=n())
+pom %>%
+  group_by(Subtype, Gender) %>%
+  dplyr::summarise(n=n())
+pom %>%
+  group_by(Subtype, Up3OfHoeYah) %>%
+  dplyr::summarise(n=n())
+pom %>%
+  group_by(Subtype) %>%
+  dplyr::summarise(Age.avg=mean(Age,na.rm=TRUE), Age.sd=sd(Age,na.rm=TRUE),
+                   Total.avg=mean(Up3OfTotal,na.rm=TRUE),Total.sd=sd(Up3OfTotal,na.rm=TRUE),
+                   Brady.avg=mean(Up3OfBradySum,na.rm=TRUE),Brady.sd=sd(Up3OfBradySum,na.rm=TRUE),
+                   Rig.avg=mean(Up3OfRigiditySum,na.rm=TRUE),Rig.sd=sd(Up3OfRigiditySum,na.rm=TRUE),
+                   PIGD.avg=mean(Up3OfPIGDSum,na.rm=TRUE),PIGD.sd=sd(Up3OfPIGDSum,na.rm=TRUE),
+                   RestTrem.avg=mean(Up3OfRestTremAmpSum,na.rm=TRUE),RestTrem.sd=sd(Up3OfRestTremAmpSum,na.rm=TRUE),
+                   ActTrem.avg=mean(Up3OfActionTremorSum,na.rm=TRUE),ActTrem.sd=sd(Up3OfActionTremorSum,na.rm=TRUE),
+                   hy.avg=mean(Up3OfHoeYah,na.rm=TRUE),hy.sd=sd(Up3OfHoeYah,na.rm=TRUE))
+
+left_join(pom,ledd, by='pseudonym') %>%
+        select(pseudonym, LEDD) %>%
+        dplyr::summarise(n=n(), LEDD.avg = mean(LEDD,na.rm=TRUE), LEDD.sd = sd(LEDD,na.rm=TRUE), nas = sum(is.na(LEDD)))
+
+pit %>%
+        filter(Group=='PD_PIT') %>%
+        left_join(., ledd, by='pseudonym') %>%
+        select(pseudonym, LEDD) %>%
+        dplyr::summarise(n=n(), LEDD.avg = mean(LEDD,na.rm=TRUE), LEDD.sd = sd(LEDD,na.rm=TRUE), nas = sum(is.na(LEDD)))
+
+```
+
