@@ -10,10 +10,11 @@ addpath('/home/common/matlab/spm12');
 spm('defaults', 'FMRI');
 
 ses = 'ses-Visit1';
+GroupFolder = 'Group';
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3022026.01/pep/ClinVars/derivatives/database_clinical_confounds_fmri.csv');
-Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, 'Group', 'con_0001', 'ses-Visit1'), '.*sub-POM.*'));
+ClinicalConfs = readtable('/project/3022026.01/pep/ClinVars/derivatives/database_clinical_confounds_fmri_2021-08-25.csv');
+Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, GroupFolder, 'con_0001', 'ses-Visit1'), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
 
@@ -46,8 +47,7 @@ for n = 1:numel(SubInfo.Sub)
         Sel(n) = false;
     end
 end
-SubInfo.Sub = SubInfo.Sub(Sel);
-SubInfo.Group = SubInfo.Group(Sel);
+SubInfo = subset_subinfo(SubInfo,Sel);
 
 Sel = false(size(SubInfo.Sub));
 for n = 1:height(ClinicalConfs)
@@ -58,21 +58,32 @@ end
 ClinicalConfs = ClinicalConfs(Sel,:);
 
 % Exclude outliers
+mriqc_outliers = readtable('/project/3024006.02/Analyses/mriqc_outliers.txt');
+Con1 = '/project/3024006.02/Analyses/QC/1st_level/con_0001/Group.txt';
+Con2 = '/project/3024006.02/Analyses/QC/1st_level/con_0002/Group.txt';
+Con3 = '/project/3024006.02/Analyses/QC/1st_level/con_0003/Group.txt';
+ResMS = '/project/3024006.02/Analyses/QC/1st_level/ResMS/Group.txt';
+Con1_f = readtable(Con1);
+Con1_f_s = Con1_f(Con1_f.Outlier==1,:);
+Con2_f = readtable(Con2);
+Con2_f_s = Con2_f(Con2_f.Outlier==1,:);
+Con3_f = readtable(Con3);
+Con3_f_s = Con3_f(Con3_f.Outlier==1,:);
+ResMS_f = readtable(ResMS);
+ResMS_f_s = ResMS_f(ResMS_f.Outlier==1,:);
+outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
 if istrue(exclude_outliers)
-    outliers = ["sub-POMU06C08BB18FE38A3B" "sub-POMU10D1CBD2A4EB7831" "sub-POMU1EC01A53575D7104" "sub-POMU242851EF4B22A600" "sub-POMU7AABE759AC531D35" "sub-POMU80C7D6A96AA13388" "sub-POMUA6BD4DCB8040A67B" "sub-POMUB0A6FB4D3AF0D3B5" "sub-POMUB24789880E112F8F" "sub-POMUD2870200E030B451" "sub-POMUE49FF489B8076A3E" "sub-POMU06664E2F91AA04E0" "sub-POMU10D1CBD2A4EB7831" "sub-POMUA6BD4DCB8040A67B" "sub-POMUB0B32692E1393605" "sub-POMUC80F15E9B41B3EE4" "sub-POMU10D1CBD2A4EB7831" "sub-POMU7AABE759AC531D35" "sub-POMU907470A979431AAF" "sub-POMUA6BD4DCB8040A67B" "sub-POMUB0B32692E1393605" "sub-POMUC80F15E9B41B3EE4" "sub-POMU020A9277DF9F5A83" "sub-POMU02C38D3DE0820685" "sub-POMU0E19B895DF700AB0" "sub-POMU12FA62414399DD8F" "sub-POMU1C7AEA3B0ADEB876" "sub-POMU1E7EF007D32758D4" "sub-POMU1E7EF007D32758D4" "sub-POMU1EDD7C2E9E8DF70C" "sub-POMU3227DABC7764ADB0" "sub-POMU4A7412A72D2973F1" "sub-POMU54503B880C9EB267" "sub-POMU566ED54BF23566B6" "sub-POMU58B6CDD53AD4049C" "sub-POMU7E16E08D6D3BD46C" "sub-POMU82E58ECC13773EA2" "sub-POMU86B947749A70E997" "sub-POMUA6F5671F320EA927" "sub-POMUAC2513F0E5E32349" "sub-POMUBA95A9F6A41E872C" "sub-POMUDEC90EA2FF4B337C" "sub-POMUE0EFDE0DD571E3A5" "sub-POMUEE16EA86913A5BEC"];
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
-        if contains(SubInfo.Sub{n}, unique(outliers))
+        if contains(SubInfo.Sub{n}, outliers)
            Sel(n) = false;
         fprintf('Excluding outlier: %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n})
         end
     end
-    SubInfo.Sub = SubInfo.Sub(Sel);
-    SubInfo.Group = SubInfo.Group(Sel);
-    % Redo duplicates
-    [~, ind] = unique(SubInfo.Sub);   % indices to unique subs
-    duplicate_ind = setdiff(1:size(SubInfo.Sub, 1), ind);   % duplicate indices
-    duplicate_subs = SubInfo.Sub(duplicate_ind);   % duplicate values
+    SubInfo = subset_subinfo(SubInfo, Sel);
+    [~, ind] = unique(SubInfo.Sub);
+    duplicate_ind = setdiff(1:size(SubInfo.Sub, 1), ind);
+    duplicate_subs = SubInfo.Sub(duplicate_ind);
 end
 
 %% Collect events.json and confound files
@@ -145,44 +156,44 @@ end
 
 Inputs = cell(10, 1);
 if ~istrue(exclude_outliers)
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'OffOn x ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'OffOn_x_ExtInt2Int3Catch')};
 else
-    Inputs{1,1} = {fullfile(ANALYSESDir, 'Group', 'OffOn x ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'OffOn_x_ExtInt2Int3Catch_NoOutliers')};
 end
 
-ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, ses, 'PD_PIT*'));
+ExtPd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses, 'PD_PIT*'));
 ExtPd_files = {ExtPd.name}';
 ExtPd_files = ExtPd_files(contains({ExtPd.name}, duplicate_subs));
-Inputs{2,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, ses, ExtPd_files);
-Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, ses, 'PD_PIT*'));
+Inputs{2,1} = fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses, ExtPd_files);
+Int2Pd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses, 'PD_PIT*'));
 Int2Pd_files = {Int2Pd.name}';
 Int2Pd_files = Int2Pd_files(contains({Int2Pd.name}, duplicate_subs));
-Inputs{3,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, ses, Int2Pd_files);
-Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, ses, 'PD_PIT*'));
+Inputs{3,1} = fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses, Int2Pd_files);
+Int3Pd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses, 'PD_PIT*'));
 Int3Pd_files = {Int3Pd.name}';
 Int3Pd_files = Int3Pd_files(contains({Int3Pd.name}, duplicate_subs));
-Inputs{4,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, ses, Int3Pd_files);
-CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, ses, 'PD_PIT*'));
+Inputs{4,1} = fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses, Int3Pd_files);
+CatchPd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses, 'PD_PIT*'));
 CatchPd_files = {CatchPd.name}';
 CatchPd_files = CatchPd_files(contains({CatchPd.name}, duplicate_subs));
-Inputs{5,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, ses, CatchPd_files);
+Inputs{5,1} = fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses, CatchPd_files);
 
-ExtPd = dir(fullfile(ANALYSESDir, 'Group', ConList{1}, ses, 'PD_POM*'));
+ExtPd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses, 'PD_POM*'));
 ExtPd_files = {ExtPd.name}';
 ExtPd_files = ExtPd_files(contains({ExtPd.name}, duplicate_subs));
-Inputs{6,1} = fullfile(ANALYSESDir, 'Group', ConList{1}, ses, ExtPd_files);
-Int2Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{2}, ses, 'PD_POM*'));
+Inputs{6,1} = fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses, ExtPd_files);
+Int2Pd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses, 'PD_POM*'));
 Int2Pd_files = {Int2Pd.name}';
 Int2Pd_files = Int2Pd_files(contains({Int2Pd.name}, duplicate_subs));
-Inputs{7,1} = fullfile(ANALYSESDir, 'Group', ConList{2}, ses, Int2Pd_files);
-Int3Pd = dir(fullfile(ANALYSESDir, 'Group', ConList{3}, ses, 'PD_POM*'));
+Inputs{7,1} = fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses, Int2Pd_files);
+Int3Pd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses, 'PD_POM*'));
 Int3Pd_files = {Int3Pd.name}';
 Int3Pd_files = Int3Pd_files(contains({Int3Pd.name}, duplicate_subs));
-Inputs{8,1} = fullfile(ANALYSESDir, 'Group', ConList{3}, ses, Int3Pd_files);
-CatchPd = dir(fullfile(ANALYSESDir, 'Group', ConList{4}, ses, 'PD_POM*'));
+Inputs{8,1} = fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses, Int3Pd_files);
+CatchPd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses, 'PD_POM*'));
 CatchPd_files = {CatchPd.name}';
 CatchPd_files = CatchPd_files(contains({CatchPd.name}, duplicate_subs));
-Inputs{9,1} = fullfile(ANALYSESDir, 'Group', ConList{4}, ses, CatchPd_files);
+Inputs{9,1} = fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses, CatchPd_files);
 
 FD_PD_PIT = SubInfo.FD(strcmp(SubInfo.Group, 'PD_PIT'))';
 FD_PD_POM = SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'))';
