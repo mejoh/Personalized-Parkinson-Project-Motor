@@ -10,11 +10,11 @@ if nargin<1 || isempty(thr)
     thr = 0.05;
 end
 
-session = 'ses-POMVisit1';
+session = 'ses-PITVisit1';
 BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
-% Sub = {'sub-POMU94E6A93D782CE718'};
+Sub = {'sub-POMUC2917FBF8466577F'};
 
 % Exclude subjects
 Sel = true(size(Sub,1),1);

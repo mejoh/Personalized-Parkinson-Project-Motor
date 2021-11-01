@@ -22,7 +22,7 @@ end
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 
-session = 'ses-PITVisit2';
+session = 'ses-PITVisit1';
 Root = '/project/3022026.01';
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
@@ -134,21 +134,21 @@ for n = 1:NrSub
 end
 
 % % 7: Fewer volumes than recorded pulses (time consuming)
-% Sel = true(size(Files,1),1);
-% for n = 1:numel(Files)
-%     s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
-%     v = char(extractBetween(Files{n}, [s '_'], '_task'));       % Visit
-%     r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
-%     TaskDir             = fullfile(BIDSDir, s, v, 'beh');
-%     EventsJsonFile      = spm_select('FPList', TaskDir, [s, '_', v, '_task-motor_acq-MB6_run-', r, '_events.json']);
-%     ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries.tsv']);
-%     [NrPulses, NrConf] = checkpulsediff(EventsJsonFile, ConfFile);
-%     if NrPulses > NrConf
-%         fprintf('Number of recorded pulses exceeds volumes in func img. Skipping %s %s \n', s, v)
-%         Sel(n) = false;
-%     end
-% end
-% Files = Files(Sel);
+Sel = true(size(Files,1),1);
+for n = 1:numel(Files)
+    s = char(extractBetween(Files{n}, 'fmriprep/', '/ses'));    % Pseudonym
+    v = char(extractBetween(Files{n}, [s '_'], '_task'));       % Visit
+    r = char(extractBetween(Files{n}, 'run-', '_space'));       % Run
+    TaskDir             = fullfile(BIDSDir, s, v, 'beh');
+    EventsJsonFile      = spm_select('FPList', TaskDir, [s, '_', v, '_task-motor_acq-MB6_run-', r, '_events.json']);
+    ConfFile            = spm_select('FPList', fileparts(Files{n}), ['.*_task-motor_acq-MB6_run-' r '.*desc-confounds_timeseries.tsv']);
+    [NrPulses, NrConf] = checkpulsediff(EventsJsonFile, ConfFile);
+    if NrPulses > NrConf
+        fprintf('Number of recorded pulses exceeds volumes in func img. Skipping %s %s \n', s, v)
+        Sel(n) = false;
+    end
+end
+Files = Files(Sel);
 
 Inputs	= cell(6,1);
 JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};

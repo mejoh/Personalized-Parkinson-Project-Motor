@@ -2,6 +2,9 @@
 % Convolves task design with a canonical hrf
 % Relies on extract_onsets_and_duration_pm() for generating design
 % Convolution has been adapted from spm_fMRI_design
+% bidsdir = /project/3022026.01/pep/bids
+% subject = sub-POMUC2917FBF8466577F
+% session = ses-PITVisit1
 
 function [taskregs] = generate_task_regressors(bidsdir, subject, session)
 
