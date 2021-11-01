@@ -1,14 +1,15 @@
 %% Write bids-compatible events.tsv file from motor task log files
+%% 
 
 %% Collect existing log files and define output .tsv file
-project = '3024006.01';
-visit = 'ses-PITVisit2';
-% project = '3022026.01';
-% visit = 'ses-POMVisit3';
+% project = '3024006.01';
+% visit = 'ses-PITVisit2';
+project = '3022026.01';
+visit = 'ses-POMVisit3';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-PIT2MR.*'));
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM3FM.*'));
 % BIDS     = spm_BIDS(BIDSDir);
 
   % Exclude participants with missing log files
@@ -27,7 +28,8 @@ for n = 1:numel(Sub)
     end
     
     PracLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac1_logfile\.txt$']);
-    if size(PracLog,1) ~= 1
+    TaskLog = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '.*MotorTaskEv.*\.log$']);
+    if size(PracLog,1) ~= 1 || size(TaskLog,1) < 1
 		Sel(n) = false;
     end
     
