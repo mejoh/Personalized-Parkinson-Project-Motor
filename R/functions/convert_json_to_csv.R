@@ -68,6 +68,11 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
   # Add timepoint as a variable
   Data <- Data %>%
     mutate(Timepoint = visit)
+  Data <- Data %>%
+          mutate(TimepointNr = NA)
+  Data$TimepointNr[str_detect(Data$Timepoint,'Visit1')] <- 0
+  Data$TimepointNr[str_detect(Data$Timepoint,'Visit2')] <- 1
+  Data$TimepointNr[str_detect(Data$Timepoint,'Visit3')] <- 2
   
   # Return subject's data frame
   write_csv(Data, outputname)
