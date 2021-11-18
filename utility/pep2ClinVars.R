@@ -4,9 +4,10 @@ library(tidyverse)
 # dPEP_HomeQuest <- 'P:/3022026.01/pep/download2/'
 # dPEP_Visit <- 'P:/3022026.01/pep/download2/'
 # dPEP_COVID <- 'P:/3022026.01/pep/download2/'
-dPEP <- 'P:/3022026.01/pep/download2/'
-
+dPEP <- 'P:/3022026.01/pep/download3_castor/'
 dClinVars <- 'P:/3022026.01/pep/ClinVars3'
+
+# Clean out output directory
 if(dir.exists(dClinVars)){
         unlink(dClinVars, recursive = TRUE)
         dir.create(paste(dClinVars,'derivatives','tmp',sep='/'), recursive = TRUE)
@@ -58,6 +59,7 @@ for(Sub in Subjects){
         
         for(f in all_files){
                 fname <- basename(f)
+                # Determine which folder to put a file in based on its name
                 if(str_detect(fname, 'HomeQuestionnaires1') & !str_detect(fname, 'PIT')){
                         subfolder <- 'POMHomeQuestionnaires1'
                 }else if(str_detect(fname, 'HomeQuestionnaires2') & !str_detect(fname, 'PIT')){
