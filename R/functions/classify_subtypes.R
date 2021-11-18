@@ -1,4 +1,7 @@
 classify_subtypes <- function(df){
+        
+        # TO DO:
+        # Look into implementing an option for multiple imputation
   
   library(readxl)
   
