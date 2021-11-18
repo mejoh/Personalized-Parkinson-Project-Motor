@@ -64,7 +64,7 @@ generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=
     #####
     
     ##### Manipulate merged csv file #####
-    source('M:/scripts/Personalized-Parkinson-Project-Motor/R/manipulate_motor_task_csv.R')
+    source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/manipulate_motor_task_csv.R')
     for(e in environments){
             searchpattern <- paste('sub.*', e, '.*.tsv2csv', sep='')
             fps <- dir(paste(tmpdir,sep='/'), searchpattern, full.names = TRUE)
