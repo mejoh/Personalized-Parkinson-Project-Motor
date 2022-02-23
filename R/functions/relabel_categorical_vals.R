@@ -14,6 +14,8 @@ relabel_categorical_vals <- function(df){
   df$ParticipantType[str_detect(df$Timepoint,'PITVisit2')] <- 2
   df$ParticipantType <- as.factor(df$ParticipantType)
   levels(df$ParticipantType) <- c('PD_PIT','HC_PIT', 'PD_POM')
+  df$WatchSide <- as.factor(df$WatchSide)
+  levels(df$WatchSide) <- c('R','L')
   
   df
   
