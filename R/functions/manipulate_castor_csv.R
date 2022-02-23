@@ -2,14 +2,13 @@
 # These manipulations are intended to be independent of each other
 # so it should be possible to carry them out in any order.
 
-manipulate_castor_csv <- function(datafile){
+manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars/derivatives/merged_2021-11-29.csv'){
 
         library(tidyverse)
         library(jsonlite)
         library(lubridate)
         
         ##### Read joined file ####
-        # datafile <- dir('P:/3022026.01/pep/ClinVars2/derivatives/', 'merged_[2].*', full.names = TRUE)
         df <- read_csv(datafile)
         #####
         
@@ -38,7 +37,20 @@ manipulate_castor_csv <- function(datafile){
         df <- reverse_STAI_values(df)
         #####
         
-        ##### Compute summary scores #####
+        ##### Extend variables #####
+        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/extend_variables.R')
+        varlist <- c('Gender', 'Age', 'MonthSinceDiag', 'MostAffSide', 'WeeksSinceVisit1', 'WeeksSinceVisit2', 'MriNeuroPsychTask', 'MriRespHand') #MostAffSide
+        df <- extend_variables(df, varlist)
+        #####
+        
+        ##### Include LEDD if possible #####
+        file <- 'P:/3022026.01/pep/ClinVars/derivatives/LEDD/MedicationTable.csv'
+        meds <- read_csv(file)
+        df <- left_join(df, meds, by = c('pseudonym','Timepoint'))
+        df$LEDD[df$LEDD>8000] <- NA       # Remove unreasonably high values
+        #####
+        
+        ##### Compute summary scores (Dependency: Extend variables) #####
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_summaryscores.R')
         df <- compute_summaryscores(df)
         #####
@@ -46,31 +58,51 @@ manipulate_castor_csv <- function(datafile){
         ##### Compute progression (deltas and ROCs; Dependency: Compute summary scores) #####
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/elble_change.R')
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_progression.R')
-        varlist <- c('Up3OfTotal', 'Up3OnTotal', 'Up3OfBradySum', 'Up3OnBradySum', 'Up3OfRigiditySum', 'Up3OnRigiditySum',
-                     'Up3OfAppendicularSum', 'Up3OnAppendicularSum', 'Up3OfPIGDSum', 'Up3OnPIGDSum', 'Up3OfAxialSum', 'Up3OfAxialSum',
-                     'Up3OfRestTremAmpSum', 'Up3OnRestTremAmpSum', 'Up3OfActionTremorSum', 'Up3OnActionTremorSum',
-                     'Up3OfCompositeTremorSum', 'Up3OnCompositeTremorSum', 'STAIStateSum', 'STAITraitSum', 'QUIPicdSum', 'QUIPrsSum', 
-                     'AES12Sum', 'ApatSum', 'BDI2Sum', 'PDQ39_SingleIndex', 'TalkProbSum', 'VisualProb23Sum', 'VisualProb17Sum')
-        # nritems <- c()
+        varlist <- c('AsymmetryIndexRiLe.Brady', 'AsymmetryIndexArmLeg.Brady', 'AsymmetryIndexRiLe.Rigidity', 'AsymmetryIndexArmLeg.Rigidity',
+                     'AsymmetryIndexRiLe.RestTrem', 'AsymmetryIndexArmLeg.RestTrem', 'AsymmetryIndexRiLe.ActTrem',
+                     'AsymmetryIndexRiLe.All', 'AsymmetryIndexArmLeg.All', 'AsymmetryIndexRiLeDelta.All', 'AsymmetryIndexArmLegDelta.All',
+                     'AsymmetryIndexRiLe.WeightedBradyRig', 'AsymmetryIndexArmLeg.WeightedBradyRig',
+                     'Up3OfBradyProportion', 'Up3OfRigidityProportion', 'Up3OfPIGDProportion', 'Up3OfRestTremProportion', 'Up3OfActTremProportion', 'Up3OfOtherProportion',
+                     'Up3OfTotal', 'Up3OnTotal', 'Up3OfBradySum', 'Up3OnBradySum', 'Up3OfRigiditySum', 'Up3OnRigiditySum',
+                     'Up3OfAppendicularSum', 'Up3OnAppendicularSum', 'Up3OfPIGDSum', 'Up3OnPIGDSum', 'Up3OfPIGDSum_Up3Only', 'Up3OnPIGDSum_Up3Only', 
+                     'Up3OfAxialSum', 'Up3OfAxialSum', 'Up3OfRestTremAmpSum', 'Up3OnRestTremAmpSum', 'Up3OfActionTremorSum', 'Up3OnActionTremorSum',
+                     'Up3OfCompositeTremorSum', 'Up3OnCompositeTremorSum', 'Up3OfOtherSum', 'Up3OnOtherSum',
+                     'Up3OfTotal.Norm', 'Up3OnTotal.Norm', 'Up3OfBradySum.Norm', 'Up3OnBradySum.Norm', 'Up3OfRigiditySum.Norm', 'Up3OnRigiditySum.Norm',
+                     'Up3OfAppendicularSum.Norm', 'Up3OnAppendicularSum.Norm', 'Up3OfPIGDSum.Norm', 'Up3OnPIGDSum.Norm', 'Up3OfPIGDSum_Up3Only.Norm', 'Up3OnPIGDSum_Up3Only.Norm', 
+                     'Up3OfAxialSum.Norm', 'Up3OfAxialSum.Norm', 'Up3OfRestTremAmpSum.Norm', 'Up3OnRestTremAmpSum.Norm', 'Up3OfActionTremorSum.Norm', 'Up3OnActionTremorSum.Norm',
+                     'Up3OfCompositeTremorSum.Norm', 'Up3OnCompositeTremorSum.Norm', 'Up3OfOtherSum.Norm', 'Up3OnOtherSum.Norm', 'MotorComposite',
+                     'STAIStateSum', 'STAITraitSum', 'QUIPicdSum', 'QUIPrsSum', 'AES12Sum', 'ApatSum', 'BDI2Sum', 'PDQ39_SingleIndex',
+                     'ROMPSum', 'VIPDQ23Sum', 'VIPDQ17Sum', 'Up1Total', 'Up2Total',
+                     'RBDSQSum', 'SCOPA_AUTSum', 'MoCASum',
+                     'NpsMis15wRigTot', 'NpsMis15WrdDelRec', 'NpsMis15WrdRecognition',
+                     'NpsMisBenton', 'NpsMisBrixton', 'NpsMisWaisLcln', 'NpsMisWaisRude', 'NpsMisSemFlu',
+                     'NpsMisModa30', 'NpsMisModa60', 'NpsMisModa90', 'LEDD')
         for(var in varlist){
-                df <- compute_progression(df, var, nritems)      
+                df <- compute_progression(df, var)      
         }
         #####
         
-        ##### Detect patients who participated in both PIT and POM
+        ##### Detect patients who participated in both PIT and POM #####
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/detect_xstudy_participation.R')
         df <- detect_xstudy_participation(df)
         #####
         
         ##### Classify PD patients from POM into subtypes (Feresh et al., 2017) #####
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/classify_subtypes.R')
-        df <- classify_subtypes(df)
-        #####
+        df_noimp_relba <- classify_subtypes(df, MI = FALSE, RelativeToBaseline = TRUE)
+        df_imp_relba <- classify_subtypes(df, MI = TRUE, RelativeToBaseline = TRUE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_',.x), starts_with('Subtype'))
+        df_noimp_relpeers <- classify_subtypes(df, MI = FALSE, RelativeToBaseline = FALSE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_RelPeers_',.x), starts_with('Subtype'))
+        df_imp_relpeers <- classify_subtypes(df, MI = TRUE, RelativeToBaseline = FALSE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_RelPeers_',.x), starts_with('Subtype'))
         
-        ##### Extend variables #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/extend_variables.R')
-        varlist <- c('Gender', 'Age', 'MostAffSide', 'MonthSinceDiag', 'WeeksSinceVisit1', 'WeeksSinceVisit2', 'MriNeuroPsychTask', 'MriRespHand')
-        df <- extend_variables(df, varlist)
+        df <- full_join(df_noimp_relba, df_imp_relba, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_noimp_relpeers, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_imp_relpeers, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         #####
         
         ##### Calculate time to follow-up (Dependency: Extend variables) #####
