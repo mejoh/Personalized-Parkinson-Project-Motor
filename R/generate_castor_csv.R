@@ -4,7 +4,7 @@ generate_castor_csv <- function(bidsdir, outputdir=paste(bidsdir,'derivatives',s
         library(tidyjson)
         library(lubridate)
         
-        # bidsdir <- 'P:/3022026.01/pep/ClinVars3'
+        # bidsdir <- 'P:/3022026.01/pep/ClinVars4'
         
         ##### Set up intermediate output directory
         tmpdir <- paste(bidsdir, 'derivatives', 'tmp', sep='/')
@@ -51,7 +51,6 @@ generate_castor_csv <- function(bidsdir, outputdir=paste(bidsdir,'derivatives',s
         
         ##### Manipulate castor csv file #####
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/manipulate_castor_csv.R')
-        merged_csv_file <- dir(outputdir, 'merged_', full.names = TRUE)
         manipulate_castor_csv(merged_csv_file)
         #####
         
