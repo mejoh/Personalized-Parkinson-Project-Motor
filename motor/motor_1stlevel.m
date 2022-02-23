@@ -22,12 +22,13 @@ end
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 
-session = 'ses-PITVisit1';
+session = 'ses-POMVisit1';
+prefix = ''; %'[A-Z]'; %'[0-9]';
 Root = '/project/3022026.01';
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 ANALYSESDir   = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POMU.*'));
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', ['^sub-POMU', prefix, '.*']));
 % Sub = {'sub-POMU0C177BAE3D332846'; 'sub-POMU1EDD7C2E9E8DF70C'; 'sub-POMU4CC057B13DBB2927'; 'sub-POMU8067BDE54D1B1B4A'; 'sub-POMU862289F885891BCF'; 'sub-POMU98768D0FB5B292BF'; 'sub-POMUA2417117F868F087'; 'sub-POMUAC2513F0E5E32349'};
 fprintf('Found %i subjects \n', numel(Sub))
 
@@ -50,7 +51,7 @@ for n = 1:numel(Sub)
         EventsTsv = cellstr(spm_select('FPList', dBeh, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_events.tsv']));
         EventsTsv = cellstr(EventsTsv{size(EventsTsv,1)});
         % Preexisting 1st level results
-        FirstLevelCon = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^con.*\.nii$');
+        FirstLevelCon = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^con.*15\.nii$');
         
         % Exclude participants
         TaskID = extractBetween(EventsTsv{1}, '_task-', '_acq');
@@ -230,7 +231,7 @@ end
 if numel(Files)==1
 	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
 else
-  	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',5*1024^3, 'timreq',3*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
+  	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',5*1024^3, 'timreq',2*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
 end
 
 % Clean up copied functional images
