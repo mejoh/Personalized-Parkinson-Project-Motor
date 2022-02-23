@@ -1,7 +1,7 @@
 function motor_2ndlevel_OffOn(exclude_outliers)
 
 if nargin < 1
-    exclude_outliers = false;
+    exclude_outliers = true;
 end
 
 %% Paths
@@ -13,7 +13,11 @@ ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3022026.01/pep/ClinVars/derivatives/database_clinical_confounds_fmri_2021-08-25.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri.csv');
+baseid = ClinicalConfs.TimepointNr == 0;
+ClinicalConfs = ClinicalConfs(baseid,:);
+g1 = string(ClinicalConfs.ParticipantType) == "PD_POM";
+ClinicalConfs = ClinicalConfs(logical(g1),:);
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, GroupFolder, 'con_0001', 'ses-Visit1'), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
@@ -49,14 +53,6 @@ for n = 1:numel(SubInfo.Sub)
 end
 SubInfo = subset_subinfo(SubInfo,Sel);
 
-Sel = false(size(SubInfo.Sub));
-for n = 1:height(ClinicalConfs)
-    if sum(contains(SubInfo.Sub, ClinicalConfs.pseudonym(n))) == 2
-        Sel(n) = true;
-    end
-end
-ClinicalConfs = ClinicalConfs(Sel,:);
-
 % Exclude outliers
 mriqc_outliers = readtable('/project/3024006.02/Analyses/mriqc_outliers.txt');
 Con1 = '/project/3024006.02/Analyses/QC/1st_level/con_0001/Group.txt';
@@ -75,7 +71,7 @@ outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; ResMS_f_s.Sub; mriq
 if istrue(exclude_outliers)
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
-        if contains(SubInfo.Sub{n}, outliers)
+        if contains(SubInfo.Sub{n}, string(table2array(outliers)))
            Sel(n) = false;
         fprintf('Excluding outlier: %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n})
         end
@@ -85,6 +81,14 @@ if istrue(exclude_outliers)
     duplicate_ind = setdiff(1:size(SubInfo.Sub, 1), ind);
     duplicate_subs = SubInfo.Sub(duplicate_ind);
 end
+
+% Sel = false(size(SubInfo.Sub));
+% for n = 1:height(ClinicalConfs)
+%     if sum(contains(SubInfo.Sub, ClinicalConfs.pseudonym(n))) == 2
+%         Sel(n) = true;
+%     end
+% end
+% ClinicalConfs = ClinicalConfs(Sel,:);
 
 %% Collect events.json and confound files
 
@@ -120,12 +124,6 @@ for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if contains(SubInfo.Group{n}, 'PIT')
-        subid = subid(1);
-    else
-        subid = subid(2);
-    end
-    
     if isempty(subid) || isnan(ClinicalConfs.Up3OfTotal(subid))
         SubInfo.UPDRSTotalBA(n) = mean(ClinicalConfs.Up3OfTotal, 'omitnan');
     else
@@ -154,7 +152,7 @@ end
 
 %% Assemble inputs
 
-Inputs = cell(10, 1);
+Inputs = cell(12, 1);
 if ~istrue(exclude_outliers)
     Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'OffOn_x_ExtInt2Int3Catch')};
 else
@@ -207,7 +205,7 @@ MotorSymSev_POM = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_POM'))';
 Inputs{10,1} = [FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM]';
 Inputs{11,1} = [Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM]';
 Inputs{12,1} = [Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM]';
-Inputs{13,1} = [MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM]';
+% Inputs{13,1} = [MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM]';
 
 %% Run
 tabulate(SubInfo.Group)
