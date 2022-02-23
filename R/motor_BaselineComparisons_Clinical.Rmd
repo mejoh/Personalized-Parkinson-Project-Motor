@@ -226,10 +226,11 @@ posthoc_comparisons2 <- function(emmy){
 # Load data
 
 ```{r datafile}
-datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
-datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_verylongformat_2021-08-30.csv'
-datafile_clin_pom <- '/project/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-08-30.csv'
-datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
+datafile_task <- 'P:/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
+datafile_task <- 'P:/3022026.01/pep/bids/derivatives/database_motor_task_verylongformat_2021-08-30.csv'
+datafile_clin_pom <- 'P:/3022026.01/pep/ClinVars4/derivatives/merged_manipulated_2021-11-29.csv'
+# datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
+datafile_clin_subtypes <- 'P:/3022026.01/pep/ClinVars4/derivatives/Subtypes_01-12-2021.csv'
 ```
 
 ```{r data, echo=FALSE, message=FALSE}
@@ -244,19 +245,20 @@ data_task <- read_csv(datafile_task) %>%
 #Read clinical data
 data_clin_pom <- read_csv(datafile_clin_pom) %>%
         filter(MriNeuroPsychTask == 'Motor')
-data_clin_subtypes <- read_csv(datafile_clin_subtypes)
-data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
+# data_clin_subtypes <- read_csv(datafile_clin_subtypes)
+# data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
+data_clin_pom_orig <- data_clin_pom
 data_clin_pom_orig$Timepoint <- str_remove(data_clin_pom_orig$Timepoint, 'POM')
 data_clin <- data_clin_pom_orig %>%
-        filter(Group == 'PD_POM') %>%
-        select(pseudonym, Timepoint, Age, Gender, Subtype, EstDisDurYears, TimeToFUYears,
+        filter(ParticipantType == 'PD_POM') %>%
+        select(pseudonym, Timepoint, TimepointNr, Age, Gender, Subtype_DisDurSplit, MonthSinceDiag, WeeksToFollowUp,
                Up3OfTotal, Up3OfTotal.1YearDelta,
                Up3OfAppendicularSum, Up3OfAppendicularSum.1YearDelta,
                Up3OfCompositeTremorSum, Up3OfCompositeTremorSum.1YearDelta)
 
 #Merge clinical and task data
 data_SUBS <- full_join(data_clin, data_task, by = c('pseudonym', 'Timepoint')) %>%
-        mutate(Group = Subtype,
+        mutate(Group = Subtype_DisDurSplit,
                Group = as.factor(Group),
                Condition = as.factor(Condition),
                Timepoint = as.factor(Timepoint),
