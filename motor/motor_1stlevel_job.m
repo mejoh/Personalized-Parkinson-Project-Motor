@@ -28,7 +28,7 @@ matlabbatch{3}.spm.stats.fmri_spec.mthresh = 0.25;
 matlabbatch{3}.spm.stats.fmri_spec.mask = {'/home/common/matlab/spm12_r7487_20181114/tpm/mask_ICV.nii,1'};
 matlabbatch{3}.spm.stats.fmri_spec.cvi = 'FAST';
 matlabbatch{4}.spm.stats.fmri_est.spmmat(1) = cfg_dep('fMRI model specification: SPM.mat File', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
-matlabbatch{4}.spm.stats.fmri_est.write_residuals = 1;
+matlabbatch{4}.spm.stats.fmri_est.write_residuals = 0;
 matlabbatch{4}.spm.stats.fmri_est.method.Classical = 1;
 matlabbatch{5}.spm.stats.con.spmmat(1) = cfg_dep('Model estimation: SPM.mat File', substruct('.','val', '{}',{4}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
 matlabbatch{5}.spm.stats.con.consess{1}.tcon.name = 'ext > 0';
@@ -66,6 +66,18 @@ matlabbatch{5}.spm.stats.con.consess{11}.fcon.weights = [0 0 1 0 0 0 0 0 0 0 0
                                                          0 0 0 0 0 0 1 0 0 0 0
                                                          0 0 0 0 0 0 0 0 0 0 1];
 matlabbatch{5}.spm.stats.con.consess{11}.fcon.sessrep = 'none';
+matlabbatch{5}.spm.stats.con.consess{12}.tcon.name = 'int2 > ext';
+matlabbatch{5}.spm.stats.con.consess{12}.tcon.weights = [0 0 -1 0 0 0 1 0 0 0 0];
+matlabbatch{5}.spm.stats.con.consess{12}.tcon.sessrep = 'none';
+matlabbatch{5}.spm.stats.con.consess{13}.tcon.name = 'int3 > ext';
+matlabbatch{5}.spm.stats.con.consess{13}.tcon.weights = [0 0 -1 0 0 0 0 0 0 0 1];
+matlabbatch{5}.spm.stats.con.consess{13}.tcon.sessrep = 'none';
+matlabbatch{5}.spm.stats.con.consess{14}.tcon.name = 'ext > int2';
+matlabbatch{5}.spm.stats.con.consess{14}.tcon.weights = [0 0 1 0 0 0 -1 0 0 0 0];
+matlabbatch{5}.spm.stats.con.consess{14}.tcon.sessrep = 'none';
+matlabbatch{5}.spm.stats.con.consess{15}.tcon.name = 'ext > int3';
+matlabbatch{5}.spm.stats.con.consess{15}.tcon.weights = [0 0 1 0 0 0 0 0 0 0 -1];
+matlabbatch{5}.spm.stats.con.consess{15}.tcon.sessrep = 'none';
 % Contrasts for NoPMOD BRreg analyses
 % matlabbatch{5}.spm.stats.con.consess{1}.tcon.name = 'ext > 0';
 % matlabbatch{5}.spm.stats.con.consess{1}.tcon.weights = [0 0 1];
