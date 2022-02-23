@@ -21,12 +21,12 @@ generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=
     
     ##### TSV-to-CSV conversion #####
     source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/convert_motor_tsv_to_csv.R')
+    searchpattern <- 'task-motor_acq-.*_run-[1-9]_events.tsv'
     subjects <- dir(bidsdir, 'sub-.*')
     for(n in subjects){
         visits <- dir(paste(bidsdir,n,sep='/'), 'ses-.*Visit.*')
         for(v in visits){
             searchdir <- paste(bidsdir, n, v, 'beh', sep='/')
-            searchpattern <- 'task-motor_acq-.*_run-[1-9]_events.tsv'
             files <- dir(searchdir, searchpattern, full.names = TRUE)
             if(length(files)<1){
                 next
@@ -64,6 +64,7 @@ generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=
     #####
     
     ##### Manipulate merged csv file #####
+    # Collapse = TRUE will summarize RTs as the median by condition
     source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/manipulate_motor_task_csv.R')
     for(e in environments){
             searchpattern <- paste('sub.*', e, '.*.tsv2csv', sep='')
