@@ -13,7 +13,7 @@ determine_mri_task <- function(df, mribidsdir){
       df$MriNeuroPsychTask[i] <- 'Motor'
       taskfile <- behfiles[str_detect(behfiles, '.*task-motor_acq-MB6.*.json')]
       taskfile <- taskfile[length(taskfile)] # Ensure last run is taken
-      json <- read_json(taskfile)
+      json <- jsonlite::read_json(taskfile)
       df$MriRespHand[i] <- json$RespondingHand$Value
     }else if(sum(str_detect(behfiles, 'task-reward_acq-ME'))>0){
       df$MriNeuroPsychTask[i] <- 'Reward'
