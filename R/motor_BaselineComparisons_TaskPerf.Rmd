@@ -22,9 +22,9 @@ options(width = 150)
 # Load libraries and functions.
 
 ```{r libraries, message=FALSE}
-source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
-source("/home/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/summarySE.R")
-funcdir <- '/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/'
+source("H:/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/R_rainclouds.R")
+source("H:/sysneu/marjoh/scripts/RainCloudPlots/tutorial_R/summarySE.R")
+funcdir <- 'H:/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/'
 funcs <- list.files(funcdir, full.names = TRUE)
 sapply(funcs, source)
 library(emmeans)
@@ -174,11 +174,11 @@ interrogate_mod <- function(model){
 # Load data
 
 ```{r datafile}
-datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
-datafile_task <- '/project/3022026.01/pep/bids/derivatives/database_motor_task_verylongformat_2021-08-30.csv'
-datafile_clin_pom <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_clinical_variables_2021-05-27.csv'
-datafile_clin_pit <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/database_PIT_clinical_variables_2021-05-21.csv'
-datafile_clin_subtypes <- '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv'
+datafile_task <- 'P:/3022026.01/pep/bids/derivatives/database_motor_task_2021-08-05.csv'
+datafile_task <- 'P:/3022026.01/pep/bids/derivatives/database_motor_task_verylongformat_2021-08-30.csv'
+datafile_clin_pom <- 'P:/3022026.01/pep/deprecated_ClinVars/derivatives/database_clinical_variables_2021-05-27.csv'
+datafile_clin_pit <- 'P:/3022026.01/pep/deprecated_ClinVars/derivatives/database_PIT_clinical_variables_2021-05-21.csv'
+datafile_clin_subtypes <- 'P:/3022026.01/pep/ClinVars4/derivatives/Subtypes_01-12-2021.csv'
 ```
 
 ```{r data, echo=FALSE, message=FALSE}
@@ -190,7 +190,7 @@ data_task <- read_csv(datafile_task)
 
 data_clin_pom <- read_csv(datafile_clin_pom) %>%
         filter(MriNeuroPsychTask == 'Motor')
-data_clin_subtypes <- read_csv(datafile_clin_subtypes)
+data_clin_subtypes <- read_csv(datafile_clin_subtypes) %>% mutate(Subtype = Subtype_DisDurSplit)
 data_clin_pom_orig <- left_join(data_clin_pom, data_clin_subtypes)
 data_clin_pom_orig$Timepoint <- str_remove(data_clin_pom_orig$Timepoint, 'POM')
 data_clin_pom_subset <- data_clin_pom_orig %>% 
@@ -294,7 +294,7 @@ data_tmp_hcpit <- data_task_clin %>%
         filter(Poor.Performance == 'No') %>%
         select(pseudonym, Group, Condition, Response.Time, Block, TrialNumber, Percentage.Correct, Button.Press.CoV, Button.Press.SwitchRatio, Age, Gender)
 data_SUBSvsHC <- rbind(data_tmp_hcpit, data_tmp_pdpom) %>%
-        mutate(Group = factor(Group, levels = c('HC_PIT','Mild-Motor','Intermediate','Diffuse-Malignant')),
+        mutate(Group = factor(Group, levels = c('HC_PIT','1_Mild-Motor','2_Intermediate','3_Diffuse-Malignant')),
                Condition = as.factor(Condition),
          Block = as.factor(Block))
 
@@ -721,9 +721,9 @@ posthoc_interactionplot(tmp)
 
 ```{r echo=FALSE, message=FALSE}
 tmp <- data_SUBSvsHC_RT %>%
-        filter(Group == 'Mild-Motor' | Group == 'Intermediate') %>%
+        filter(Group == '1_Mild-Motor' | Group == '2_Intermediate') %>%
         mutate(Group = factor(Group))
-tmp$Group <- factor(tmp$Group, levels = c('Intermediate','Mild-Motor'))
+tmp$Group <- factor(tmp$Group, levels = c('2_Intermediate','1_Mild-Motor'))
 infer_SUBSvsHC_RT5 <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa'))
 interrogate_mod(infer_SUBSvsHC_RT5)
 emmip(infer_SUBSvsHC_RT5, Group ~ Condition | Block)
@@ -738,9 +738,9 @@ posthoc_interactionplot(tmp)
 
 ```{r echo=FALSE, message=FALSE}
 tmp <- data_SUBSvsHC_RT %>%
-        filter(Group == 'Mild-Motor' | Group == 'Diffuse-Malignant') %>%
+        filter(Group == '1_Mild-Motor' | Group == '3_Diffuse-Malignant') %>%
         mutate(Group = factor(Group))
-tmp$Group <- factor(tmp$Group, levels = c('Diffuse-Malignant','Mild-Motor'))
+tmp$Group <- factor(tmp$Group, levels = c('3_Diffuse-Malignant','1_Mild-Motor'))
 infer_SUBSvsHC_RT6 <- lmer(f, data=tmp, control = lmerControl(optimizer="bobyqa"))
 interrogate_mod(infer_SUBSvsHC_RT6)
 emmip(infer_SUBSvsHC_RT6, Group ~ Condition | Block)
@@ -755,9 +755,9 @@ posthoc_interactionplot(tmp)
 
 ```{r echo=FALSE, message=FALSE}
 tmp <- data_SUBSvsHC_RT %>%
-        filter(Group == 'Intermediate' | Group == 'Diffuse-Malignant') %>%
+        filter(Group == '2_Intermediate' | Group == '3_Diffuse-Malignant') %>%
         mutate(Group = factor(Group))
-tmp$Group <- factor(tmp$Group, levels = c('Diffuse-Malignant','Intermediate'))
+tmp$Group <- factor(tmp$Group, levels = c('3_Diffuse-Malignant','2_Intermediate'))
 infer_SUBSvsHC_RT7 <- lmer(f, data=tmp)
 interrogate_mod(infer_SUBSvsHC_RT7)
 emmip(infer_SUBSvsHC_RT7, Group ~ Condition | Block)
