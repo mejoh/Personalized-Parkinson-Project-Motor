@@ -1,10 +1,12 @@
+% Requires matlab/R2020b
+
 clear
 
 addpath('/home/sysneu/marjoh/scripts/FromJorryt')
 fConversionTable = '/project/3022026.01/scripts/jortic/LEDD_conversion_factors.xlsx';
 cConversionTable = readtable(fConversionTable);
-OutputFolder = '/project/3024006.02/Data/LEDD';
-dClinVars = '/project/3022026.01/pep/ClinVars/';
+OutputFolder = '/project/3022026.01/pep/ClinVars4/derivatives/LEDD';
+dClinVars = '/project/3022026.01/pep/ClinVars4/';
 cSubs = cellstr(spm_select('List', dClinVars, 'dir', 'sub-.*'));
 
 if exist(OutputFolder, 'dir')
@@ -15,14 +17,14 @@ end
 
 FileRowId = 1;
 for n = 1:numel(cSubs)
-    cSessions = cellstr(spm_select('List', fullfile(dClinVars, cSubs{n}), 'dir', 'ses-Visit[0-9]'));
+    cSessions = cellstr(spm_select('List', fullfile(dClinVars, cSubs{n}), 'dir', 'ses-POMVisit[0-9]'));
     for s = 1:numel(cSessions)
         fMeds = spm_select('FPList', fullfile(dClinVars, cSubs{n}, cSessions{s}), 'Castor.*Demografische_vragenlijsten.Parkinson_medicatie.json');
         if isempty(fMeds)
             continue
         end
         clear medout error MatOutputName AllMedNames UsedMedNames
-        [medout, error] = ScoreMedication(fMeds, cConversionTable);
+        [medout, error] = ScoreMedication(string(fMeds), cConversionTable);
         if medout.medUser == 0
             fprintf('Skipping %s/%s, not a med user \n', cSubs{n}, cSessions{s})
             continue
