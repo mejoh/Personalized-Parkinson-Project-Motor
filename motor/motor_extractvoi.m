@@ -40,6 +40,14 @@ for v = 1:numel(VOI_list)
             Dat.Cond{i} = 'Mean_ExtInt';
         elseif contains(Dat.scans{i}, 'con_0010')
             Dat.Cond{i} = 'Int>Ext';
+        elseif contains(Dat.scans{i}, 'con_0012')
+            Dat.Cond{i} = 'Int2>Ext';
+        elseif contains(Dat.scans{i}, 'con_0013')
+            Dat.Cond{i} = 'Int3>Ext';
+        elseif contains(Dat.scans{i}, 'con_0008')
+            Dat.Cond{i} = 'Int3>Int2';
+        else
+            error('Error: Contrast files do not match any available conditions')
         end
     end
 
