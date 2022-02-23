@@ -14,8 +14,13 @@ end
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3022026.01/pep/ClinVars/derivatives/database_clinical_confounds_fmri_2021-08-25.csv');
-Subtypes = readtable('/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri.csv');
+baseid = ClinicalConfs.TimepointNr == 0;
+ClinicalConfs = ClinicalConfs(baseid,:);
+g1 = string(ClinicalConfs.ParticipantType) == "HC_PIT";
+g2 = string(ClinicalConfs.ParticipantType) == "PD_POM";
+ClinicalConfs = ClinicalConfs(logical(g1 + g2),:);
+% Subtypes = readtable('/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv');
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, GroupFolder, 'con_0001', ses), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
@@ -35,7 +40,7 @@ SubInfo.Group = extractBetween(Sub, 1, 6);
 
 Sel = false(size(Sub));
 for n = 1:height(ClinicalConfs)
-    if strcmp(ClinicalConfs.Group(n), 'PD_POM') || strcmp(ClinicalConfs.Group(n), 'HC_PIT')
+    if strcmp(ClinicalConfs.ParticipantType(n), 'PD_POM') || strcmp(ClinicalConfs.ParticipantType(n), 'HC_PIT')
         Sel(n) = true;
     end
 end
@@ -44,9 +49,9 @@ ClinicalConfs = ClinicalConfs(Sel,:);
 SubInfo.Type = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     if strcmp(SubInfo.Group{n}, 'PD_POM')
-        idx = strcmp(Subtypes.pseudonym, SubInfo.Sub{n});
+        idx = strcmp(ClinicalConfs.pseudonym, SubInfo.Sub{n});
         if sum(idx)>0
-            t = Subtypes.Subtype{idx};
+            t = ClinicalConfs.Subtype_Imputed_DisDurSplit{idx};
             SubInfo.Type{n} = t;
         else
             SubInfo.Type{n} = 'Undefined';
@@ -59,7 +64,7 @@ tabulate(SubInfo.Type)
 
 Sel = true(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
-    if strcmp(SubInfo.Type{n}, 'Undefined')
+    if strcmp(SubInfo.Type{n}, '4_Undefined') || strcmp(SubInfo.Type{n}, 'Undefined') || strcmp(SubInfo.Type{n}, 'NA')
         Sel(n) = false;
     end
 end
@@ -83,13 +88,27 @@ outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; ResMS_f_s.Sub; mriq
 if istrue(exclude_outliers)
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
-        if contains(SubInfo.Sub{n}, outliers)
+        if contains(SubInfo.Sub{n}, string(table2array(outliers)))
            Sel(n) = false;
         fprintf('Excluding outlier: %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n})
         end
     end
     SubInfo = subset_subinfo(SubInfo, Sel);
 end
+
+% Exclude subjects with partial FOV
+% subsWithPartial={'sub-POMU0AEE0E7E9F195659' 'sub-POMU4EFC0F78C5AE0D4D' 'sub-POMU08DC74B16BF4B68D'...
+%     'sub-POMU9A6F4EBE996632F4' 'sub-POMU32C52AEA06F071F1' 'sub-POMU3227DABC7764ADB0' 'sub-POMU8067BDE54D1B1B4A'...
+%     'sub-POMU022823FBC6EBD9D9' 'sub-POMUAC2513F0E5E32349' 'sub-POMUB8593E25A5D0A1A1' 'sub-POMUBA958B8183C9F612'...
+%     'sub-POMUE27AD07D69403066' 'sub-POMUFAB8E98269745B2E' 'sub-POMUFEF5CB22166E0EB3'};
+% Sel = true(size(SubInfo.Sub));
+% for n = 1:numel(SubInfo.Sub)
+%     if contains(SubInfo.Sub{n}, subsWithPartial)
+%        Sel(n) = false;
+%     fprintf('Excluding due to partial FOV: %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n})
+%     end
+% end
+% SubInfo = subset_subinfo(SubInfo, Sel);
 
 %% Collect events.json and confound files
 
@@ -119,26 +138,6 @@ end
 %% Age and Gender
 
 % Interpolate age and gender
-% SubInfo.Age = zeros(size(SubInfo.Sub));
-% SubInfo.Gender = cell(size(SubInfo.Sub));
-% for n = 1:numel(SubInfo.Sub)
-%     
-%     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
-%     
-%     if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
-%         fprintf('Missing values, interpolating...\n')
-%         SubInfo.Age(n) = round(mean(ClinicalConfs.Age, 'omitnan'));
-%         SubInfo.Gender{n} = cellstr('Male');
-%     else
-%         SubInfo.Age(n) = ClinicalConfs.Age(subid);
-%         SubInfo.Gender{n} = ClinicalConfs.Gender(subid);
-%     end
-%     
-% end
-% 
-
-% Exclude subjects with missing Age and Gender
-Sel = true(size(SubInfo.Sub));
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
@@ -146,16 +145,37 @@ for n = 1:numel(SubInfo.Sub)
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
     if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
-        fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
-        Sel(n) = false;
+        fprintf('Missing values, interpolating...\n')
+        SubInfo.Age(n) = round(mean(ClinicalConfs.Age, 'omitnan'));
+        SubInfo.Gender{n} = cellstr('Male');
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender{n} = ClinicalConfs.Gender(subid);
     end
     
 end
-fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
-SubInfo = subset_subinfo(SubInfo, Sel);
+
+
+% Exclude subjects with missing Age and Gender
+% Sel = true(size(SubInfo.Sub));
+% SubInfo.Age = zeros(size(SubInfo.Sub));
+% SubInfo.Gender = cell(size(SubInfo.Sub));
+% for n = 1:numel(SubInfo.Sub)
+%     
+%     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
+%     
+%     if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
+%         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
+%         Sel(n) = false;
+%     else
+%         SubInfo.Age(n) = ClinicalConfs.Age(subid);
+%         SubInfo.Gender{n} = ClinicalConfs.Gender(subid);
+%     end
+%     
+% end
+% fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
+% SubInfo = subset_subinfo(SubInfo, Sel);
+
 
 SubInfo.Gender_num = zeros(size(SubInfo.Gender));
 for n = 1:numel(SubInfo.Gender)
@@ -192,7 +212,7 @@ else
     Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcSubtypes_x_ExtInt2Int3Catch_NoOutliers')};
 end
 
-HealthyControl.idx = strcmp(SubInfo.Type, 'HealthyControl');
+HealthyControl.idx = contains(SubInfo.Type, 'HealthyControl');
 HealthyControl.Sub = SubInfo.Sub(HealthyControl.idx);
 HealthyControl.Sub = insertBefore(HealthyControl.Sub, 1, 'HC_PIT_');
 Inputs{2,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
@@ -203,7 +223,7 @@ HealthyControl.FD = repmat(SubInfo.FD(HealthyControl.idx),4,1);
 HealthyControl.Age  = repmat(SubInfo.Age(HealthyControl.idx),4,1);
 HealthyControl.Gender  = repmat(SubInfo.Gender_num(HealthyControl.idx),4,1);
 
-MildMotor.idx = strcmp(SubInfo.Type, 'Mild-Motor');
+MildMotor.idx = contains(SubInfo.Type, 'Mild-Motor');
 MildMotor.Sub = SubInfo.Sub(MildMotor.idx);
 MildMotor.Sub = insertBefore(MildMotor.Sub, 1, 'PD_POM_');
 Inputs{3,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
@@ -214,7 +234,7 @@ MildMotor.FD = repmat(SubInfo.FD(MildMotor.idx),4,1);
 MildMotor.Age  = repmat(SubInfo.Age(MildMotor.idx),4,1);
 MildMotor.Gender  = repmat(SubInfo.Gender_num(MildMotor.idx),4,1);
 
-Intermediate.idx = strcmp(SubInfo.Type, 'Intermediate');
+Intermediate.idx = contains(SubInfo.Type, 'Intermediate');
 Intermediate.Sub = SubInfo.Sub(Intermediate.idx);
 Intermediate.Sub = insertBefore(Intermediate.Sub, 1, 'PD_POM_');
 Inputs{4,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
@@ -225,7 +245,7 @@ Intermediate.FD = repmat(SubInfo.FD(Intermediate.idx),4,1);
 Intermediate.Age  = repmat(SubInfo.Age(Intermediate.idx),4,1);
 Intermediate.Gender  = repmat(SubInfo.Gender_num(Intermediate.idx),4,1);
 
-DiffuseMalignant.idx = strcmp(SubInfo.Type, 'Diffuse-Malignant');
+DiffuseMalignant.idx = contains(SubInfo.Type, 'Diffuse-Malignant');
 DiffuseMalignant.Sub = SubInfo.Sub(DiffuseMalignant.idx);
 DiffuseMalignant.Sub = insertBefore(DiffuseMalignant.Sub, 1, 'PD_POM_');
 Inputs{5,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
