@@ -1,4 +1,6 @@
 collapse_by_condition <- function(df, summaryfun='mean'){
+        
+    library(doBy)
     
     # Find variables that have a single value per subject. These will be used as 'id variables' for summaryBy
     non_id_vars <- c('pseudonym','Timepoint','trial_type','response_time','trial_number','onset',
