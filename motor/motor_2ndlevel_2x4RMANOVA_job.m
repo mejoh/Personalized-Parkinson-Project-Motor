@@ -74,6 +74,7 @@ matlabbatch{3}.spm.stats.con.consess{1}.fcon.weights = [1 0 0 0 0 0 0 0
                                                         0 0 0 0 0 0 1 0
                                                         0 0 0 0 0 0 0 1];
 matlabbatch{3}.spm.stats.con.consess{1}.fcon.sessrep = 'none';
+% Mean
 matlabbatch{3}.spm.stats.con.consess{2}.tcon.name = 'Ext > 0';
 matlabbatch{3}.spm.stats.con.consess{2}.tcon.weights = [1 0 0 0 1 0 0 0];
 matlabbatch{3}.spm.stats.con.consess{2}.tcon.sessrep = 'none';
@@ -122,17 +123,18 @@ matlabbatch{3}.spm.stats.con.consess{16}.tcon.sessrep = 'none';
 matlabbatch{3}.spm.stats.con.consess{17}.tcon.name = 'HC > PD (Catch)';
 matlabbatch{3}.spm.stats.con.consess{17}.tcon.weights = [0 0 0 1 0 0 0 -1];
 matlabbatch{3}.spm.stats.con.consess{17}.tcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{18}.tcon.name = 'PD > HC (Ext > Int)';      % Identical to HC > PD (Int > Ext)
-matlabbatch{3}.spm.stats.con.consess{18}.tcon.weights = [-2 1 1 0 2 -1 -1 0];
+% Interaction
+matlabbatch{3}.spm.stats.con.consess{18}.tcon.name = 'PD > HC (Int2 > Ext)';      % Identical to HC > PD (Ext > Int2)
+matlabbatch{3}.spm.stats.con.consess{18}.tcon.weights = [1 -1 0 0 -1 1 0 0];
 matlabbatch{3}.spm.stats.con.consess{18}.tcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{19}.tcon.name = 'HC > PD (Ext > Int)';      % Identical to PD > HC (Int > Ext)
-matlabbatch{3}.spm.stats.con.consess{19}.tcon.weights = [2 -1 -1 0 -2 1 1 0];
+matlabbatch{3}.spm.stats.con.consess{19}.tcon.name = 'HC > PD (Int2 > Ext)';      % Identical to PD > HC (Ext > Int2)
+matlabbatch{3}.spm.stats.con.consess{19}.tcon.weights = [-1 1 0 0 1 -1 0 0];
 matlabbatch{3}.spm.stats.con.consess{19}.tcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{20}.tcon.name = 'PD > HC (Catch > IntExt)';
-matlabbatch{3}.spm.stats.con.consess{20}.tcon.weights = [1 1 1 -3 -1 -1 -1 3];
+matlabbatch{3}.spm.stats.con.consess{20}.tcon.name = 'PD > HC (Int3 > Ext)';      % Identical to HC > PD (Ext > Int3)
+matlabbatch{3}.spm.stats.con.consess{20}.tcon.weights = [1 0 -1 0 -1 0 1 0];
 matlabbatch{3}.spm.stats.con.consess{20}.tcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{21}.tcon.name = 'HC > PD (Catch > IntExt)';
-matlabbatch{3}.spm.stats.con.consess{21}.tcon.weights = [-1 -1 -1 3 1 1 1 -3];
+matlabbatch{3}.spm.stats.con.consess{21}.tcon.name = 'HC > PD (Int3 > Ext)';      % Identical to PD > HC (Ext > Int3)
+matlabbatch{3}.spm.stats.con.consess{21}.tcon.weights = [-1 0 1 0 1 0 -1 0];
 matlabbatch{3}.spm.stats.con.consess{21}.tcon.sessrep = 'none';
 matlabbatch{3}.spm.stats.con.consess{22}.tcon.name = 'HC > PD (Int3 > Int2)';
 matlabbatch{3}.spm.stats.con.consess{22}.tcon.weights = [0 -1 1 0 0 1 -1 0];
@@ -140,24 +142,29 @@ matlabbatch{3}.spm.stats.con.consess{22}.tcon.sessrep = 'none';
 matlabbatch{3}.spm.stats.con.consess{23}.tcon.name = 'PD > HC (Int3 > Int2)';
 matlabbatch{3}.spm.stats.con.consess{23}.tcon.weights = [0 1 -1 0 0 -1 1 0];
 matlabbatch{3}.spm.stats.con.consess{23}.tcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{24}.fcon.name = 'Group x Cond (ExtInt)';
-matlabbatch{3}.spm.stats.con.consess{24}.fcon.weights = [1 -1 0 0 -1 1 0 0
+matlabbatch{3}.spm.stats.con.consess{24}.tcon.name = 'PD > HC (Int > Ext)';      % Identical to HC > PD (Ext > Int)
+matlabbatch{3}.spm.stats.con.consess{24}.tcon.weights = [2 -1 -1 0 -2 1 1 0];
+matlabbatch{3}.spm.stats.con.consess{24}.tcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{25}.tcon.name = 'HC > PD (Int > Ext)';      % Identical to PD > HC (Ext > Int)
+matlabbatch{3}.spm.stats.con.consess{25}.tcon.weights = [-2 1 1 0 2 -1 -1 0];
+matlabbatch{3}.spm.stats.con.consess{25}.tcon.sessrep = 'none';
+% Other
+matlabbatch{3}.spm.stats.con.consess{26}.tcon.name = 'PD > HC (Catch > IntExt)';
+matlabbatch{3}.spm.stats.con.consess{26}.tcon.weights = [1 1 1 -3 -1 -1 -1 3];
+matlabbatch{3}.spm.stats.con.consess{26}.tcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{27}.tcon.name = 'HC > PD (Catch > IntExt)';
+matlabbatch{3}.spm.stats.con.consess{27}.tcon.weights = [-1 -1 -1 3 1 1 1 -3];
+matlabbatch{3}.spm.stats.con.consess{27}.tcon.sessrep = 'none';
+
+matlabbatch{3}.spm.stats.con.consess{28}.fcon.name = 'Group x Cond (ExtInt)';
+matlabbatch{3}.spm.stats.con.consess{28}.fcon.weights = [1 -1 0 0 -1 1 0 0
                                                          0 1 -1 0 0 -1 1 0];
-matlabbatch{3}.spm.stats.con.consess{24}.fcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{25}.fcon.name = 'Group (ExtInt)';
-matlabbatch{3}.spm.stats.con.consess{25}.fcon.weights = [1 1 1 0 -1 -1 -1 0];
-matlabbatch{3}.spm.stats.con.consess{25}.fcon.sessrep = 'none';
-matlabbatch{3}.spm.stats.con.consess{26}.fcon.name = 'Condition (ExtInt)';
-matlabbatch{3}.spm.stats.con.consess{26}.fcon.weights = [1 -1 0 0 1 -1 0 0
+matlabbatch{3}.spm.stats.con.consess{28}.fcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{29}.fcon.name = 'Group (ExtInt)';
+matlabbatch{3}.spm.stats.con.consess{29}.fcon.weights = [1 1 1 0 -1 -1 -1 0];
+matlabbatch{3}.spm.stats.con.consess{29}.fcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{30}.fcon.name = 'Condition (ExtInt)';
+matlabbatch{3}.spm.stats.con.consess{30}.fcon.weights = [1 -1 0 0 1 -1 0 0
                                                          0 1 -1 0 0 1 -1 0];
-matlabbatch{3}.spm.stats.con.consess{26}.fcon.sessrep = 'none';
+matlabbatch{3}.spm.stats.con.consess{30}.fcon.sessrep = 'none';
 matlabbatch{3}.spm.stats.con.delete = 0;
-%matlabbatch{4}.spm.tools.tfce_estimate.spmmat(1) = cfg_dep('Contrast Manager: SPM.mat File', substruct('.','val', '{}',{3}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','spmmat'));
-%matlabbatch{4}.spm.tools.tfce_estimate.mask = '';
-%matlabbatch{4}.spm.tools.tfce_estimate.conspec.titlestr = '';
-%matlabbatch{4}.spm.tools.tfce_estimate.conspec.contrasts = [19, 20, 21, 27]; %[19,20,21,26,27,30,31];
-%matlabbatch{4}.spm.tools.tfce_estimate.conspec.n_perm = 5000;
-%matlabbatch{4}.spm.tools.tfce_estimate.nuisance_method = 2;
-%matlabbatch{4}.spm.tools.tfce_estimate.tbss = 0;
-%matlabbatch{4}.spm.tools.tfce_estimate.E_weight = 0.5;
-%matlabbatch{4}.spm.tools.tfce_estimate.singlethreaded = 0;
