@@ -4,8 +4,8 @@ library(tidyverse)
 # dPEP_HomeQuest <- 'P:/3022026.01/pep/download2/'
 # dPEP_Visit <- 'P:/3022026.01/pep/download2/'
 # dPEP_COVID <- 'P:/3022026.01/pep/download2/'
-dPEP <- 'P:/3022026.01/pep/download3_castor/'
-dClinVars <- 'P:/3022026.01/pep/ClinVars3'
+dPEP <- 'P:/3022026.01/pep/download2/'
+dClinVars <- 'P:/3022026.01/pep/ClinVars4'
 
 # Clean out output directory
 if(dir.exists(dClinVars)){
