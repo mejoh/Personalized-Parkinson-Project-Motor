@@ -1,11 +1,11 @@
-% Swap=false;
-% if Swap
-%     motor_copycontrasts('ses-POMVisit1',true)
-%     motor_copycontrasts('ses-PITVisit1',true)
-% else
-%     motor_copycontrasts('ses-POMVisit1',false)
-%     motor_copycontrasts('ses-PITVisit1',false)
-% end
+Swap=true;
+if Swap
+    motor_copycontrasts('ses-POMVisit1',true)
+    motor_copycontrasts('ses-PITVisit1',true)
+else
+    motor_copycontrasts('ses-POMVisit1',false)
+    motor_copycontrasts('ses-PITVisit1',false)
+end
 
 % Independent samples t-tests
 exclude_outliers=[true; false];
