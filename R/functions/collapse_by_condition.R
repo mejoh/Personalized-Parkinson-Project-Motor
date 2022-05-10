@@ -16,7 +16,7 @@ collapse_by_condition <- function(df, summaryfun='mean'){
     }else{
             stop('Summary function not defined')
     }
-    df1 <- summaryBy(response_time ~ pseudonym + Timepoint + trial_type, id=id_vars, FUN=f, data = df, keep.names = TRUE)
+    df1 <- summaryBy(response_time ~ pseudonym + Timepoint + trial_type + block, id=id_vars, FUN=f, data = df, keep.names = TRUE)
     
     df1
     
