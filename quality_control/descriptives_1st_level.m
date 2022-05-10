@@ -1,5 +1,5 @@
 % Images to summarize
-ImageList = {'con_0001' 'con_0002' 'con_0003' 'ResMS'};
+ImageList = {'con_0001' 'con_0002' 'con_0003' 'con_0012' 'con_0013' 'ResMS'};
 % ImageList = {'con_0001'};
 
 % Generate a histogram of image intensities for each subject
