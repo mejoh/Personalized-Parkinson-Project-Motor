@@ -13,9 +13,9 @@ for n=1:length(sub)
 end
 sub=sub(Sel);
 
+% Select all subjects with multiple sessions
 s1 = 'ses-PITVisit1';
 s2 = 'ses-PITVisit2';
-
 Sel=false(length(sub),1);
 for n=1:length(sub)
     
@@ -29,6 +29,7 @@ for n=1:length(sub)
 end
 sub = sub(Sel);
 
+% Delete fmriprep outputs
 for n=1:length(sub)
     
     htmlfile = spm_select('FPList', fmriprepdir, ['^' sub{n} '.html']);
