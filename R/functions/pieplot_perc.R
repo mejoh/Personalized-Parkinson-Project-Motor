@@ -24,8 +24,8 @@ pieplot_perc <- function(summarytab, title='', hide_legend=FALSE){
             blank_theme +
             theme(axis.text.x=element_blank(),
                   legend.key.size = unit(1.5,'cm'),
-                  legend.text = element_text(size=20),
-                  legend.title = element_text(size=25)) +
+                  legend.text = element_text(size=25),
+                  legend.title = element_text(size=30)) +
             geom_text(aes(y = 1-c(0, cumsum(Score)[-length(Score)]) - Score/2, 
                           label = percent(Score)), size=6) +
             labs(title = title)
