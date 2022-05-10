@@ -223,16 +223,16 @@ for n = 1:numel(Files)
 end
 
 % Run jobs interactively
-%for n = 1:numel(Files)
-%    spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
-%end
+for n = 1:numel(Files)
+   spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
+end
 
 % Submit to cluster
-if numel(Files)==1
-	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
-else
-  	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',5*1024^3, 'timreq',2*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
-end
+% if numel(Files)==1
+% 	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
+% else
+%   	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',5*1024^3, 'timreq',2*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
+% end
 
 % Clean up copied functional images
 for n = 1:numel(Inputs{2})
