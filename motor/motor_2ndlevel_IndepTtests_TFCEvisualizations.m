@@ -1,4 +1,4 @@
-TFCEdir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/TFCE';
+TFCEdir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/dep_Group/TFCE';
 analyses = dir(fullfile(TFCEdir, 'Independent*'));
 for a = 1:length(analyses)
     currentcomp = fullfile(TFCEdir, analyses(a).name);
