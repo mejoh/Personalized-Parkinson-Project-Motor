@@ -10,11 +10,11 @@ if nargin<1 || isempty(thr)
     thr = 0.05;
 end
 
-session = 'ses-PITVisit1';
+session = 'ses-POMVisit1';
 BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
-Sub = {'sub-POMUC2917FBF8466577F'};
+% Sub = {'sub-POMUC2917FBF8466577F'};
 
 % Exclude subjects
 Sel = true(size(Sub,1),1);
@@ -26,16 +26,22 @@ for n = 1:numel(Sub)
         dFunc = fullfile(FMRIPrep, Sub{n}, Visit{v}, 'func');
         ConfoundsFile = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries.tsv']));
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
+        Confounds2File = cellstr(spm_select('FPList', dFunc, [Sub{n}, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries2.tsv']));
         % Preexisting events file
         EventsFile = spm_select('List', fullfile(BIDSDir, Sub{n}, Visit{v}, 'beh'), [Sub{n} '_' Visit{v} '_task-motor_acq-MB6_run-.*_events.tsv']);
+        % Preexisting re-classified timeseries file
         
         % Exclude participants
-        if isempty(ConfoundsFile{1})
-            fprintf('Excluding %s %s: lacks fmriprep confound regressors \n', Sub{n}, Visit{v})
+        if isempty(ConfoundsFile{1}) || isempty(EventsFile)
+            fprintf('Excluding %s %s: lacks fmriprep confound regressors and/or events.tsv file \n', Sub{n}, Visit{v})
             Sel(n) = false;
         end
-        if  isempty(EventsFile)
-            fprintf('Excluding %s %s: events tsv file \n', Sub{n}, Visit{v})
+%         if  isempty(EventsFile)
+%             fprintf('Excluding %s %s: lacks events tsv file \n', Sub{n}, Visit{v})
+%             Sel(n) = false;
+%         end
+        if ~isempty(Confounds2File{1})
+            fprintf('Excluding %s %s: has already been re-classified \n', Sub{n}, Visit{v})
             Sel(n) = false;
         end
 
