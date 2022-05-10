@@ -1,4 +1,4 @@
-generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=paste(bidsdir,'derivatives',sep='/'), force = FALSE, intermediate_output=TRUE){
+generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=paste(bidsdir,'derivatives',sep='/'), force = TRUE, intermediate_output=TRUE){
     
     library(tidyverse)
     library(tidyjson)
