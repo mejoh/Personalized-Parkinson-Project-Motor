@@ -5,8 +5,7 @@ mkdir -p clusterstats
 
 contrasts=("con_0001" "con_0002" "con_0003")
 visit=("ses-Visit1")
-cluster="/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOff_x_ExtInt2Int3Catch_NoOutliers/Cluster_HCgtPD_Mean_Putamen.nii"
-#cluster="/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOff_x_ExtInt2Int3Catch_NoOutliers/Cluster_HCgtPD_Mean_CB.nii"
+cluster='/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_x_ExtInt2Int3Catch_NoOutliers/x_HCgtPD_Mean_Putamen1Only.nii'
 
 for con in ${contrasts[@]}; do
 
@@ -22,13 +21,16 @@ for con in ${contrasts[@]}; do
   fslmaths $cluster -nan -bin tmp/cluster
 
   name=`basename $cluster .nii`
-  fslstats -t tmp/merged -k tmp/cluster -n -m > tmp/stats_${name}.txt
-  echo ${files[@]} | sed 's/ /\n/g' > tmp/merged_files.txt
-  paste tmp/stats_${name}.txt tmp/merged_files.txt | column -s $'\t' -t > tmp/${name}_${con}_${visit}.txt
+  echo 'Beta' > tmp/stats_${name}.txt
+  fslstats -t tmp/merged -k tmp/cluster -n -m >> tmp/stats_${name}.txt
+  echo 'Img' > tmp/merged_files.txt
+  echo ${files[@]} | sed 's/ /\n/g' >> tmp/merged_files.txt
+  #paste tmp/stats_${name}.txt tmp/merged_files.txt | column -ts $'\t' > tmp/${name}_${con}_${visit}.txt
+  paste tmp/stats_${name}.txt tmp/merged_files.txt | column -t | sed -e 's/\s\+/,/g' > tmp/${name}_${con}_${visit}.txt
   mv tmp/${name}_${con}_${visit}.txt ../../clusterstats
   #####
 
-  rm -r tmp
+  #rm -r tmp
   cd $start
 
 done
