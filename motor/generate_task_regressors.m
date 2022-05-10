@@ -33,10 +33,13 @@ SPM.xBF = spm_get_bf(SPM.xBF);
 
 %% Define inputs
 % Scans
-run = char(extractBetween(EventsTsvFile, 'run-', '_events.tsv'));
-funcdat = spm_select('FPList', fullfile(bidsdir, 'derivatives/fmriprep', subject, session, 'func'), [subject '_' session '_task-motor_acq-MB6_run-' run '_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
+% run = char(extractBetween(EventsTsvFile, 'run-', '_events.tsv'));
+% funcdat = spm_select('FPList', fullfile(bidsdir, 'derivatives/fmriprep', subject, session, 'func'), [subject '_' session '_task-motor_acq-MB6_run-' run '_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
+funcdat = cellstr(spm_select('FPList', fullfile(bidsdir, 'derivatives/fmriprep', subject, session, 'func'), [subject '_' session '_task-motor_acq-MB6_run-.*_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']));
+funcdat = funcdat{size(funcdat,1)};
 volinfo = ft_read_mri(funcdat);
-SPM.nscan = volinfo.dim(4);
+% SPM.nscan = volinfo.dim(4);
+SPM.nscan = size(volinfo.anatomy,4);
 % Stimulus input structure
 SPM.Sess.U = [];
 P.name = 'none';
