@@ -6,7 +6,7 @@ sub = cellstr(spm_select('List', bidsdir, 'dir', '^sub-POMU.*'));
 % Skip subjects without htmlfile
 Sel=true(length(sub),1);
 for n=1:length(sub)
-    secondses = spm_select('FPList', fullfile(FirstLevelDir, sub{n}), 'dir', 'ses-PITVisit2');
+    secondses = spm_select('FPList', fullfile(FirstLevelDir, sub{n}), 'dir', 'ses-PITVisit1');
     if ~exist(secondses, 'dir')
         Sel(n)=false;
     end
