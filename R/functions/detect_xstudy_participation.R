@@ -1,7 +1,7 @@
 detect_xstudy_participation <- function(df){
   
   POM <- df %>% filter(Timepoint=='ses-POMVisit1') %>% select(pseudonym) %>% unique()
-  PIT <- df %>% filter(Timepoint=='ses-PITVisit1') %>% filter(ParticipantType=='Patient') %>% select(pseudonym) %>% unique()
+  PIT <- df %>% filter(Timepoint=='ses-PITVisit1') %>% filter(ParticipantType=='PD_PIT') %>% select(pseudonym) %>% unique()
   
   All_subs <- c(POM$pseudonym, PIT$pseudonym)
   All_subs_duplicates <- All_subs[duplicated(All_subs)]
