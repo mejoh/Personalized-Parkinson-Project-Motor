@@ -2,7 +2,7 @@
 # These manipulations are intended to be independent of each other
 # so it should be possible to carry them out in any order.
 
-manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars/derivatives/merged_2021-11-29.csv'){
+manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivatives/merged_2022-03-29.csv'){
 
         library(tidyverse)
         library(jsonlite)
