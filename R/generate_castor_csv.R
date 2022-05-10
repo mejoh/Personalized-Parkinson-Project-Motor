@@ -4,7 +4,7 @@ generate_castor_csv <- function(bidsdir, outputdir=paste(bidsdir,'derivatives',s
         library(tidyjson)
         library(lubridate)
         
-        # bidsdir <- 'P:/3022026.01/pep/ClinVars4'
+        # bidsdir <- 'P:/3022026.01/pep/ClinVars2'
         
         ##### Set up intermediate output directory
         tmpdir <- paste(bidsdir, 'derivatives', 'tmp', sep='/')
