@@ -25,7 +25,7 @@ OV.name = statimg;
 % Number of fields in range should be the same as number of files (see above)
 % or define one field, which is valid for all.
 % Be careful: intensities below the lower range are not shown!
-OV.range   =[1.30103,3];
+OV.range   =[1,4];
 % OV.func can be used to set the image to defined values (e.g. NaN) for the given range
 %OV.func = 'i1(i1>log10(0.05) & i1<-log10(0.05))=NaN;';
 % selection of slices and orientations
@@ -43,7 +43,7 @@ OV.xy = [5 10];
 % estimate filename to save
 OV.save = 'tif';
 % if result is saved as image use up to 2 subfolders to add their names to the filename (default 1)
-OV.name_subfolder = 2;
+OV.name_subfolder = 1;
 % Remove comment if you don't wish slice overview
 OV.overview = [];
 % Remove comment if you don't wish slice labels
