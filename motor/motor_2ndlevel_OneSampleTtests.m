@@ -31,7 +31,7 @@ GroupFolder = 'Group';
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
 % ClinicalDataFile = '/project/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-08-30.csv';
 % SubtypeDataFile = '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri4.csv');
 baseid = ClinicalConfs.TimepointNr == 0;
 ClinicalConfs = ClinicalConfs(baseid,:);
 motortask = strcmp(ClinicalConfs.MriNeuroPsychTask, 'Motor');
@@ -45,7 +45,7 @@ fprintf('Number of subjects found: %i\n', numel(Sub))
 %% Subset data
 
 % Select variables and remove missing values
-Colnames = {'pseudonym' 'Subtype_Imputed_DisDurSplit' ['Up3Of' Subscore] 'Age' 'Gender' 'MonthSinceDiag'};
+Colnames = {'pseudonym' 'Subtype_DisDurSplit' ['Up3Of' Subscore] 'Age' 'Gender' 'MonthSinceDiag', 'non_pd_diagnosis_at_ba_or_fu'};
 cID = ismember(ClinicalConfs.Properties.VariableNames, Colnames);
 ClinicalConfs = rmmissing(ClinicalConfs(:,cID));
 
@@ -53,7 +53,7 @@ ClinicalConfs = rmmissing(ClinicalConfs(:,cID));
 if ~isempty(Subtype)
     % Select patients from the clinical data file that have the selected
     % subtype
-    sid = contains(ClinicalConfs.Subtype_Imputed_DisDurSplit, Subtype);
+    sid = contains(ClinicalConfs.Subtype_DisDurSplit, Subtype);
     ClinicalConfs = ClinicalConfs(sid,:);
     fprintf('Analyzing subtype: %s, n = %i \n', Subtype, height(ClinicalConfs))
 end
@@ -71,7 +71,7 @@ for n = 1:numel(SubInfo.Sub)
     SubInfo.Age(n) = ClinicalConfs.Age(sid);
     SubInfo.Gender{n} = ClinicalConfs.Gender{sid};
     SubInfo.MonthSinceDiag(n) = ClinicalConfs.MonthSinceDiag(sid);
-    SubInfo.Type{n} = ClinicalConfs.Subtype_Imputed_DisDurSplit{sid};
+    SubInfo.Type{n} = ClinicalConfs.Subtype_DisDurSplit{sid};
     cID = ismember(ClinicalConfs.Properties.VariableNames, ['Up3Of' Subscore]);
     SubInfo.Score(n) = table2array(ClinicalConfs(sid,cID));
 end
@@ -105,33 +105,55 @@ end
 
 % Exclude outliers
 mriqc_outliers = readtable('/project/3024006.02/Analyses/mriqc_outliers.txt');
-Con1 = '/project/3024006.02/Analyses/QC/1st_level/con_0001/Group.txt';
-Con2 = '/project/3024006.02/Analyses/QC/1st_level/con_0002/Group.txt';
-Con3 = '/project/3024006.02/Analyses/QC/1st_level/con_0003/Group.txt';
-ResMS = '/project/3024006.02/Analyses/QC/1st_level/ResMS/Group.txt';
+Con1 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0001/Group.txt';
+Con2 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0002/Group.txt';
+Con3 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0003/Group.txt';
+Con12 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0012/Group.txt';
+Con13 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0013/Group.txt';
+ResMS = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/ResMS/Group.txt';
 Con1_f = readtable(Con1);
 Con1_f_s = Con1_f(Con1_f.Outlier==1,:);
 Con2_f = readtable(Con2);
 Con2_f_s = Con2_f(Con2_f.Outlier==1,:);
 Con3_f = readtable(Con3);
 Con3_f_s = Con3_f(Con3_f.Outlier==1,:);
+Con12_f = readtable(Con12);
+Con12_f_s = Con12_f(Con12_f.Outlier==1,:);
+Con13_f = readtable(Con13);
+Con13_f_s = Con13_f(Con13_f.Outlier==1,:);
 ResMS_f = readtable(ResMS);
 ResMS_f_s = ResMS_f(ResMS_f.Outlier==1,:);
-outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+% AllOutliers = sortrows([Con1_f_s; Con2_f_s; Con3_f_s; Con12_f_s; Con13_f_s; ResMS_f_s]);
+outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+% outliers = unique([Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
 if istrue(exclude_outliers)
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
         if contains(SubInfo.Sub{n}, string(table2array(outliers)))
            Sel(n) = false;
-        fprintf('Excluding outlier: %s \n', SubInfo.Sub{n})
+        fprintf('Excluding outlier: %s %s \n', SubInfo.Sub{n}, SubInfo.Type{n})
         end
     end
-    SubInfo = subset_subinfo(SubInfo,Sel);
+    SubInfo = subset_subinfo(SubInfo, Sel);
 end
 
+Sel = true(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    
+    subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
+    
+    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
+        fprintf('Misdiagnosis or re-diagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
+        Sel(n) = false;
+    end
+    
+end
+fprintf('%i subjects have a non-PD diagnosis, excluding these now...\n', length(Sel) - sum(Sel))
+SubInfo = subset_subinfo(SubInfo, Sel);
+
 %% Assemble inputs
-ConList = {'con_0012' 'con_0013' 'con_0008'  'con_0007' 'con_0010'};
-ConNames= {'Int2>Ext' 'Int3>Ext' 'Int3>Int2' 'Int>Ext'  'Mean_ExtInt'};
+ConList = {'con_0012' 'con_0013' 'con_0008' 'con_0010'};
+ConNames= {'Int2>Ext' 'Int3>Ext' 'Int3>Int2'  'Mean_ExtInt'};
 
 if ~istrue(BaselineOnly)
     inputs = cell(8, 1);
@@ -150,7 +172,7 @@ for c = 1:numel(ConList)
 %     elseif strcmp(ConNames{c}, 'Mean_ExtInt')
 %         Mask = {'/project/3024006.02/Analyses/Masks/WholeBrain.nii'};
 %     end
-    Mask = {'/project/3024006.02/Analyses/Masks/WholeBrain.nii'};
+    Mask = {'/project/3024006.02/Analyses/Masks/JuBrain_ROIs/Frontoparietal_BasalGanglia_Cerebellum_mask.nii'};
     
     if ~istrue(BaselineOnly)
         inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, ['OneSampleTtest_ClinCorr-Off-Prog-' Subscore], ConNames{c})};
@@ -208,8 +230,8 @@ for c = 1:numel(ConList)
     end
     filename = char(fullfile(inputs{1,1}, 'Inputs.mat'));
     save(filename, 'inputs')
-%     spm_jobman('run', JobFile, inputs{:});
-    jobs{c} =  qsubfeval('spm_jobman','run',JobFile, inputs{:},'memreq',15*1024^3,'timreq',20*60*60);
+    spm_jobman('run', JobFile, inputs{:});
+%     jobs{c} =  qsubfeval('spm_jobman','run',JobFile, inputs{:},'memreq',15*1024^3,'timreq',20*60*60);
     
 end
 end

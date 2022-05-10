@@ -14,7 +14,7 @@ end
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri4.csv');
 baseid = ClinicalConfs.TimepointNr == 0;
 ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "HC_PIT";
@@ -51,7 +51,7 @@ for n = 1:numel(SubInfo.Sub)
     if strcmp(SubInfo.Group{n}, 'PD_POM')
         idx = strcmp(ClinicalConfs.pseudonym, SubInfo.Sub{n});
         if sum(idx)>0
-            t = ClinicalConfs.Subtype_Imputed_DisDurSplit{idx};
+            t = ClinicalConfs.Subtype_DisDurSplit{idx};
             SubInfo.Type{n} = t;
         else
             SubInfo.Type{n} = 'Undefined';
@@ -71,26 +71,36 @@ end
 SubInfo = subset_subinfo(SubInfo,Sel);
 
 % Exclude outliers
+% Exclude outliers
+% Exclude outliers
 mriqc_outliers = readtable('/project/3024006.02/Analyses/mriqc_outliers.txt');
-Con1 = '/project/3024006.02/Analyses/QC/1st_level/con_0001/Group.txt';
-Con2 = '/project/3024006.02/Analyses/QC/1st_level/con_0002/Group.txt';
-Con3 = '/project/3024006.02/Analyses/QC/1st_level/con_0003/Group.txt';
-ResMS = '/project/3024006.02/Analyses/QC/1st_level/ResMS/Group.txt';
+Con1 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0001/Group.txt';
+Con2 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0002/Group.txt';
+Con3 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0003/Group.txt';
+Con12 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0012/Group.txt';
+Con13 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0013/Group.txt';
+ResMS = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/ResMS/Group.txt';
 Con1_f = readtable(Con1);
 Con1_f_s = Con1_f(Con1_f.Outlier==1,:);
 Con2_f = readtable(Con2);
 Con2_f_s = Con2_f(Con2_f.Outlier==1,:);
 Con3_f = readtable(Con3);
 Con3_f_s = Con3_f(Con3_f.Outlier==1,:);
+Con12_f = readtable(Con12);
+Con12_f_s = Con12_f(Con12_f.Outlier==1,:);
+Con13_f = readtable(Con13);
+Con13_f_s = Con13_f(Con13_f.Outlier==1,:);
 ResMS_f = readtable(ResMS);
 ResMS_f_s = ResMS_f(ResMS_f.Outlier==1,:);
-outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+% AllOutliers = sortrows([Con1_f_s; Con2_f_s; Con3_f_s; Con12_f_s; Con13_f_s; ResMS_f_s]);
+outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+% outliers = unique([Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
 if istrue(exclude_outliers)
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
         if contains(SubInfo.Sub{n}, string(table2array(outliers)))
            Sel(n) = false;
-        fprintf('Excluding outlier: %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n})
+        fprintf('Excluding outlier: %s %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n}, SubInfo.Type{n})
         end
     end
     SubInfo = subset_subinfo(SubInfo, Sel);
@@ -109,6 +119,34 @@ end
 %     end
 % end
 % SubInfo = subset_subinfo(SubInfo, Sel);
+
+% Exclude patients with non-PD diagnosis at baseline (patients
+% without diagnosis are excluded above because their subtype is NA, but only if
+% you use the non-imputed subtype classification)
+% baseline_diagnosis_exclusions = readtable('/project/3024006.02/Data/Subtyping/Baseline_diagnosis_exclusions.csv');
+% Sel = true(size(SubInfo.Sub));
+% for n = 1:numel(SubInfo.Sub)
+%     if contains(SubInfo.Sub{n}, baseline_diagnosis_exclusions.pseudonym)
+%        Sel(n) = false;
+%     fprintf('Excluding due to baseline misdiagnosis: %s %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n}, SubInfo.Type{n})
+%     end
+% end
+% SubInfo = subset_subinfo(SubInfo, Sel);
+
+Sel = true(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    
+    subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
+    
+    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
+        fprintf('Misdiagnosis or re-diagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
+        Sel(n) = false;
+    end
+    
+end
+fprintf('%i subjects have a non-PD diagnosis, excluding these now...\n', length(Sel) - sum(Sel))
+SubInfo = subset_subinfo(SubInfo, Sel);
+
 
 %% Collect events.json and confound files
 
@@ -135,7 +173,7 @@ for n = 1:numel(SubInfo.Sub)
     SubInfo.FD(n) = mean(FrameDisp);
 end
 
-%% Age and Gender
+%% Age, Gender, 
 
 % Interpolate age and gender
 SubInfo.Age = zeros(size(SubInfo.Sub));
@@ -154,7 +192,6 @@ for n = 1:numel(SubInfo.Sub)
     end
     
 end
-
 
 % Exclude subjects with missing Age and Gender
 % Sel = true(size(SubInfo.Sub));
@@ -207,9 +244,9 @@ tabulate(SubInfo.Type)
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};
 Inputs = cell(20,1);
 if ~exclude_outliers 
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcSubtypes_x_ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcImpSubtypes_x_ExtInt2Int3Catch')};
 else
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcSubtypes_x_ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcImpSubtypes_x_ExtInt2Int3Catch_NoOutliers')};
 end
 
 HealthyControl.idx = contains(SubInfo.Type, 'HealthyControl');
