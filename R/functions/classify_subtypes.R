@@ -70,7 +70,7 @@ classify_subtypes <- function(df, MI=TRUE, RelativeToBaseline=TRUE){
         df1 <- left_join(df1, Neuropsych_z_scores, by = 'pseudonym')
         df1 <- df1 %>%
                 select(pseudonym, TimepointNr, MonthSinceDiag, Updrs2Sum, Updrs3Sum, PIGDavg,
-                       RBDSQSum, SCOPA_AUTSum, CognitiveComposite, MoCASum)
+                       RBDSQSum, SCOPA_AUTSum, CognitiveComposite, MoCASum, DiagParkCertain, DiagParkPersist)
         #####
         
         ##### Imputation of missing values through stochastic linear regression #####
@@ -93,6 +93,31 @@ classify_subtypes <- function(df, MI=TRUE, RelativeToBaseline=TRUE){
                 select(-c(MoCASum))
         
         ##### 
+        
+        ##### Exclude patients with non-PD diagnoses so they don't confound the classification #####
+        diagnosis <- df1 %>% select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist)
+        
+        # Define a list of subjects to exclude
+        diag_ba_only <- TRUE
+        if(diag_ba_only){
+                baseline_exclusion <- diagnosis %>%
+                        filter(TimepointNr==0, (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
+                        select(pseudonym)
+                diag_exclusions <- baseline_exclusion %>% unique()
+                df1 <- df1 %>%
+                        filter(!(pseudonym %in% diag_exclusions$pseudonym)) 
+        }else{
+                baseline_exclusion <- diagnosis %>%
+                        filter(TimepointNr==0, (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
+                        select(pseudonym)
+                visit2_exclusion <- diagnosis %>%
+                        filter(TimepointNr==2, (DiagParkPersist == 2)) %>% 
+                        select(pseudonym)
+                diag_exclusions <- full_join(baseline_exclusion, visit2_exclusion) %>% unique()
+                df1 <- df1 %>%
+                        filter(!(pseudonym %in% diag_exclusions$pseudonym)) 
+        }
+        #####
         
         ##### Derive Z-scores (relative to baseline) for whole cohort and for cohort split at disease duration #####
         # Set RelativeToBaseline=FALSE to get z-scores relative to peers (i.e. separate z-scores calculated for each timepoint)
