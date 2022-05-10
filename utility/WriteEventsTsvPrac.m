@@ -27,7 +27,7 @@ for n = 1:numel(Sub)
         continue
     end
     
-    PracLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac1_logfile\.txt$']);
+    PracLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac4_logfile\.txt$']);
     TaskLog = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '.*MotorTaskEv.*\.log$']);
     if size(PracLog,1) ~= 1 || size(TaskLog,1) < 1
 		Sel(n) = false;
@@ -54,8 +54,8 @@ for n = 1:NSub
         MotorBehavDir = MotorBehavDir(length(MotorBehavDir));
     end
     
-    PracLog{n}    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac1_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' s], visit, 'beh', ['sub-' s '_' visit '_task-motor_acq-practice_run-1_events.tsv']);
+    PracLog{n}    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac4_logfile\.txt$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' s], visit, 'beh', ['sub-' s '_' visit '_task-motor_acq-practice_run-4_events.tsv']);
   
 end
 
