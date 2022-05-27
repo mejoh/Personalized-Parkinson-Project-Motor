@@ -92,7 +92,7 @@ raincloudplot_2Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                 guides(fill=guide_legend(title=legend_title, reverse = FALSE,
                                          title.position = 'left', label.position = 'right')) +
                 coord_cartesian(xlim = c(1.2, NA), clip = "off") +
-                theme_cowplot(font_size = 70, font_family = 'Calibri') +
+                theme_cowplot(font_size = 60, font_family = 'Calibri') +
                 theme(legend.position = legend_position,
                       legend.key.size = unit(1,'cm'))
         
