@@ -1,4 +1,4 @@
-classify_subtypes <- function(df, MI=TRUE, RelativeToBaseline=TRUE){
+classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBaseline=TRUE){
         
         # TO DO:
         # Look into implementing an option for multiple imputation
@@ -98,15 +98,17 @@ classify_subtypes <- function(df, MI=TRUE, RelativeToBaseline=TRUE){
         diagnosis <- df1 %>% select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist)
         
         # Define a list of subjects to exclude
-        diag_ba_only <- TRUE
-        if(diag_ba_only){
+        if(DiagExclusions == 'ba'){
                 baseline_exclusion <- diagnosis %>%
                         filter(TimepointNr==0, (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
                         select(pseudonym)
                 diag_exclusions <- baseline_exclusion %>% unique()
-                df1 <- df1 %>%
-                        filter(!(pseudonym %in% diag_exclusions$pseudonym)) 
-        }else{
+        }else if(DiagExclusions == 'fu'){
+                visit2_exclusion <- diagnosis %>%
+                        filter(TimepointNr==2, (DiagParkPersist == 2)) %>% 
+                        select(pseudonym)
+                diag_exclusions <- visit2_exclusion %>% unique()
+        }else if(DiagExclusions == 'both'){
                 baseline_exclusion <- diagnosis %>%
                         filter(TimepointNr==0, (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
                         select(pseudonym)
@@ -114,9 +116,9 @@ classify_subtypes <- function(df, MI=TRUE, RelativeToBaseline=TRUE){
                         filter(TimepointNr==2, (DiagParkPersist == 2)) %>% 
                         select(pseudonym)
                 diag_exclusions <- full_join(baseline_exclusion, visit2_exclusion) %>% unique()
-                df1 <- df1 %>%
-                        filter(!(pseudonym %in% diag_exclusions$pseudonym)) 
         }
+        df1 <- df1 %>%
+                filter(!(pseudonym %in% diag_exclusions$pseudonym)) 
         #####
         
         ##### Derive Z-scores (relative to baseline) for whole cohort and for cohort split at disease duration #####
