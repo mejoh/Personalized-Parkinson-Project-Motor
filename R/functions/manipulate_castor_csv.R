@@ -89,10 +89,34 @@ manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivati
         
         ##### Classify PD patients from POM into subtypes (Feresh et al., 2017) #####
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/classify_subtypes.R')
-        df_noimp_relba <- classify_subtypes(df, MI = FALSE, RelativeToBaseline = TRUE)
-        df_imp_relba <- classify_subtypes(df, MI = TRUE, RelativeToBaseline = TRUE) %>%
+        # All timepoints for all subjects are classified relative to baseline z-scores
+        df_noimp_relba <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'none', RelativeToBaseline = TRUE)
+        df_imp_relba <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'none', RelativeToBaseline = TRUE) %>%
                 select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
                 rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_',.x), starts_with('Subtype'))
+        
+        df_noimp_relba_diagex1 <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'ba', RelativeToBaseline = TRUE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx1_',.x), starts_with('Subtype'))
+        df_imp_relba_diagex1 <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'ba', RelativeToBaseline = TRUE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_DiagEx1_',.x), starts_with('Subtype'))
+        
+        df_noimp_relba_diagex2 <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'fu', RelativeToBaseline = TRUE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx2_',.x), starts_with('Subtype'))
+        df_imp_relba_diagex2 <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'fu', RelativeToBaseline = TRUE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_DiagEx2_',.x), starts_with('Subtype'))
+        
+        df_noimp_relba_diagex3 <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'both', RelativeToBaseline = TRUE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx3_',.x), starts_with('Subtype'))
+        df_imp_relba_diagex3 <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'both', RelativeToBaseline = TRUE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_DiagEx3_',.x), starts_with('Subtype'))
+        
+        # All timepoints for all subjects are classified relative to session-specific z-scores
         df_noimp_relpeers <- classify_subtypes(df, MI = FALSE, RelativeToBaseline = FALSE) %>%
                 select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
                 rename_with( ~ gsub('Subtype_', 'Subtype_RelPeers_',.x), starts_with('Subtype'))
@@ -100,7 +124,14 @@ manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivati
                 select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
                 rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_RelPeers_',.x), starts_with('Subtype'))
         
+        
         df <- full_join(df_noimp_relba, df_imp_relba, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_imp_relba_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_noimp_relba_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_imp_relba_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_noimp_relba_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_imp_relba_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_noimp_relba_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         df <- full_join(df, df_noimp_relpeers, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         df <- full_join(df, df_imp_relpeers, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         #####
