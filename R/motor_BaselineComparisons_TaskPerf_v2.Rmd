@@ -44,7 +44,8 @@ library(kableExtra)
 loadfonts(device='win',quiet = TRUE)
 
 sigsize=16
-lsize=2
+lsize=1.5
+legend_position <- c(0.85,1.2)
 ```
 
 # Load data
@@ -502,8 +503,12 @@ compare_demographics.subs(demo.test,numvars,catvars)
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-fmri.onvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_x_ExtInt2Int3Catch_NoOutliers/'
-vois <- dir(fmri.onvshc, 'VOI.*csv', full.names = TRUE)
+# SPM VOI eigenvariate
+# fmri.onvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_x_ExtInt2Int3Catch_NoOutliers/'
+# vois <- dir(fmri.onvshc, 'VOI.*csv', full.names = TRUE)
+# MarsBar ROI betas
+fmri.onvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/'
+vois <- dir(fmri.onvshc, '*csv', full.names = TRUE)
 
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
@@ -523,7 +528,7 @@ for(v in 1:length(vois)){
                 rename(Beta = Vals)
         
         bn <- basename(csvfile)
-        if(str_detect(bn, 'Mean')){
+        if(str_detect(bn, 'MTean')){
                 fmridat <- fmridat %>%
                         group_by(pseudonym, Group) %>%
                         summarise(across(c(Beta), ~ mean(.x, na.rm=TRUE))) %>%
@@ -540,7 +545,7 @@ for(v in 1:length(vois)){
 }
 
 ##### Putamen #####
-putamen <- vois[3]
+putamen <- vois[2]
 csvfile <- putamen
 fmridat <- read_csv(csvfile, show_col_types = FALSE) %>%
         select(-scans) %>%
@@ -550,31 +555,59 @@ fmridat <- read_csv(csvfile, show_col_types = FALSE) %>%
                Cond = factor(Cond,
                              levels = c('Ext','Int2','Int3'),
                              labels = c('1choice','2choice','3choice'))) %>%
-        rename(Beta = Vals)%>%
-        group_by(pseudonym, Group) %>%
-        summarise(across(c(Beta), ~ mean(.x, na.rm=TRUE))) %>%
-        ungroup()
+         rename(Beta = Vals) #%>%
+        # group_by(pseudonym, Group) %>%
+        # summarise(across(c(Beta), ~ mean(.x, na.rm=TRUE))) %>%
+        # ungroup()
 N <- fmridat %>%
+        filter(Cond=='1choice') %>%
         select(Group) %>%
         table()
-plot <-raincloudplot_1Factor(fmridat, 'Beta', c('Group'), title = 'Average task-related activity in \nthe most affected putamen',
-                      xlab='', ylab='Beta (mean)',
-                      xticklabs = c(paste('HC', ' (n=', N[1],')', sep=''),
-                                          paste('PD-On', ' (n=', N[2],')', sep='')),
-                      color_scheme = 'cividis') +
-        ylim(-1.5,2.5) +
-        theme_cowplot(font_size = 70, font_family = 'Calibri') +
-        geom_segment(aes(x=1,xend=2,y=2.5,yend=2.5), size=lsize) + 
-        geom_text(x=1.5, y=2.6, label='***', size=sigsize) +
-        geom_segment(aes(x=1,xend=1,y=2.5,yend=2.4),size=lsize) + 
-        geom_segment(aes(x=2,xend=2,y=2.5,yend=2.4),size=lsize)
+# plot <-raincloudplot_1Factor(fmridat, 'Beta', c('Group'), title = 'Average task-related activity in \nthe most affected putamen',
+#                       xlab='', ylab='Beta (mean)',
+#                       xticklabs = c(paste('HC', ' (n=', N[1],')', sep=''),
+#                                           paste('PD-On', ' (n=', N[2],')', sep='')),
+#                       color_scheme = 'cividis') +
+#         ylim(-1.5,2.5) +
+#         theme_cowplot(font_size = 60, font_family = 'Calibri')
+plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'), 
+                              title = 'Task-related activity in the most \naffected putamen',
+                              xlab='', ylab='Beta', 
+                              xticklabs = c(paste('HC', ' (n=', N[1],')', sep=''),
+                                            paste('PD-On', ' (n=', N[2],')', sep='')),
+                              legend_title = '',
+                              legend_position = legend_position, legend_labels = c('One','Two','Three'),
+                              color_scheme = 'mako') + 
+        ylim(-2,5)
+y <- 5
+d = 0.45
+segmap <- data.frame(
+        x =    c(1.00, 1.00, 0.80,  2.00,  1.80),
+        xend = c(2.00, 1.00, 1.20,  2.00,  2.20),
+        y =    c(y,    y,    y-d*1, y,     y-d*1),
+        yend = c(y,    y-d*1,y-d*1, y-d*1, y-d*1)
+)
+sigmap <- data.frame(
+        x =     c(1.50),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HCvsON_HCgtON_Mean_Putamen1.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 #####
 
 ##### Parietal interaction #####
-parietal <- vois[5]
+parietal <- vois[6]
 csvfile <- parietal
 fmridat <- read_csv(csvfile, show_col_types = FALSE) %>%
         select(-scans) %>%
@@ -595,22 +628,34 @@ plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
                               xticklabs = c(paste('HC', ' (n=', N[1],')', sep=''),
                                             paste('PD-On', ' (n=', N[2],')', sep='')),
                               legend_title = '',
-                              legend_position = c(0.85,1.25), legend_labels = c('One','Two','Three'),
+                              legend_position = legend_position, legend_labels = c('One','Two','Three'),
                               color_scheme = 'mako') + 
-        ylim(-6,6) +
-        geom_segment(aes(x=1,xend=2,y=5,yend=5), size=lsize) + 
-        geom_text(x=1.5, y=5.2, label='***', size=sigsize) +
-        geom_segment(aes(x=1,xend=1,y=5,yend=4.7), size=lsize) + 
-        geom_segment(aes(x=2,xend=2,y=5,yend=4.7), size=lsize) +
-        geom_segment(aes(x=0.8,xend=1.2,y=4.7,yend=4.7), size=lsize) + 
-        geom_segment(aes(x=1.8,xend=2.2,y=4.7,yend=4.7), size=lsize) +
-        geom_segment(aes(x=0.8,xend=0.8,y=4.7,yend=4.4),size=lsize) +
-        geom_segment(aes(x=1.2,xend=1.2,y=4.7,yend=4.4),size=lsize) +
-        geom_segment(aes(x=1.8,xend=1.8,y=4.7,yend=4.4),size=lsize) +
-        geom_segment(aes(x=2.2,xend=2.2,y=4.7,yend=4.4),size=lsize)
+        ylim(-6,6)
+y <- 6
+d = 0.6
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  1.20, 1.80,  2.20),
+        xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  0.80,  1.20, 1.80,  2.20),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*2, y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(1.50),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HCvsON_ONgtHC_INT3gtEXT_IPL.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 #####
 ```
 
@@ -661,8 +706,10 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HCvsON_
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
 ##### Group analysis #####
-fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Imputed_Subtypes_x_ExtInt2Int3Catch_NoOutliers/'
-vois <- dir(fmri.subtypes, 'VOI.*csv', full.names = TRUE)
+# fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Imputed_Subtypes_x_ExtInt2Int3Catch_NoOutliers/'
+# vois <- dir(fmri.subtypes, 'VOI.*csv', full.names = TRUE)
+fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Imputed_Subtypes_x_ExtInt2Int3Catch_NoOutliers/marsbar'
+vois <- dir(fmri.subtypes, '*csv', full.names = TRUE)
 
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
@@ -705,7 +752,7 @@ Subtypes <- dfClin %>%
                        ParticipantType=='PD_POM') %>%
                 select(pseudonym, Subtype)
 
-# MMP > DM: 3 > 1, IPS
+# MMP > DM: 3 > 1, PMC
 ips <- vois[6]
 csvfile1 <- ips
 fmridat1 <- read_csv(csvfile1, show_col_types = FALSE) %>%
@@ -747,10 +794,10 @@ fmridat1 <- read_csv(csvfile1, show_col_types = FALSE) %>%
 #         geom_text(x=2,y=10.2,label='**',size=sigsize,show.legend = FALSE)
 # print(plot)
 # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/ImputedSubtypes_MMPgtDM_INT3gtEXT_IPS.tiff',
-#           plot, dpi=320, device='tiff', base_height = 12, base_asp = 1.2)
+#           plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
 
-# MMP > IM: 3 > 1, SPL
-spl <- vois[8]
+# MMP > IM: 3 > 1, PMC
+spl <- vois[2]
 csvfile2 <- spl
 fmridat2 <- read_csv(csvfile2, show_col_types = FALSE) %>%
         left_join(., Subtypes, by = 'pseudonym') %>%
@@ -791,7 +838,7 @@ fmridat2 <- read_csv(csvfile2, show_col_types = FALSE) %>%
 #         geom_text(x=2,y=10.2,label='**',size=sigsize,show.legend = FALSE)
 # print(plot)
 # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/ImputedSubtypes_MMPgtDM_INT3gtEXT_IPS.tiff',
-#           plot, dpi=320, device='tiff', base_height = 12, base_asp = 1.2)
+#           plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
 
 # MMP > DM & MMP > IM: 3 gt 1, Parietal
 fmridat <- bind_cols(fmridat1, Beta2=fmridat2$Beta) %>%
@@ -800,40 +847,43 @@ N <- fmridat %>%
         filter(Cond=='1choice') %>%
         select(Group) %>%
         table()
+
 plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-                              title = 'Task-related activity in the least \naffected premotor cortex',
+                              title = 'Task-related activity in the least \naffected parietal cortex',
                       xlab='', ylab='Beta',
                       xticklabs = c(paste('MMP', ' (n=', N[1],')', sep=''),
                                     paste('IM', ' (n=', N[2],')', sep=''),
                                     paste('DM', ' (n=', N[3],')', sep='')),
                       legend_title = '',
-                      legend_position = c(0.85,1.25), legend_labels = c('One','Two','Three'),
+                      legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-6,11) +
-        geom_segment(x=1,xend=2,y=11,yend=11,size=lsize) +
-        geom_segment(x=1,xend=1,y=11,yend=10.7,size=lsize) +
-        geom_segment(x=2,xend=2,y=11,yend=10.7,size=lsize) +
-        geom_segment(x=0.8,xend=1.2,y=10.7,yend=10.7,size=lsize) +
-        geom_segment(x=1.8,xend=2.2,y=10.7,yend=10.7,size=lsize) +
-        geom_segment(x=0.8,xend=0.8,y=10.7,yend=10.5,size=lsize) +
-        geom_segment(x=1.2,xend=1.2,y=10.7,yend=10.5,size=lsize) +
-        geom_segment(x=1.8,xend=1.8,y=10.7,yend=10.5,size=lsize) +
-        geom_segment(x=2.2,xend=2.2,y=10.7,yend=10.5,size=lsize) +
-        geom_text(x=1.5,y=11.2,label='***',size=sigsize,show.legend = FALSE) +
-        
-        geom_segment(x=1,xend=3,y=9,yend=9,size=lsize) +
-        geom_segment(x=1,xend=1,y=9,yend=8.7,size=lsize) +
-        geom_segment(x=3,xend=3,y=9,yend=8.7,size=lsize) +
-        geom_segment(x=0.8,xend=1.2,y=8.7,yend=8.7,size=lsize) +
-        geom_segment(x=2.8,xend=3.2,y=8.7,yend=8.7,size=lsize) +
-        geom_segment(x=0.8,xend=0.8,y=8.7,yend=8.5,size=lsize) +
-        geom_segment(x=1.2,xend=1.2,y=8.7,yend=8.5,size=lsize) +
-        geom_segment(x=2.8,xend=2.8,y=8.7,yend=8.5,size=lsize) +
-        geom_segment(x=3.2,xend=3.2,y=8.7,yend=8.5,size=lsize) +
-        geom_text(x=2,y=9.2,label='***',size=sigsize,show.legend = FALSE)
+        ylim(-3,13)
+
+y <- 13
+d = 0.7
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20,  1.00, 1.00,  3.00,  0.80,  0.80,  1.20,  2.80,  2.80,  3.20),
+        xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20,  3.00, 1.00,  3.00,  1.20,  0.80,  1.20,  3.20,  2.80,  3.20),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*3,y-d*3, y-d*3, y-d*4, y-d*4, y-d*4, y-d*4, y-d*4, y-d*4),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2, y-d*3,y-d*4, y-d*4, y-d*4, y-d*5, y-d*5, y-d*4, y-d*5, y-d*5)
+)
+sigmap <- data.frame(
+        x =     c(1.50,  2.00),
+        y =     c(y,     y-d*3),
+        label = c('***', '***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
 print(plot)
-save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_ImputedSubtypes_MMPgtDM&MMPgtIM_INT3gtEXT_PMC.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_ImputedSubtypes_MMPgtDM&MMPgtIM_INT3gtEXT_Parietal.tiff',
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 #####
 
@@ -889,11 +939,11 @@ plot <- raincloudplot_2Factor(fmridat.putamen, 'Beta', c('Cond','Group'),
                                     paste('DM', ' (n=', N[3],')', sep='')),
                       legend_title = '', 
                       legend_labels = c('One','Two','Three'),
-                      legend_position = c(0.85,1.25),
+                      legend_position = legend_position,
                       color_scheme = 'mako')
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_ImputedSubtypes_Putamen.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 c <- cor.test(fmridat.putamen.collapsed$Mean, fmridat.putamen.collapsed$Up3OfAppendicularSum)
 N <- fmridat.putamen.collapsed %>%
@@ -910,7 +960,7 @@ plot <- ggplot(fmridat.putamen.collapsed, aes(y=Mean, x=Up3OfAppendicularSum)) +
                   size=12)
 print(plot)
 # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Corr_ON_Putamen_Severity.tiff',
-#           plot, dpi=320, device='tiff', base_height = 12, base_asp = 1.2)
+#           plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
 
 #####
 ```
@@ -920,8 +970,10 @@ print(plot)
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
 ##### Group analysis #####
-fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcImpSubtypes_x_ExtInt2Int3Catch_NoOutliers/'
-vois <- dir(fmri.subtypes, 'VOI.*csv', full.names = TRUE)
+# fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcImpSubtypes_x_ExtInt2Int3Catch_NoOutliers/'
+# vois <- dir(fmri.subtypes, 'VOI.*csv', full.names = TRUE)
+fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcImpSubtypes_x_ExtInt2Int3Catch_NoOutliers/marsbar'
+vois <- dir(fmri.subtypes, '*csv', full.names = TRUE)
 
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
@@ -965,7 +1017,7 @@ Subtypes <- dfClin %>%
                 select(pseudonym, Subtype)
 
 # MMP > HC: 3 > 1, rIPL
-mmpgthc_ipl <- vois[12]
+mmpgthc_ipl <- vois[14]
 csvfile2 <- mmpgthc_ipl
 fmridat <- read_csv(csvfile2, show_col_types = FALSE) %>%
         left_join(., Subtypes, by = 'pseudonym') %>%
@@ -994,22 +1046,34 @@ plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
                                     paste('IM', ' (n=', N[3],')', sep=''),
                                     paste('DM', ' (n=', N[4],')', sep='')),
                       legend_title = '',
-                      legend_position = c(0.85,1.25), legend_labels = c('One','Two','Three'),
+                      legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-5,6) +
-        geom_segment(x=1,xend=2,y=6,yend=6,size=lsize) +
-        geom_segment(x=1,xend=1,y=6,yend=5.7,size=lsize) +
-        geom_segment(x=2,xend=2,y=6,yend=5.7,size=lsize) +
-        geom_segment(x=0.8,xend=1.2,y=5.7,yend=5.7,size=lsize) +
-        geom_segment(x=1.8,xend=2.2,y=5.7,yend=5.7,size=lsize) +
-        geom_segment(x=0.8,xend=0.8,y=5.7,yend=5.5,size=lsize) +
-        geom_segment(x=1.2,xend=1.2,y=5.7,yend=5.5,size=lsize) +
-        geom_segment(x=1.8,xend=1.8,y=5.7,yend=5.5,size=lsize) +
-        geom_segment(x=2.2,xend=2.2,y=5.7,yend=5.5,size=lsize) +
-        geom_text(x=1.5,y=6.2,label='***',size=sigsize,show.legend = FALSE)
+        ylim(-4,4)
+y <- 4
+d = 0.4
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20),
+        xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(1.50),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcImpSubtypes_MMPgtHC_INT3gtEXT_Parietal.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 # MMP > HC: 3 > 1, rPMC
 mmpgthc_pmc <- vois[13]
@@ -1041,25 +1105,37 @@ plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
                                     paste('IM', ' (n=', N[3],')', sep=''),
                                     paste('DM', ' (n=', N[4],')', sep='')),
                       legend_title = '',
-                      legend_position = c(0.85,1.25), legend_labels = c('One','Two','Three'),
+                      legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-4,6) +
-        geom_segment(x=1,xend=2,y=6,yend=6,size=lsize) +
-        geom_segment(x=1,xend=1,y=6,yend=5.7,size=lsize) +
-        geom_segment(x=2,xend=2,y=6,yend=5.7,size=lsize) +
-        geom_segment(x=0.8,xend=1.2,y=5.7,yend=5.7,size=lsize) +
-        geom_segment(x=1.8,xend=2.2,y=5.7,yend=5.7,size=lsize) +
-        geom_segment(x=0.8,xend=0.8,y=5.7,yend=5.5,size=lsize) +
-        geom_segment(x=1.2,xend=1.2,y=5.7,yend=5.5,size=lsize) +
-        geom_segment(x=1.8,xend=1.8,y=5.7,yend=5.5,size=lsize) +
-        geom_segment(x=2.2,xend=2.2,y=5.7,yend=5.5,size=lsize) +
-        geom_text(x=1.5,y=6.2,label='***',size=sigsize,show.legend = FALSE)
+        ylim(-2.5,5)
+y <- 5
+d = 0.35
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20),
+        xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(1.50),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcImpSubtypes_MMPgtHC_INT3gtEXT_PMC.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 # HC > DM: 3 > 1, lSPL
-hcgtdm_spl <- vois[2]
+hcgtdm_spl <- vois[1]
 csvfile2 <- hcgtdm_spl
 fmridat <- read_csv(csvfile2, show_col_types = FALSE) %>%
         left_join(., Subtypes, by = 'pseudonym') %>%
@@ -1088,25 +1164,37 @@ plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
                                     paste('IM', ' (n=', N[3],')', sep=''),
                                     paste('DM', ' (n=', N[4],')', sep='')),
                       legend_title = '',
-                      legend_position = c(0.85,1.25), legend_labels = c('One','Two','Three'),
+                      legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-6,8) +
-        geom_segment(x=1,xend=4,y=8,yend=8,size=lsize) +
-        geom_segment(x=1,xend=1,y=8,yend=7.7,size=lsize) +
-        geom_segment(x=4,xend=4,y=8,yend=7.7,size=lsize) +
-        geom_segment(x=0.8,xend=1.2,y=7.7,yend=7.7,size=lsize) +
-        geom_segment(x=3.8,xend=4.2,y=7.7,yend=7.7,size=lsize) +
-        geom_segment(x=0.8,xend=0.8,y=7.7,yend=7.5,size=lsize) +
-        geom_segment(x=1.2,xend=1.2,y=7.7,yend=7.5,size=lsize) +
-        geom_segment(x=3.8,xend=3.8,y=7.7,yend=7.5,size=lsize) +
-        geom_segment(x=4.2,xend=4.2,y=7.7,yend=7.5,size=lsize) +
-        geom_text(x=2.5,y=8.2,label='***',size=sigsize,show.legend = FALSE)
+        ylim(-4,7)
+y <- 7
+d = 0.45
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  4.00,  0.80,  0.80,  1.20,  3.80,  3.80,  4.20),
+        xend = c(4.00, 1.00,  4.00,  1.20,  0.80,  1.20,  4.20,  3.80,  4.20),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(2.5),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcImpSubtypes_HCgtDM_INT3gtEXT_Parietal.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 # HC > DM: 3 > 1, lPMC
-hcgtdm_pmc <- vois[1]
+hcgtdm_pmc <- vois[2]
 csvfile2 <- hcgtdm_pmc
 fmridat <- read_csv(csvfile2, show_col_types = FALSE) %>%
         left_join(., Subtypes, by = 'pseudonym') %>%
@@ -1135,22 +1223,34 @@ plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
                                     paste('IM', ' (n=', N[3],')', sep=''),
                                     paste('DM', ' (n=', N[4],')', sep='')),
                       legend_title = '',
-                      legend_position = c(0.85,1.25), legend_labels = c('One','Two','Three'),
+                      legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-6,9) +
-        geom_segment(x=1,xend=4,y=8,yend=8,size=lsize) +
-        geom_segment(x=1,xend=1,y=8,yend=7.7,size=lsize) +
-        geom_segment(x=4,xend=4,y=8,yend=7.7,size=lsize) +
-        geom_segment(x=0.8,xend=1.2,y=7.7,yend=7.7,size=lsize) +
-        geom_segment(x=3.8,xend=4.2,y=7.7,yend=7.7,size=lsize) +
-        geom_segment(x=0.8,xend=0.8,y=7.7,yend=7.5,size=lsize) +
-        geom_segment(x=1.2,xend=1.2,y=7.7,yend=7.5,size=lsize) +
-        geom_segment(x=3.8,xend=3.8,y=7.7,yend=7.5,size=lsize) +
-        geom_segment(x=4.2,xend=4.2,y=7.7,yend=7.5,size=lsize) +
-        geom_text(x=2.5,y=8.2,label='***',size=sigsize,show.legend = FALSE)
+        ylim(-3,9)
+y <- 8
+d = 0.5
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  4.00,  0.80,  0.80,  1.20,  3.80,  3.80,  4.20),
+        xend = c(4.00, 1.00,  4.00,  1.20,  0.80,  1.20,  4.20,  3.80,  4.20),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(2.5),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcImpSubtypes_HCgtDM_INT3gtEXT_PMC.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 #####
 
@@ -1161,12 +1261,18 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcImpSu
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-fmri.oncorr1 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Int2gtExt'
-fmri.oncorr2 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Int3gtExt'
-fmri.oncorr3 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Mean_ExtInt/'
-vois <- c(dir(fmri.oncorr1, 'VOI.*csv', full.names = TRUE),
-          dir(fmri.oncorr2, 'VOI.*csv', full.names = TRUE),
-          dir(fmri.oncorr3, 'VOI.*csv', full.names = TRUE))
+# fmri.oncorr1 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Int2gtExt'
+# fmri.oncorr2 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Int3gtExt'
+# fmri.oncorr3 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Mean_ExtInt/'
+# vois <- c(dir(fmri.oncorr1, 'VOI.*csv', full.names = TRUE),
+#           dir(fmri.oncorr2, 'VOI.*csv', full.names = TRUE),
+#           dir(fmri.oncorr3, 'VOI.*csv', full.names = TRUE))
+fmri.oncorr1 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Int2gtExt/marsbar'
+fmri.oncorr2 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Int3gtExt/marsbar'
+fmri.oncorr3 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/OneSampleTtest_ClinCorr-Off-BAAppendicularSum_NoOutliers/Mean_ExtInt/marsbar'
+vois <- c(dir(fmri.oncorr1, '*csv', full.names = TRUE),
+          dir(fmri.oncorr2, '*csv', full.names = TRUE),
+          dir(fmri.oncorr3, '*csv', full.names = TRUE))
 
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R')
@@ -1291,7 +1397,7 @@ plot <- ggplot(fmridat, aes(x=Up3OfAppendicularSum, y=Beta, color=factor(Region)
                                                 ', r=', round(c.Putamen$estimate,digits=2), sep=''))) +
         ggtitle('Associations between mean task-related \nactivity and disease severity') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 70, font_family = 'Calibri') +
+        theme_cowplot(font_size = 60, font_family = 'Calibri') +
         theme(legend.position = c(0.6,1),
               legend.key.size = unit(2,'cm'),
               legend.text = element_text(size = 40)) +
@@ -1301,9 +1407,9 @@ plot <- ggplot(fmridat, aes(x=Up3OfAppendicularSum, y=Beta, color=factor(Region)
 print(plot)
 
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Corr_ON_Mean_Severity.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
-#test
+# Facetted version
 N <- fmridat %>%
         select(pseudonym, Subtype) %>%
         group_by(Subtype) %>%
@@ -1320,7 +1426,7 @@ plot <- ggplot(fmridat, aes(x=Up3OfAppendicularSum, y=Beta)) +
                                           paste('DM', ' (n=', N[3,2],')', sep=''))) +
         ggtitle('Associations between mean task-related \nactivity and disease severity') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 70, font_family = 'Calibri') +
+        theme_cowplot(font_size = 60, font_family = 'Calibri') +
         theme(legend.position = c(0.8,0.35),
               legend.key.size = unit(1.5,'cm'),
               legend.text = element_text(size = 40)) +
@@ -1331,8 +1437,7 @@ plot <- ggplot(fmridat, aes(x=Up3OfAppendicularSum, y=Beta)) +
 print(plot)
 
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Corr_ON_Mean_Severity_facet.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
-#test
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 
 #####
@@ -1390,7 +1495,7 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfAppendicularSum, y=Beta, color=fc
                                                 ', r=', round(c.Putamen$estimate,digits=2), sep=''))) +
         ggtitle('Associations between task-related \nactivity and disease severity') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 70, font_family = 'Calibri') +
+        theme_cowplot(font_size = 60, font_family = 'Calibri') +
         theme(legend.position = c(0.6,1),
               legend.key.size = unit(2,'cm'),
               legend.text = element_text(size = 40)) +
@@ -1399,9 +1504,9 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfAppendicularSum, y=Beta, color=fc
 print(plot)
 
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Corr_ON_INT2nINT3gtEXT_Severity.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
-#test
+#Facetted vcersion
 N <- fmridat.SPL_putamen %>%
         select(pseudonym, Subtype) %>%
         group_by(Subtype) %>%
@@ -1418,7 +1523,7 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfAppendicularSum, y=Beta)) +
                                           paste('DM', ' (n=', N[3,2],')', sep=''))) +
         ggtitle('Associations between task-related \nactivity and disease severity') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 70, font_family = 'Calibri') +
+        theme_cowplot(font_size = 60, font_family = 'Calibri') +
         theme(legend.position = c(0.8,0.9),
               legend.key.size = unit(1.5,'cm'),
               legend.text = element_text(size = 40)) +
@@ -1428,8 +1533,7 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfAppendicularSum, y=Beta)) +
 print(plot)
 
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Corr_ON_INT2nINT3gtEXT_Severity_facet.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
-#test
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 
 #####
@@ -1473,6 +1577,10 @@ compare_rts <- function(f, tmp, tmp.collapsed){
         em4 <- emmeans(fit, pairwise ~ ParticipantType, type='response')
         print(em4)
         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
+        
+        em5 <- emmeans(fit, pairwise ~ trial_type, type='response')
+        print(em5)
+        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
         cat('\n \n')
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
@@ -1501,30 +1609,34 @@ compare_rts <- function(f, tmp, tmp.collapsed){
                                           paste('PD-On', ' (n=', N[2],')', sep='')),
                               legend_title = '',
                               legend_labels = c('One','Two','Three'),
-                              legend_position = c(0.85,1.25),
+                              legend_position = legend_position,
                               provided_summary = 'None') +
-                ylim(0.3,1.75) +
-                geom_text(x=1.5,y=1.62,label='**',size=sigsize) +
-                geom_segment(x=1,xend=2,y=1.6,yend=1.6,size=lsize) +
-                geom_segment(x=1,xend=1,y=1.6,yend=1.57,size=lsize) +
-                geom_segment(x=2,xend=2,y=1.6,yend=1.57,size=lsize) +
-                geom_segment(x=0.8,xend=1.2,y=1.57,yend=1.57,size=lsize) +
-                geom_segment(x=1.8,xend=2.2,y=1.57,yend=1.57,size=lsize) #+
-                # geom_segment(x=0.8,xend=0.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=1.2,xend=1.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=1.8,xend=1.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=2.2,xend=2.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_text(x=0.9,y=1.52,label='***',size=sigsize) +
-                # geom_segment(x=0.8,xend=1,y=1.50,yend=1.50,size=lsize) +
-                # geom_text(x=1.9,y=1.52,label='***',size=sigsize) +
-                # geom_segment(x=1.8,xend=2,y=1.50,yend=1.50,size=lsize) +
-                # geom_text(x=1,y=1.44,label='***',size=sigsize) +
-                # geom_segment(x=0.8,xend=1.2,y=1.42,yend=1.42,size=lsize) +
-                # geom_text(x=2,y=1.44,label='***',size=sigsize) +
-                # geom_segment(x=1.8,xend=2.2,y=1.42,yend=1.42,size=lsize)
+                ylim(0.3,1.75)
+        y <- 1.75
+        d = 0.1
+        segmap <- data.frame(
+                x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  0.80,  1.80,  1.80),
+                xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  1.00,  1.20,  2.00,  2.20),
+                y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3),
+                yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3)
+        )
+        sigmap <- data.frame(
+                x =     c(1.50,  0.90,  1.00,  1.90,  2.00),
+                y =     c(y,     y-d*2, y-d*3, y-d*2, y-d*3),
+                label = c('***', '***', '***', '***', '***')
+        )
+        plot <- plot + 
+                geom_segment(data=segmap,
+                             mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                             inherit.aes = FALSE,
+                             size = lsize) +
+                geom_text(data=sigmap, 
+                          mapping = aes(x=x,y=y,label=label),
+                          inherit.aes = FALSE,
+                          size = sigsize)
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_HCvsON.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
         
         tplot <- emmip(fit, trial_type~ParticipantType, CIs = TRUE,
                        type='response') +
@@ -1574,32 +1686,39 @@ print(s, corr=FALSE, digits = 3)
 anova <- anova(fit.clincorr)
 print(anova)
 plotdat <- tmp.clincorr %>%
-        group_by(pseudonym) %>%
+        group_by(pseudonym, trial_type) %>%
         summarise(across(c(response_time, Up3OfAppendicularSum), ~ mean(.x, na.rm=TRUE))) %>%
         ungroup()
 
 c <- plotdat %>%
-        group_by(pseudonym) %>%
+        group_by(pseudonym, trial_type) %>%
         summarise(across(c(response_time, Up3OfAppendicularSum), ~ mean(., na.rm=TRUE))) %>%
         select(response_time, Up3OfAppendicularSum)
 c <- cor.test(c$response_time, c$Up3OfAppendicularSum)
 N <- plotdat %>%
+        filter(trial_type=='1choice') %>%
                 select(pseudonym) %>%
                 summarise(N=n())
 
-plot <- ggplot(plotdat, aes(y=response_time, x=Up3OfAppendicularSum)) +
+plot <- ggplot(plotdat, aes(y=response_time, x=Up3OfAppendicularSum, color=trial_type)) +
         geom_point(alpha = .3, shape = 19, size = 5) +
-        geom_smooth(method='lm', se = FALSE, lwd = 2, color = 'black') +
-        ggtitle('Association between response times and \ndisease severity') + 
+        geom_smooth(method='lm', se = FALSE, lwd = 2) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8,
+                              direction = -1, labels = c('One','Two','Three')) +
+        ggtitle('Association between response \ntimes and disease severity') + 
         xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
-        ylab('Average response time (s)') +
-        theme_cowplot(font_size = 70, font_family = 'Calibri') +
-        geom_text(x=50,y=1.5, label = paste('N=', N, ', r=', round(c$estimate,digits=2), sep=''),
-                  size=16) +
-        ylim(0.5,1.5) + xlim(0,60)
+        ylab('Response time (s)') +
+        theme_cowplot(font_size = 60, font_family = 'Calibri') +
+        guides(color=guide_legend(title='', reverse = FALSE,
+                                 title.position = 'left', label.position = 'right')) +
+        theme(legend.position = c(0.75,1.15),
+              legend.key.size = unit(2,'cm')) +
+        geom_text(x=10,y=1.35, label = paste('N=', N, ', r=', round(c$estimate,digits=2), sep=''),
+                  size=16, inherit.aes = FALSE) +
+        ylim(0.5,1.75) + xlim(0,60)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_Corr_ON_Severity.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 # Post hoc test
 # Association between disease severity and response times
@@ -1752,6 +1871,10 @@ compare_rts_for_medication <- function(f, tmp, tmp.collapsed){
         print(em4)
         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
         
+        em5 <- emmeans(fit, pairwise ~ trial_type, type='response')
+        print(em5)
+        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
+        
         cat('\n \n')
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
@@ -1780,7 +1903,7 @@ compare_rts_for_medication <- function(f, tmp, tmp.collapsed){
                                       xticklabs=c(paste('PD-Off', ' (n=', N[1],')', sep=''),
                                                   paste('PD-On', ' (n=', N[2],')', sep='')), 
                                       legend_title = '',
-                                      legend_position = c(0.85,1.25),
+                                      legend_position = legend_position,
                                       legend_labels = c('One', 'Two', 'Three'),
                                       provided_summary = 'None') +
                 ylim(0.3,1.75) #+
@@ -1797,7 +1920,7 @@ compare_rts_for_medication <- function(f, tmp, tmp.collapsed){
                 #           show.legend = FALSE)
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_ONvsOff.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
         
         # tplot <- emmip(fit, ParticipantType~Up3OfAppendicularSum, CIs = TRUE,
         #                type='response', at=list(Up3OfAppendicularSum = c(7,26.5,46)), dodge=1.5) +
@@ -1840,7 +1963,7 @@ compare_rts_for_medication <- function(f, tmp, tmp.collapsed){
         #         
         # print(plot)
         # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/ONvsOFF_RTs_Severity.tiff',
-        #   plot, dpi=320, device='tiff', base_height = 12, base_asp = 1.2)
+        #   plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
         
         plot(fit) %>% print()
         qqmath(fit) %>% print()
@@ -1925,6 +2048,10 @@ compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
         em4 <- emmeans(fit, trt.vs.ctrl ~ ParticipantType, adjust='mvt', type='response')
         print(em4)
         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
+        
+        em5 <- emmeans(fit, pairwise ~ trial_type, type='response')
+        print(em5)
+        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
         cat('\n \n')
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
@@ -1988,39 +2115,35 @@ compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
                                                   paste('IM', ' (n=', N[2],')', sep=''),
                                                   paste('DM', ' (n=', N[3],')', sep='')), 
                                       legend_title = '',
-                                      legend_position = c(0.85,1.25),
+                                      legend_position = legend_position,
                                       legend_labels = c('One', 'Two', 'Three'),
                                       provided_summary = 'None') +
-                ylim(0.3,1.75) #+
-                # geom_text(x=2,y=1.62,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=1,xend=3,y=1.6,yend=1.6,size=lsize) +
-                # geom_segment(x=1,xend=1,y=1.6,yend=1.58,size=lsize) +
-                # geom_segment(x=2,xend=2,y=1.6,yend=1.58,size=lsize) +
-                # geom_segment(x=3,xend=3,y=1.6,yend=1.58,size=lsize) +
-                # geom_segment(x=0.8,xend=1.2,y=1.58,yend=1.58,size=lsize) +
-                # geom_segment(x=1.8,xend=2.2,y=1.58,yend=1.58,size=lsize) +
-                # geom_segment(x=2.8,xend=3.2,y=1.58,yend=1.58,size=lsize) +
-                # geom_segment(x=0.8,xend=0.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=1.8,xend=1.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=2.8,xend=2.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=1.2,xend=1.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=2.2,xend=2.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=3.2,xend=3.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_text(x=0.9,y=1.53,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=0.8,xend=1,y=1.52,yend=1.52,size=lsize) +
-                # geom_text(x=1,y=1.49,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=0.8,xend=1.2,y=1.48,yend=1.48,size=lsize) +
-                # geom_text(x=1.9,y=1.53,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=1.8,xend=2,y=1.52,yend=1.52,size=lsize) +
-                # geom_text(x=2,y=1.49,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=1.8,xend=2.2,y=1.48,yend=1.48,size=lsize) +
-                # geom_text(x=2.9,y=1.53,label='*',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=2.8,xend=3,y=1.52,yend=1.52,size=lsize) +
-                # geom_text(x=3,y=1.5,label='+',size=sigsize-4,show.legend=FALSE) +
-                # geom_segment(x=2.8,xend=3.2,y=1.48,yend=1.48,size=lsize)
+                ylim(0.3,1.75)
+        y <- 1.75
+        d = 0.1
+        segmap <- data.frame(
+                x =    c(0.80,  0.80,  1.80,  1.80,  2.80,  2.80),
+                xend = c(1.00,  1.20,  2.00,  2.20,  3.00,  3.20),
+                y =    c(y-d*1, y-d*2, y-d*1, y-d*2, y-d*1, y-d*2),
+                yend = c(y-d*1, y-d*2, y-d*1, y-d*2, y-d*1, y-d*2)
+        )
+        sigmap <- data.frame(
+                x =     c(0.90,  1.00,  1.90,  2.00,  2.90,  3.00),
+                y =     c(y-d*1, y-d*2, y-d*1, y-d*2, y-d*1, y-d*2),
+                label = c('***', '***', '***', '***', '***', '***')
+        )
+        plot <- plot + 
+                geom_segment(data=segmap,
+                             mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                             inherit.aes = FALSE,
+                             size = lsize) +
+                geom_text(data=sigmap, 
+                          mapping = aes(x=x,y=y,label=label),
+                          inherit.aes = FALSE,
+                          size = sigsize)
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_Subtypes.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+                  plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
         
         # dOff <- tmp. %>% filter(ParticipantType=='PD_PIT')
         # cOff <- cor.test(dOff$response_time, dOff$Up3OfAppendicularSum)
@@ -2075,7 +2198,7 @@ compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
         #         
         # print(plot)
         # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Subtypes_RTs_Severity.tiff',
-        #   plot, dpi=320, device='tiff', base_height = 12, base_asp = 1.2)
+        #   plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
         
         plot(fit) %>% print()
         qqmath(fit) %>% print()
@@ -2161,6 +2284,10 @@ compare_rts_for_subtypeshc <- function(f, tmp, tmp.collapsed){
         em4 <- emmeans(fit, trt.vs.ctrl ~ ParticipantType, adjust='mvt', type='response')
         print(em4)
         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
+        
+        em5 <- emmeans(fit, pairwise ~ trial_type, type='response')
+        print(em5)
+        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
         cat('\n \n')
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
@@ -2181,39 +2308,13 @@ compare_rts_for_subtypeshc <- function(f, tmp, tmp.collapsed){
                                                   paste('IM', ' (n=', N[3],')', sep=''),
                                                   paste('DM', ' (n=', N[4],')', sep='')), 
                                       legend_title = '',
-                                      legend_position = c(0.85,1.25),
+                                      legend_position = legend_position,
                                       legend_labels = c('One', 'Two', 'Three'),
                                       provided_summary = 'None') +
-                ylim(0.3,1.75) #+
-                # geom_text(x=2,y=1.62,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=1,xend=3,y=1.6,yend=1.6,size=lsize) +
-                # geom_segment(x=1,xend=1,y=1.6,yend=1.58,size=lsize) +
-                # geom_segment(x=2,xend=2,y=1.6,yend=1.58,size=lsize) +
-                # geom_segment(x=3,xend=3,y=1.6,yend=1.58,size=lsize) +
-                # geom_segment(x=0.8,xend=1.2,y=1.58,yend=1.58,size=lsize) +
-                # geom_segment(x=1.8,xend=2.2,y=1.58,yend=1.58,size=lsize) +
-                # geom_segment(x=2.8,xend=3.2,y=1.58,yend=1.58,size=lsize) +
-                # geom_segment(x=0.8,xend=0.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=1.8,xend=1.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=2.8,xend=2.8,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=1.2,xend=1.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=2.2,xend=2.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_segment(x=3.2,xend=3.2,y=1.58,yend=1.56,size=lsize) +
-                # geom_text(x=0.9,y=1.53,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=0.8,xend=1,y=1.52,yend=1.52,size=lsize) +
-                # geom_text(x=1,y=1.49,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=0.8,xend=1.2,y=1.48,yend=1.48,size=lsize) +
-                # geom_text(x=1.9,y=1.53,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=1.8,xend=2,y=1.52,yend=1.52,size=lsize) +
-                # geom_text(x=2,y=1.49,label='***',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=1.8,xend=2.2,y=1.48,yend=1.48,size=lsize) +
-                # geom_text(x=2.9,y=1.53,label='*',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=2.8,xend=3,y=1.52,yend=1.52,size=lsize) +
-                # geom_text(x=3,y=1.5,label='+',size=sigsize-4,show.legend=FALSE) +
-                # geom_segment(x=2.8,xend=3.2,y=1.48,yend=1.48,size=lsize)
+                ylim(0.3,1.75)
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_SubtypesHc.tiff',
-          plot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
         
         plot(fit) %>% print()
         qqmath(fit) %>% print()
@@ -2983,7 +3084,7 @@ compare_switch_repeated <- function(f, tmp, outlier_method = 2){
         #         
         # print(plot)
         # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/ONvsOFF_Switch_Severity.tiff',
-        #   plot, dpi=320, device='tiff', base_height = 12, base_asp = 1.2)
+        #   plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
         
         plot(fit) %>% print()
         
@@ -3164,7 +3265,7 @@ compare_switch_for_subtypes(f=f, tmp=tmp)
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 
-compare_correct <- function(f, tmp){
+compare_correct <- function(f, tmp, tmp.collapsed){
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- glmer(f, data=tmp, family = binomial,
@@ -3226,7 +3327,7 @@ compare_correct <- function(f, tmp){
                 ggtitle('Influence of Parkinson\'s disease \non accuracy') + ylab('Correct (%)') +
                 xlab('') +
                 guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 70, font_family = 'Calibri') +
+                theme_cowplot(font_size = 60, font_family = 'Calibri') +
                 theme(legend.position = c(0.79,1.3)) +
                 ylim(98.5,100) +
                 geom_text(x=1.5,y=99.97,label='***',size=sigsize,
@@ -3263,7 +3364,49 @@ compare_correct <- function(f, tmp){
         #         theme_cowplot(font_size = 35, font_family = 'Calibri')
         # print(tplot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_HCvsON.tiff',
-                  tplot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+                  tplot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
+        
+        N <- tmp.collapsed %>%
+                ungroup() %>%
+                filter(trial_type == '1choice') %>%
+                select(ParticipantType) %>%
+                table()
+        plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
+                              groupvar=c('trial_type','ParticipantType'),
+                              title='Influence of Parkinson\'s \ndisease on accuracy',
+                              xlab='', ylab='Errors (%)',
+                              xticklabs=c(paste('Healthy', ' (n=', N[1],')', sep=''),
+                                          paste('PD-On', ' (n=', N[2],')', sep='')),
+                              legend_title = '',
+                              legend_labels = c('One','Two','Three'),
+                              legend_position = legend_position,
+                              provided_summary = 'None') +
+                ylim(0,70)
+        y <- 70
+        d = 3
+        segmap <- data.frame(
+                x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20,  1.80,  1.80),
+                xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20,  2.00,  2.20),
+                y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*3, y-d*4),
+                yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2, y-d*3, y-d*4)
+        )
+        sigmap <- data.frame(
+                x =     c(1.50,  1.90,  2.00),
+                y =     c(y,     y-d*3, y-d*4),
+                label = c('***', '***', '***')
+        )
+        plot <- plot + 
+                geom_segment(data=segmap,
+                             mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                             inherit.aes = FALSE,
+                             size = lsize) +
+                geom_text(data=sigmap, 
+                          mapping = aes(x=x,y=y,label=label),
+                          inherit.aes = FALSE,
+                          size = sigsize)
+        print(plot)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_HCvsON_v2.tiff',
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 }
 
@@ -3279,9 +3422,69 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType),
                trial_type = droplevels(trial_type),
                correct_response = factor(if_else(correct_response=='Hit',1,0)))
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, trial_type) %>%
+        summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
+        mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
 compare_correct(f=f, tmp=tmp)
 
 ```
+
+## ON, Bradykinesia ~ Accuracy
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+
+tmp.clincorr <- tmp %>%
+        filter(ParticipantType=='PD_POM') %>%
+        mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
+f.clincorr <- 'correct_response ~ 1 + trial_type*block*Up3OfAppendicularSum_Dmean + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
+# f.clincorr <- 'correct_response ~ 1 + trial_type*Up3OfAppendicularSum_Dmean + (1|pseudonym)'
+fit.clincorr <- glmer(f.clincorr, data=tmp.clincorr, family = binomial,
+                     control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+s <- summary(fit.clincorr)
+print(s, corr = FALSE)
+anova <- Anova(fit.clincorr, type = 'III')
+print(anova)
+emt <- emtrends(fit.clincorr, ~ trial_type, var='Up3OfAppendicularSum_Dmean')
+contrast(emt, 'identity', adjust = 'mvt') %>% print()
+
+plotdat <- tmp.clincorr %>%
+        group_by(pseudonym, trial_type) %>%
+        summarise(across(c(Percentage.Incorrect, Up3OfAppendicularSum), ~ mean(.x, na.rm=TRUE))) %>%
+        ungroup()
+
+c <- plotdat %>%
+        group_by(pseudonym, trial_type) %>%
+        summarise(across(c(Percentage.Incorrect, Up3OfAppendicularSum), ~ mean(., na.rm=TRUE))) %>%
+        select(Percentage.Incorrect, Up3OfAppendicularSum)
+c <- cor.test(c$Percentage.Incorrect, c$Up3OfAppendicularSum)
+N <- plotdat %>%
+        filter(trial_type=='1choice') %>%
+                select(pseudonym) %>%
+                summarise(N=n())
+
+plot <- ggplot(plotdat, aes(y=Percentage.Incorrect, x=Up3OfAppendicularSum, color=trial_type)) +
+        geom_point(alpha = .3, shape = 19, size = 5) +
+        geom_smooth(method='lm', se = FALSE, lwd = 2) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8,
+                              direction = -1, labels = c('One','Two','Three')) +
+        ggtitle('Association between accuracy \n and disease severity') + 
+        xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
+        ylab('Errors (%)') +
+        theme_cowplot(font_size = 60, font_family = 'Calibri') +
+        guides(color=guide_legend(title='', reverse = FALSE,
+                                 title.position = 'left', label.position = 'right')) +
+        theme(legend.position = c(0.75,1.15),
+              legend.key.size = unit(2,'cm')) +
+        geom_text(x=10,y=40, label = paste('N=', N, ', r=', round(c$estimate,digits=2), sep=''),
+                  size=16, inherit.aes = FALSE) +
+        ylim(0,65) + xlim(0,60)
+print(plot)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_Corr_ON_Severity.tiff',
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
+
+```
+
 
 <!-- ## OFF vs. HC -->
 
@@ -3348,7 +3551,7 @@ compare_correct(f=f, tmp=tmp)
 ## ON vs. OFF
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-compare_correct_for_medication <- function(f, tmp){
+compare_correct_for_medication <- function(f, tmp, tmp.collapsed){
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- glmer(f, data=tmp, family = binomial,
@@ -3398,7 +3601,7 @@ compare_correct_for_medication <- function(f, tmp){
                 ggtitle('Influence of medication \non accuracy') + ylab('Correct (%)') +
                 xlab('') +
                 guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 70, font_family = 'Calibri') +
+                theme_cowplot(font_size = 60, font_family = 'Calibri') +
                 theme(legend.position = c(0.79,1.3)) +
                 ylim(97.5,100) #+
                 # geom_segment(x=0.8,xend=1.2,y=0.9998,yend=0.9998,size=lsize)+
@@ -3410,7 +3613,7 @@ compare_correct_for_medication <- function(f, tmp){
 
         print(tplot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_ONvsOFF.tiff',
-                  tplot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+                  tplot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
         # tplot <- emmip(fit, trial_type ~ Up3OfAppendicularSum, at=list(Up3OfAppendicularSum = c(7,26.5,46)),
         #                CIs = TRUE, type='response', dodge=2)
@@ -3422,6 +3625,48 @@ compare_correct_for_medication <- function(f, tmp){
         #         guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
         #         theme_cowplot(font_size = 20)
         # print(tplot)
+        
+        N <- tmp.collapsed %>%
+                ungroup() %>%
+                filter(trial_type == '1choice') %>%
+                select(ParticipantType) %>%
+                table()
+        plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
+                              groupvar=c('trial_type','ParticipantType'),
+                              title='Influence of medication \non accuracy',
+                              xlab='', ylab='Errors (%)',
+                              xticklabs=c(paste('PD-Off', ' (n=', N[1],')', sep=''),
+                                          paste('PD-On', ' (n=', N[2],')', sep='')),
+                              legend_title = '',
+                              legend_labels = c('One','Two','Three'),
+                              legend_position = legend_position,
+                              provided_summary = 'None') +
+                ylim(0,70)
+        # y <- 70
+        # d = 3
+        # segmap <- data.frame(
+        #         x =    c(),
+        #         xend = c(),
+        #         y =    c(),
+        #         yend = c()
+        # )
+        # sigmap <- data.frame(
+        #         x =     c(),
+        #         y =     c(),
+        #         label = c()
+        # )
+        # plot <- plot + 
+        #         geom_segment(data=segmap,
+        #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
+        #                      inherit.aes = FALSE,
+        #                      size = lsize) +
+        #         geom_text(data=sigmap, 
+        #                   mapping = aes(x=x,y=y,label=label),
+        #                   inherit.aes = FALSE,
+        #                   size = sigsize)
+        print(plot)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_ONvsOFF_v2.tiff',
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 }
 
@@ -3461,13 +3706,19 @@ disease_severity <- tmp %>%
 tmp <- tmp %>%
         select(-c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean)) %>%
         left_join(., disease_severity, by = 'pseudonym')
+
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, trial_type) %>%
+        summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
+        mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
+
 compare_correct_for_medication(f=f, tmp=tmp)
 ```
 
 ## Subtypes vs subtypes
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-compare_correct_for_subtypes <- function(f, tmp){
+compare_correct_for_subtypes <- function(f, tmp, tmp.collapsed){
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- glmer(f, data=tmp, family = binomial,
@@ -3533,7 +3784,7 @@ compare_correct_for_subtypes <- function(f, tmp){
                 ggtitle('Influence of subtype \non accuracy') + ylab('Correct (%)') +
                 xlab('') +
                 guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 70, font_family = 'Calibri') +
+                theme_cowplot(font_size = 60, font_family = 'Calibri') +
                 theme(legend.position = c(0.78, 1.25)) +
                 ylim(97,100) #+
 # 
@@ -3565,7 +3816,50 @@ compare_correct_for_subtypes <- function(f, tmp){
 
         print(tplot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_Subtypes.tiff',
-                  tplot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+                  tplot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
+        
+        N <- tmp.collapsed %>%
+                ungroup() %>%
+                filter(trial_type == '1choice') %>%
+                select(ParticipantType) %>%
+                table()
+        plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
+                              groupvar=c('trial_type','ParticipantType'),
+                              title='Influence of subtypes \non accuracy',
+                              xlab='', ylab='Errors (%)',
+                              xticklabs=c(paste('MMP', ' (n=', N[1],')', sep=''),
+                                          paste('IM', ' (n=', N[2],')', sep=''),
+                                          paste('DM', ' (n=', N[3],')', sep='')),
+                              legend_title = '',
+                              legend_labels = c('One','Two','Three'),
+                              legend_position = legend_position,
+                              provided_summary = 'None') +
+                ylim(0,70)
+        # y <- 70
+        # d = 3
+        # segmap <- data.frame(
+        #         x =    c(),
+        #         xend = c(),
+        #         y =    c(),
+        #         yend = c()
+        # )
+        # sigmap <- data.frame(
+        #         x =     c(),
+        #         y =     c(),
+        #         label = c()
+        # )
+        # plot <- plot + 
+        #         geom_segment(data=segmap,
+        #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
+        #                      inherit.aes = FALSE,
+        #                      size = lsize) +
+        #         geom_text(data=sigmap, 
+        #                   mapping = aes(x=x,y=y,label=label),
+        #                   inherit.aes = FALSE,
+        #                   size = sigsize)
+        print(plot)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_Subtypes_v2.tiff',
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 }
 
@@ -3584,6 +3878,10 @@ tmp <- df %>%
                trial_type = droplevels(trial_type),
                ParticipantType=factor(Subtype),
                correct_response = factor(if_else(correct_response=='Hit',1,0)))
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, trial_type) %>%
+        summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
+        mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
 compare_correct_for_subtypes(f=f, tmp=tmp)
 
 cat('\n\n\n\n')
@@ -3699,7 +3997,7 @@ compare_correct_for_subtypes <- function(f, tmp){
                 ggtitle('Influence of subtype \non accuracy') + ylab('Correct (%)') +
                 xlab('') +
                 guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 70, font_family = 'Calibri') +
+                theme_cowplot(font_size = 60, font_family = 'Calibri') +
                 theme(legend.position = c(0.78, 1.25)) +
                 ylim(96.5,100.5) #+
 # 
@@ -3731,7 +4029,51 @@ compare_correct_for_subtypes <- function(f, tmp){
 
         print(tplot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_SubtypesHc.tiff',
-                  tplot, dpi=320, device='tiff', base_height = 12, base_asp = 2)
+                  tplot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
+        
+        N <- tmp.collapsed %>%
+                ungroup() %>%
+                filter(trial_type == '1choice') %>%
+                select(ParticipantType) %>%
+                table()
+        plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
+                              groupvar=c('trial_type','ParticipantType'),
+                              title='Influence of subtypes \non accuracy',
+                              xlab='', ylab='Errors (%)',
+                              xticklabs=c(paste('HC', ' (n=', N[1],')', sep=''),
+                                          paste('MMP', ' (n=', N[2],')', sep=''),
+                                          paste('IM', ' (n=', N[3],')', sep=''),
+                                          paste('DM', ' (n=', N[4],')', sep='')),
+                              legend_title = '',
+                              legend_labels = c('One','Two','Three'),
+                              legend_position = legend_position,
+                              provided_summary = 'None') +
+                ylim(0,70)
+        # y <- 70
+        # d = 3
+        # segmap <- data.frame(
+        #         x =    c(),
+        #         xend = c(),
+        #         y =    c(),
+        #         yend = c()
+        # )
+        # sigmap <- data.frame(
+        #         x =     c(),
+        #         y =     c(),
+        #         label = c()
+        # )
+        # plot <- plot + 
+        #         geom_segment(data=segmap,
+        #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
+        #                      inherit.aes = FALSE,
+        #                      size = lsize) +
+        #         geom_text(data=sigmap, 
+        #                   mapping = aes(x=x,y=y,label=label),
+        #                   inherit.aes = FALSE,
+        #                   size = sigsize)
+        print(plot)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_SubtypesHc_v2.tiff',
+          plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.8)
 
 }
 
@@ -3749,6 +4091,10 @@ tmp <- df %>%
                trial_type = droplevels(trial_type),
                ParticipantType=factor(Subtype),
                correct_response = factor(if_else(correct_response=='Hit',1,0)))
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, trial_type) %>%
+        summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
+        mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
 compare_correct_for_subtypes(f=f, tmp=tmp)
 
 cat('\n\n\n\n')
