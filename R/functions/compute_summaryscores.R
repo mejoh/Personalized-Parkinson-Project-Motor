@@ -66,7 +66,7 @@ compute_summaryscores <- function(df){
         list.QUIP_gambling <- c('QuipIt01', 'QuipIt08', 'QuipIt15', 'QuipIt22')
         list.QUIP_sex <- c('QuipIt02', 'QuipIt09', 'QuipIt16', 'QuipIt23')
         list.QUIP_buying <- c('test', 'QuipIt10', 'QuipIt17', 'QuipIt24')
-        list.QUIP_eating <- c('QuipIt03', 'QuipIt05', 'QuipIt18', 'QuipIt25')
+        list.QUIP_eating <- c('QuipIt03', 'QuipIt11', 'QuipIt18', 'QuipIt25')
         list.QUIP_hobbypund <- c('QuipIt04', 'QuipIt12', 'QuipIt19', 'QuipIt26', 'QuipIt05', 'QuipIt13', 'QuipIt20', 'QuipIt27')
         list.QUIP_medication <- c('QuipIt06', 'QuipIt14', 'QuipIt21', 'QuipIt28')
         list.QUIP_icd <- c(list.QUIP_gambling, list.QUIP_sex, list.QUIP_buying, list.QUIP_eating)
