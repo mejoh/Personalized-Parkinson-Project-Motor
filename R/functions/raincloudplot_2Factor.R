@@ -67,9 +67,9 @@ raincloudplot_2Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                                  adjust = 1.5, 
                                  trim = TRUE, 
                                  alpha = .5, 
-                                 colour = 'black', width = 0.3,size=1.6) +
+                                 colour = 'black', width = 0.3,size=0.8) +
                 geom_point(aes_string(x = paste('as.numeric(',g2,')-0', sep=''), y = y, colour = g1),
-                            size = 5,
+                            size = 1.5,
                             shape = 19,
                             alpha = .3, show.legend = FALSE,
                            position = position_jitterdodge(dodge.width = .6, jitter.width = .3)) +
@@ -77,12 +77,12 @@ raincloudplot_2Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                              outlier.shape = NA, 
                              alpha = .7, 
                              width = .6, 
-                             size=1.6,
+                             size=0.8,
                              colour = "black", show.legend = FALSE) +
                 geom_point(data = sumrepdat, 
                            aes_string(x = paste('as.numeric(',g2,')+0', sep=''), y = 'mean',
                                       group = g1, color = g1),
-                           shape = 18, size=10, show.legend = FALSE,
+                           shape = 18, size=4, show.legend = FALSE,
                            position = position_dodge(width = .6), color='yellow3') +
                 scale_x_discrete(labels = xticklabs) +
                 scale_colour_viridis_d(option=color_scheme, begin = .1, end = .6, direction = -1) +
@@ -92,8 +92,8 @@ raincloudplot_2Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                 guides(fill=guide_legend(title=legend_title, reverse = FALSE,
                                          title.position = 'left', label.position = 'right')) +
                 coord_cartesian(xlim = c(1.2, NA), clip = "off") +
-                theme_cowplot(font_size = 60, font_family = 'Calibri') +
+                theme_cowplot(font_size = 14, font_family = 'Calibri') +
                 theme(legend.position = legend_position,
-                      legend.key.size = unit(1,'cm'))
+                      legend.key.size = unit(0.5,'cm'))
         
 }
