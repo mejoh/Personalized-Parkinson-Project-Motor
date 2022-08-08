@@ -1,15 +1,17 @@
 clinvars_for_mri <- function(inputfile, outputfile, varlist){
     
         # inputfile <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-04-12_ba-diag.csv'
-        inputfile <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-04-08_ba_and_fu_diag.csv'
-        outputfile <- 'P:/3024006.02/Data/matlab/ClinVars_select_mri4.csv'
-        varlist <- c('pseudonym','TimepointNr','ParticipantType', 'MriNeuroPsychTask','Age','Gender', 'Up3OfTotal',
-                'Up3OfAppendicularSum','MonthSinceDiag', 'Subtype_DisDurSplit', 'Subtype_Imputed_DisDurSplit', 
-                'Subtype_DisDurSplit.MCI', 'Subtype_Imputed_DisDurSplit.MCI',
+        inputfile <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-05-25.csv'
+        outputfile <- 'P:/3024006.02/Data/matlab/ClinVars_select_mri5.csv'
+        varlist <- c('pseudonym','TimepointNr','ParticipantType','Age','Gender', 'Up3OfTotal',
+                'Up3OfAppendicularSum','MonthSinceDiag',
+                'Subtype_DiagEx1_DisDurSplit', 'Subtype_Imputed_DiagEx1_DisDurSplit', 
+                'Subtype_DiagEx1_DisDurSplit.MCI', 'Subtype_Imputed_DiagEx1_DisDurSplit.MCI',
                 'DiagParkCertain', 'DiagParkPersist')
         
         df <- read_csv(inputfile)
         df1 <- df %>%
+                filter(MriNeuroPsychTask=='Motor') %>%
                 select(all_of(varlist))
         
         # Define a list of subjects to exclude
