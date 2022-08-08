@@ -11,10 +11,11 @@ end
 
 consession = [session(1:4) session(8:13)];
 FDThresh = 1;
-ConList = {'con_0012', 'con_0013', 'con_0014', 'con_0015', 'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005' 'con_0006' 'con_0007'  'con_0008'  'con_0009'  'con_0010'};
+ConList = {'con_0012', 'con_0013', 'con_0014', 'con_0015',...
+    'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005' 'con_0006' 'con_0007'  'con_0008'  'con_0009'  'con_0010'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
 BIDSDir = '/project/3022026.01/pep/bids';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri3.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri5.csv');
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir), 'dir', '^sub-POM.*'));
 fprintf('Number of subjects processed: %i\n', numel(Sub))
 
