@@ -9,7 +9,7 @@ compare_count <- function(dat, mosaic=TRUE, simulate.p = FALSE){
         
     cat('\n<<<Comparison of counts (Chi^2)>>>\n')
     
-    tab <- table(dat)
+    tab <- t(table(dat))
     
     chi2 <- chisq.test(tab, simulate.p.value = simulate.p, B = 5000)
     cat('\n<<<Observed>>>\n')
@@ -19,7 +19,7 @@ compare_count <- function(dat, mosaic=TRUE, simulate.p = FALSE){
     cat('\n<<<Statistics>>> \n')
     print(chi2)
     cat('\n<<<Post hoc>>> \n')
-    print(chisq.posthoc.test(table(dat)))
+    print(chisq.posthoc.test(tab))
     
     if(mosaic) mosaic(tab)
     
