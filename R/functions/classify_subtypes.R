@@ -48,7 +48,7 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
         
         ##### Compute cognitive composite score ####
         #File 1
-        ANDI_scores <- read_excel('P:/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/ANDI_stacked_1-471.xlsx')
+        ANDI_scores <- read_excel('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/ANDI_stacked_1-471.xlsx')
         colnames(ANDI_scores)[1:3] <- c('pseudonym', 'FullName', 'Variable')
         ANDI_z_scores <- ANDI_scores %>%
                 select(pseudonym, Variable, z) %>%
@@ -56,7 +56,7 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
                             values_from = z)
         colnames(ANDI_z_scores)[2:6] <- c('AVLT.Total_1to5','AVLT.DelayedRecall_1to5','AVLT.Recognition_1to5','SemanticFluency','Brixton')
         #File 2
-        SDMT_Benton_WAIS_scores <- read_csv('P:/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/POM_dataset SDMT and Benton JULO and WAIS-IV LNS z-norms.csv')
+        SDMT_Benton_WAIS_scores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/POM_dataset SDMT and Benton JULO and WAIS-IV LNS z-norms.csv')
         SDMT_Benton_WAIS_z_scores <- SDMT_Benton_WAIS_scores %>%
                 select(pseudonym, SDMT_ORAL_90_Z_SCORE, Benton_Z_SCORE, LetterNumSeq_Z_Score_age_and_edu_adjusted)
         colnames(SDMT_Benton_WAIS_z_scores)[2:4] <- c('SymbolDigit', 'Benton', 'LetterNumberSeq')
@@ -116,6 +116,10 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
                         filter(TimepointNr==2, (DiagParkPersist == 2)) %>% 
                         select(pseudonym)
                 diag_exclusions <- full_join(baseline_exclusion, visit2_exclusion) %>% unique()
+        }else if(DiagExclusions == 'none'){
+                diag_exclusions <- diagnosis %>%
+                        filter(pseudonym == '') %>%
+                        select(pseudonym)
         }
         df1 <- df1 %>%
                 filter(!(pseudonym %in% diag_exclusions$pseudonym)) 
