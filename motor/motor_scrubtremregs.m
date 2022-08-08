@@ -1,5 +1,9 @@
 %%%%% motor_scrubtremregs.m %%%%%
-% Description:
+% Description: Scrubs button presses from the acc signal.
+% This should be done after the ChangeMarkersAllSubs script has been run.
+% The scrubbing only alters the .eeg file. It removes a window around
+% button presses and then fills in those windows with a linear
+% interpolation.
 
 emgdatdir = '/project/3024006.02/Data/EMG';
 emganalysisdir = '/project/3024006.02/Analyses/EMG/motor';
@@ -7,12 +11,13 @@ bidsdir = '/project/3022026.01/pep/bids';
 Sub = cellstr(spm_select('FPList', bidsdir, 'dir', 'sub-POM.*'));
 % DATA PREPARATION
 % 1. Copy eeg data from bids
-Sub = [Sub(91,1); Sub(53,1); Sub(318,1); Sub(225,1); Sub(86,1)];
+% Sub = [Sub(91,1); Sub(53,1); Sub(318,1); Sub(225,1); Sub(86,1)];
 for n = 1:numel(Sub)
     
     s = Sub{n};
     
-    Visit = cellstr(spm_select('FPList', s, 'dir', 'ses-Visit[0-9]'));
+%     Visit = cellstr(spm_select('FPList', s, 'dir', 'ses-Visit[0-9]'));
+    Visit = cellstr(spm_select('FPList', s, 'dir', 'ses-POMVisit3'));
     for v = 1:numel(Visit)
         
         t = Visit{v};
@@ -54,7 +59,8 @@ for n = 1:numel(Sub)
     
     s = Sub{n};
     
-    Visit = cellstr(spm_select('FPList', s, 'dir', 'ses-Visit[0-9]'));
+%     Visit = cellstr(spm_select('FPList', s, 'dir', 'ses-Visit[0-9]'));
+    Visit = cellstr(spm_select('FPList', s, 'dir', 'ses-POMVisit3'));
     for v = 1:numel(Visit)
         
         % Find data
@@ -103,7 +109,11 @@ for n = 1:numel(Sub)
             ind = 1:length(newrow_eegdata);
             ix = ~isnan(newrow_eegdata);
             newrow_eegdata = interp1(ind(ix),newrow_eegdata(ix),ind,'linear');
-            eegdata(acc_chans(c),:) = newrow_eegdata;
+            if length(eegdata(acc_chans(c),:)) == length(newrow_eegdata)
+                eegdata(acc_chans(c),:) = newrow_eegdata;
+            else
+                eegdata(acc_chans(c),:) = newrow_eegdata(1:length(eegdata(acc_chans(c),:)));
+            end
         end
         
         ft_write_data(eeg, eegdata, 'header', vhdrdata, 'event', vmrkdata)
@@ -118,72 +128,72 @@ end
 
 
 
-% OLD %
-% SCRUBBING PROCEDURE - Removes button presses from raw acc signal and generates a cleaner tremor regressors
-% 1. Load raw acc signal corresponding to axis where tremor was strongest
-% 2. Create markers for button presses
-% 3. Define a window of -100 to 500 ms around each buton press
-% 4. Set all values in the defined windows to NaN
-% 5. Interpolate missing values
-% 6. Downsample the acc signal (i.e. turn samples to scans)
-% 7. Convolve with the HRF to generate a regressor
-visit = 'ses-Visit1';
-bidsdir = '/project/3022026.01/pep/bids/';
-root = '/project/3024006.02/Analyses/EMG/motor';
-prepemgdir = fullfile(root, 'processing', 'prepemg');
-regdir = fullfile(prepemgdir, 'Regressors', 'ZSCORED');
-SubInfo.Rawfiles = cellstr(spm_select('FPList', prepemgdir, ['sub-POM.*' visit '.*seltremor.mat']));
-SubInfo.Regfiles = cellstr(spm_select('FPList', regdir, ['sub-POM.*' visit '.*log.mat']));
-SubInfo.Sub = extractBetween(SubInfo.Regfiles, 'ZSCORED/', '-ses');
-SubInfo.TremAxis = extractBetween(SubInfo.Regfiles, 'acc_', '_');
-outputdir = fullfile(prepemgdir, 'Regressors', 'Scrubbed');
-if ~exist(outputdir,'dir')
- 	mkdir(outputdir)
-else
-    delete(fullfile(outputdir,'*.*'))
-end
-
-% Create a table to store relevant info
-tremcheck = load(fullfile(root, 'manually_checked', 'Martin', 'Tremor_check-16-Mar-2021.mat'));
-peakcheck = load(fullfile(root, 'manually_checked', 'Martin', 'Peak_check-16-Mar-2021.mat'));
-checktable = table(extractBetween(tremcheck.Tremor_check.cName, 'Martin/', '-ses'), tremcheck.Tremor_check.cVal, peakcheck.Peak_check.cVal, 'VariableNames', {'Sub', 'TremorPresent', 'PeakCorrect',});
-% Add columns
-newcol1 = table(cell(size(checktable,1),1), 'VariableNames', {'CertainTremor'});
-newcol2 = table(cell(size(checktable,1),1), 'VariableNames', {'TremAxis'});
-newcol3 = table(cell(size(checktable,1),1), 'VariableNames', {'Rawfile'});
-newcol4 = table(cell(size(checktable,1),1), 'VariableNames', {'Vmrkfile'});
-checktable = [checktable, newcol1, newcol2, newcol3];
-for n = 1:numel(checktable.Sub)
-    
-    % Check so that tremor is present and peak is correct
-    s = checktable.Sub{n};
-    t = checktable.TremorPresent(n);
-    p = checktable.PeakCorrect(n);
-    if t == 1 && p == 1
-        checktable.CertainTremor{n} = 1;
-    else
-        checktable.CertainTremor{n} = 0;
-    end
-    
-    % Append tremor axis to table
-    tid = find(contains(SubInfo.Sub, s));
-    checktable.TremAxis{n} = SubInfo.TremAxis{tid};
-    
-    % Append rawfile to table
-    rawfileid = find(contains(SubInfo.Rawfiles, s));
-    checktable.Rawfile{n} = SubInfo.Rawfiles{rawfileid};
-    
-    % Append vmrkfile to table
-    vmrkdir = fullfile(bidsdir, s, visit, 'eeg');
-    checktable.Vmrkfile{n} = spm_select('FPList', vmrkdir, '.*motor_eeg.vmrk');
-    
-end
-
-% I need to find button press markers...
-
-seltremor = load(checktable.Rawfile{1});
-vmrkdat = readtable(checktable.Vmrkfile{1}, ...
-    'FileType', 'text', ...
-    'ReadVariableNames', false, ...
-    'Delimiter', {'=', ','}, ...
-    'HeaderLines', 11);
+% % OLD %
+% % SCRUBBING PROCEDURE - Removes button presses from raw acc signal and generates a cleaner tremor regressors
+% % 1. Load raw acc signal corresponding to axis where tremor was strongest
+% % 2. Create markers for button presses
+% % 3. Define a window of -100 to 500 ms around each buton press
+% % 4. Set all values in the defined windows to NaN
+% % 5. Interpolate missing values
+% % 6. Downsample the acc signal (i.e. turn samples to scans)
+% % 7. Convolve with the HRF to generate a regressor
+% visit = 'ses-Visit1';
+% bidsdir = '/project/3022026.01/pep/bids/';
+% root = '/project/3024006.02/Analyses/EMG/motor';
+% prepemgdir = fullfile(root, 'processing', 'prepemg');
+% regdir = fullfile(prepemgdir, 'Regressors', 'ZSCORED');
+% SubInfo.Rawfiles = cellstr(spm_select('FPList', prepemgdir, ['sub-POM.*' visit '.*seltremor.mat']));
+% SubInfo.Regfiles = cellstr(spm_select('FPList', regdir, ['sub-POM.*' visit '.*log.mat']));
+% SubInfo.Sub = extractBetween(SubInfo.Regfiles, 'ZSCORED/', '-ses');
+% SubInfo.TremAxis = extractBetween(SubInfo.Regfiles, 'acc_', '_');
+% outputdir = fullfile(prepemgdir, 'Regressors', 'Scrubbed');
+% if ~exist(outputdir,'dir')
+%  	mkdir(outputdir)
+% else
+%     delete(fullfile(outputdir,'*.*'))
+% end
+% 
+% % Create a table to store relevant info
+% tremcheck = load(fullfile(root, 'manually_checked', 'Martin', 'Tremor_check-16-Mar-2021.mat'));
+% peakcheck = load(fullfile(root, 'manually_checked', 'Martin', 'Peak_check-16-Mar-2021.mat'));
+% checktable = table(extractBetween(tremcheck.Tremor_check.cName, 'Martin/', '-ses'), tremcheck.Tremor_check.cVal, peakcheck.Peak_check.cVal, 'VariableNames', {'Sub', 'TremorPresent', 'PeakCorrect',});
+% % Add columns
+% newcol1 = table(cell(size(checktable,1),1), 'VariableNames', {'CertainTremor'});
+% newcol2 = table(cell(size(checktable,1),1), 'VariableNames', {'TremAxis'});
+% newcol3 = table(cell(size(checktable,1),1), 'VariableNames', {'Rawfile'});
+% newcol4 = table(cell(size(checktable,1),1), 'VariableNames', {'Vmrkfile'});
+% checktable = [checktable, newcol1, newcol2, newcol3];
+% for n = 1:numel(checktable.Sub)
+%     
+%     % Check so that tremor is present and peak is correct
+%     s = checktable.Sub{n};
+%     t = checktable.TremorPresent(n);
+%     p = checktable.PeakCorrect(n);
+%     if t == 1 && p == 1
+%         checktable.CertainTremor{n} = 1;
+%     else
+%         checktable.CertainTremor{n} = 0;
+%     end
+%     
+%     % Append tremor axis to table
+%     tid = find(contains(SubInfo.Sub, s));
+%     checktable.TremAxis{n} = SubInfo.TremAxis{tid};
+%     
+%     % Append rawfile to table
+%     rawfileid = find(contains(SubInfo.Rawfiles, s));
+%     checktable.Rawfile{n} = SubInfo.Rawfiles{rawfileid};
+%     
+%     % Append vmrkfile to table
+%     vmrkdir = fullfile(bidsdir, s, visit, 'eeg');
+%     checktable.Vmrkfile{n} = spm_select('FPList', vmrkdir, '.*motor_eeg.vmrk');
+%     
+% end
+% 
+% % I need to find button press markers...
+% 
+% seltremor = load(checktable.Rawfile{1});
+% vmrkdat = readtable(checktable.Vmrkfile{1}, ...
+%     'FileType', 'text', ...
+%     'ReadVariableNames', false, ...
+%     'Delimiter', {'=', ','}, ...
+%     'HeaderLines', 11);
