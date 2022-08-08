@@ -2,21 +2,29 @@
 % Adds tremor regressors to fmriprep confounds file
 function add_tremor_regressors_to_confounds()
 
-session = 'ses-POMVisit1';
+session = 'ses-POMVisit3';
 BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 EMGDir = '/project/3024006.02/Analyses/EMG/motor';
 % EMGDir = '/project/3024006.02/Analyses/EMG/motor_PIT';
 Prepemg = fullfile(EMGDir, 'processing/prepemg/Regressors/ZSCORED');
 Automaticdir = fullfile(EMGDir, 'automaticdir');
-Peak_Check = fullfile(EMGDir, 'manually_checked/Martin/Peak_check-24-Mar-2021.mat');        %POM
+
+% Peak_Check = fullfile(EMGDir, 'manually_checked/Martin/Peak_check-24-Mar-2021.mat');        %POM
 % Peak_Check = fullfile(EMGDir, 'manually_checked/Martin/Peak_check-14-Apr-2021.mat');       %PIT
-load(Peak_Check, 'Peak_check');
-Tremor_Check = fullfile(EMGDir, 'manually_checked/Martin/Tremor_check-24-Mar-2021.mat');    %POM
+% load(Peak_Check, 'Peak_check');
+% Tremor_Check = fullfile(EMGDir, 'manually_checked/Martin/Tremor_check-24-Mar-2021.mat');    %POM
 % Tremor_Check = fullfile(EMGDir, 'manually_checked/Martin/Tremor_check-14-Apr-2021.mat');  %PIT
-load(Tremor_Check, 'Tremor_check');
+% load(Tremor_Check, 'Tremor_check');
+
+Peak_Check = fullfile(EMGDir, 'manually_checked/Martin/Peak_check-24-Mar-2021_and_13-Jun-2022.csv'); 
+Peak_check = readtable(Peak_Check, 'Format','auto','Delimiter',',');
+Tremor_Check = fullfile(EMGDir, 'manually_checked/Martin/Tremor_check-24-Mar-2021_and_13-Jun-2022.csv');  
+Tremor_check = readtable(Tremor_Check, 'Format','auto','Delimiter',',');
+
 Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
 
+% Select subject by session
 Sel = true(size(Sub,1),1);
 for n = 1:numel(Sub)
     checkfile = spm_select('FPList', fullfile(FMRIPrep, Sub{n}), 'dir', session);
@@ -39,9 +47,9 @@ for n = 1:numel(Sub)
         ConfoundsFile = cellstr(spm_select('FPList', dFunc, [s, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries2.tsv']));
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
         % Automaticdir
-        if(~contains(t, 'PIT'))
-            t = eraseBetween(Visit{v}, 'ses-','Visit');
-        end
+%         if(~contains(t, 'PIT'))
+%             t = eraseBetween(Visit{v}, 'ses-','Visit');
+%         end
         AutoClassed = spm_select('FPList', Automaticdir, [s, '-', t, '-motor-selected-acc.*.jpg']);
         % Prepemg output
         TAmp = spm_select('FPList', Prepemg, [s, '-', t, '.*acc.*amplitude.mat']);
@@ -97,9 +105,9 @@ for n = 1:NrSub
         confounds      = spm_load(ConfoundsFile{1});    % Load confound file
         
         % Tremor files
-        if(~contains(t, 'PIT'))
-            t = eraseBetween(Visit{v}, 'ses-','Visit');
-        end
+%         if(~contains(t, 'PIT'))
+%             t = eraseBetween(Visit{v}, 'ses-','Visit');
+%         end
         TAmp = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*amplitude.mat']);
         TLog = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*log.mat']);
         TPow = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*power.mat']);
