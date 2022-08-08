@@ -76,7 +76,7 @@ for n = 1:numel(Sub)
             ex4 = isempty(ConfTs{1});
             if ex1 || ex2 || ex3 || ex4
                 fprintf('Excluding %s %s\n', Sub{n}, Visit{v})
-                fprintf('Onsets: %f, Report: %f, FuncImage: %f, ConfTs: %f \n', ex1, ex2, ex3, ex4)
+                fprintf('Onsets: %i, Report: %i, FuncImage: %i, ConfTs: %i \n', ex1, ex2, ex3, ex4)
                 Sel(n) = false;
             end
             % 5: Lack of run correspondece between beh and func image, or between func image and confound timeseries
@@ -223,16 +223,16 @@ for n = 1:numel(Files)
 end
 
 % Run jobs interactively
-for n = 1:numel(Files)
-   spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
-end
+% for n = 1:numel(Files)
+%    spm_jobman('run', JobFile, Inputs{1}{n}, Inputs{2}{n}, Inputs{3}{n}, Inputs{4}{n}, Inputs{5}{n}, Inputs{6}{n})
+% end
 
 % Submit to cluster
-% if numel(Files)==1
-% 	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
-% else
-%   	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',5*1024^3, 'timreq',2*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
-% end
+if numel(Files)==1
+	spm_jobman('run', JobFile, Inputs{1}{1}, Inputs{2}{1}, Inputs{3}{1}, Inputs{4}{1}, Inputs{5}{1}, Inputs{6}{1});
+else
+  	qsubcellfun('spm_jobman', repmat({'run'},[1 numel(Files)]), repmat(JobFile,[1 numel(Files)]), Inputs{:}, 'memreq',5*1024^3, 'timreq',2*60*60, 'StopOnError',false, 'options','-l gres=bandwidth:1000');
+end
 
 % Clean up copied functional images
 for n = 1:numel(Inputs{2})
@@ -243,6 +243,18 @@ for n = 1:numel(Inputs{2})
             delete(ImagesToDelete{i})
         end
     end
+end
+
+% Concatenate residuals and clean up 3d images
+for n = 1:numel(Inputs{1})
+    d1st = cell2mat(Inputs{1}{n});
+    fprintf('Writing residuals for %s\n', char(extractBetween(d1st,'sub-','/ses-')))
+    resids = cellstr(spm_select('FPList', d1st, 'Res_.*'));
+    output = fullfile(d1st, 'Res4d.nii');
+    spm_file_merge(resids, output);
+    gzip(output);
+    delete(output);
+    cellfun(@delete, resids)
 end
 
 end
