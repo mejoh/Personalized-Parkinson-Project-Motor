@@ -4,11 +4,12 @@ library(tidyverse)
 # dPEP_HomeQuest <- 'P:/3022026.01/pep/download2/'
 # dPEP_Visit <- 'P:/3022026.01/pep/download2/'
 # dPEP_COVID <- 'P:/3022026.01/pep/download2/'
-dPEP <- 'P:/3022026.01/pep/download2/'
-dClinVars <- 'P:/3022026.01/pep/ClinVars2'
+dPEP <- '/project/3022026.01/pep/download3/'
+dClinVars <- '/project/3022026.01/pep/ClinVars4'
 
 # Clean out output directory
-if(dir.exists(dClinVars)){
+force = FALSE
+if(dir.exists(dClinVars) & force == TRUE){
         unlink(dClinVars, recursive = TRUE)
         dir.create(paste(dClinVars,'derivatives','tmp',sep='/'), recursive = TRUE)
 }else{
@@ -28,7 +29,7 @@ if(dir.exists(dClinVars)){
 # Subjects_COVID <- dContents_Visit[idx_COVID]
 
 dContents <- dir(dPEP)
-idx <- grep('^[A-Z0-9]', dContents)
+idx <- grep('^[0-9A-Z]', dContents)
 Subjects <- dContents[idx]
 
 # Subjects = unique(c(Subjects_HomeQuest, Subjects_Visit, Subjects_COVID))
@@ -51,6 +52,14 @@ for(Sub in Subjects){
         # Find pseudonym
         dSub <- paste(dPEP, Sub, sep='')
         pseudonym <- paste('sub-POMU', substr(Sub,1,16), sep='')
+        
+        # Check if pseudonym has been bidsd already
+        spath <- paste(dClinVars,pseudonym,sep='/')
+        sdirs <- dir(spath)
+        if(length(sdirs) > 0){
+                cat('Skipping: ', pseudonym, ' already has data in bids format\n', sep='')
+                next
+        }
         
         # Collect all files that need to be copied to ClinVars
         download_files  <- list.files(paste(dPEP, Sub, sep = ''), full.names = TRUE)
