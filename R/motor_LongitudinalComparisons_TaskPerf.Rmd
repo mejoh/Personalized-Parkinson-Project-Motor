@@ -1,0 +1,509 @@
+---
+title: "Longitudinal comparisons of motor task performance"
+author: "M.E. Johansson"
+date: "6/7/2022"
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(effectsize)
+library(emmeans)
+library(viridis)
+library(cowplot)
+library(ggpubr)
+library(kableExtra)
+library(extrafont)
+loadfonts(device='win',quiet = TRUE)
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
+```
+
+# Load data
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+# Practice data
+
+fTaskPrac <- 'P:/3022026.01/pep/bids/derivatives/manipulated_merged_motor_task_practice_2022-04-22.csv'
+dfTaskPrac <- read_csv(fTaskPrac)
+dfTaskPrac <- dfTaskPrac %>%
+  select(pseudonym, Timepoint, trial_type, response_time, trial_number,
+         event_type, correct_response, RespondingHand, Group) %>%
+  rename(ParticipantType = Group) %>%
+  mutate(TimepointNr = if_else(str_detect(Timepoint, 'Visit1'), 0, 2)) %>%
+  relocate(pseudonym, TimepointNr, ParticipantType) %>%
+  select(-Timepoint)
+
+# fMRI data
+
+fTask <- 'P:/3022026.01/pep/bids/derivatives/manipulated_merged_motor_task_mri_2022-04-22.csv'
+dfTask <- read_csv(fTask)
+dfTask <- dfTask %>%
+  select(pseudonym, Timepoint, trial_type, response_time, trial_number,
+         event_type, correct_response, block, RespondingHand, Group, Percentage.Correct,
+         Percentage.Correct.BelowCutoff, Button.Press.SwitchRatio, Button.Press.CoV,
+         Button.Press.RepetitionRatio, Button.Press.AdjacentRatio) %>%
+  rename(ParticipantType = Group) %>%
+  mutate(TimepointNr = if_else(str_detect(Timepoint, 'Visit1'), 0, 2)) %>%
+  relocate(pseudonym, TimepointNr, ParticipantType) %>%
+  select(-Timepoint)
+
+fClin <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-05-25.csv'
+clinvars <- c('pseudonym', 'TimepointNr', 'ParticipantType', 'CrossStudyParticipation', 'Subtype_DiagEx1_DisDurSplit',
+              'Age', 'Gender','DiagParkCertain', 'DiagParkPersist',
+              'Up3OfTotal', 'Up3OfTotal.2YearDelta', 'Up3OfAppendicularSum', 'Up3OfAppendicularSum.2YearDelta')
+dfClin <- read_csv(fClin)
+dfClin <- dfClin %>%
+  filter(MriNeuroPsychTask == 'Motor') %>%
+  filter(!is.na(ParticipantType)) %>%
+  select(all_of(clinvars)) %>%
+  rename(Subtype = Subtype_DiagEx1_DisDurSplit) %>%
+  mutate(Subtype = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype),
+         Subtype = factor(Subtype))
+dfClin$Subtype[is.na(dfClin$Subtype)] <- '4_Undefined'
+
+baseline_covars <- dfClin %>%
+  filter(TimepointNr == 0) %>%
+  select('pseudonym', 'ParticipantType', 'CrossStudyParticipation', 'Subtype', 'Age', 'Gender')
+longitudinal_covars <- dfClin %>%
+  select('pseudonym', 'ParticipantType', 'TimepointNr', 'DiagParkCertain', 'DiagParkPersist', 
+         'Up3OfTotal', 'Up3OfTotal.2YearDelta', 'Up3OfAppendicularSum', 'Up3OfAppendicularSum.2YearDelta')
+
+# Merge clinical and task data. Demean covariates
+df <- full_join(dfTask, baseline_covars, by = c('pseudonym', 'ParticipantType')) %>%
+  full_join(., longitudinal_covars, by = c('pseudonym', 'ParticipantType', 'TimepointNr'))
+df <- df %>%
+  filter(TimepointNr==0 | TimepointNr==2) %>%
+  mutate(TimepointNr = factor(TimepointNr),
+         trial_type = factor(trial_type),
+         block = factor(block),
+         ParticipantType = factor(ParticipantType),
+         Gender = factor(Gender)) %>%
+  group_by(ParticipantType) %>%
+  mutate(Age_Dmean = Age - mean(Age, na.rm=TRUE)) %>%
+  ungroup()
+
+# Do the same for practice data
+dfPrac <- full_join(dfClin, dfTaskPrac, by = c('pseudonym', 'ParticipantType', 'TimepointNr'))
+dfPrac <- dfPrac %>%
+  filter(TimepointNr==0 | TimepointNr==2) %>%
+  mutate(TimepointNr = factor(TimepointNr),
+         trial_type = factor(trial_type),
+         ParticipantType = factor(ParticipantType),
+         Gender = factor(Gender)) %>%
+  group_by(ParticipantType) %>%
+  mutate(Age_Dmean = Age - mean(Age, na.rm=TRUE)) %>%
+  ungroup()
+
+# Something is wrong with the ParticipantType label of V2!!!
+# Apparently, some HCs have received the PD_PIT label.
+df <- df %>% mutate(ParticipantType = as.character(ParticipantType),
+              ParticipantType = if_else((ParticipantType=='PD_PIT' & TimepointNr==2), 'HC_PIT', ParticipantType),
+              ParticipantType = factor(ParticipantType))
+
+```
+
+# Check of numbers prior to exclusions
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+# How many have succesfully done the task at both time points?
+
+tmp <- df %>%
+        filter(event_type=='response') %>%
+        select(pseudonym,ParticipantType,TimepointNr,trial_type, response_time, Percentage.Correct,
+               Up3OfTotal, Up3OfAppendicularSum, Up3OfTotal.2YearDelta, Up3OfAppendicularSum.2YearDelta)
+
+performance <- tmp %>%
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
+        summarise(across(c(response_time, Percentage.Correct), ~ median(.x, na.rm=TRUE))) %>%
+        ungroup() %>%
+        na.omit()
+
+performance %>% group_by(ParticipantType, TimepointNr, trial_type) %>% summarise(N=n(),
+                                                             RT.avg = mean(response_time,na.rm=TRUE),
+                                                             RT.sd = sd(response_time,na.rm=TRUE),
+                                                             ACC.avg = mean(Percentage.Correct,na.rm=TRUE),
+                                                             ACC.sd = sd(Percentage.Correct,na.rm=TRUE))
+
+g_plot <- ggplot(performance, aes(y=response_time, x = ParticipantType, fill = TimepointNr)) + 
+        geom_boxplot(size = 1.5, outlier.size = 3) +
+        facet_grid(~trial_type, 
+                   labeller = labeller(trial_type = c(`1choice` = 'One choice',
+                                                      `2choice` = 'Two choices',
+                                                      `3choice` = 'Three choices'))) +
+        scale_fill_viridis_d(option = 'viridis', begin = 0.3, end = 0.5, direction = -1,
+                             name = 'Timepoint',
+                             label = c('Baseline','Follow-up')) +
+        scale_x_discrete(labels=c('Healthy control','Patient')) +
+        theme_cowplot(font_size = 25) +
+        xlab('Group') + ylab('Response time (s)') +
+        ggtitle('2-year progression of task performance')
+print(g_plot)
+
+# How many have full progression data?
+
+progression <- tmp %>%
+        filter(ParticipantType == 'PD_POM') %>%
+        group_by(pseudonym, TimepointNr) %>%
+        summarise(across(c(Up3OfTotal, Up3OfAppendicularSum,
+                           Up3OfTotal.2YearDelta, Up3OfAppendicularSum.2YearDelta), ~ mean(.x, na.rm=TRUE))) %>%
+        ungroup()
+
+progression %>% 
+        group_by(TimepointNr) %>% 
+        summarise(N=n(),
+                  Total.avg = mean(Up3OfTotal,na.rm=TRUE),
+                  Total.sd = sd(Up3OfTotal,na.rm=TRUE),
+                  App.avg = mean(Up3OfAppendicularSum,na.rm=TRUE),
+                  App.sd = sd(Up3OfAppendicularSum,na.rm=TRUE),
+                  Prog.avg = mean(Up3OfTotal.2YearDelta,na.rm=TRUE),
+                  Prog.sd = sd(Up3OfTotal.2YearDelta,na.rm=TRUE))
+
+lines <- ggplot(progression, aes(y = Up3OfTotal, x = TimepointNr, group = pseudonym)) +
+        geom_line(aes(color=Up3OfTotal.2YearDelta), alpha = 0.3, lwd=1.5) +
+        geom_jitter(alpha = 0.2, width = 0.01, size=4) + 
+        scale_color_viridis_c(option = 'inferno', name = '2-year \nprogression') +
+        scale_x_discrete(labels=c('Baseline','Follow-up')) +
+        theme_cowplot(font_size = 25) +
+        xlab('Timepoint') + ylab('MDS-UPDRS III total score')
+
+boxes <- ggplot(progression, aes(y = Up3OfTotal, x = TimepointNr, fill = TimepointNr)) +
+        geom_boxplot(size = 1.5, outlier.size = 3) +
+        scale_fill_viridis_d(option = 'viridis', begin = 0.3, end = 0.5, direction = -1) +
+        scale_x_discrete(labels=c('Baseline','Follow-up')) +
+        theme_cowplot(font_size = 25) +
+        xlab('Timepoint') + ylab('MDS-UPDRS III total score') +
+        theme(legend.position = 'none')
+
+plot <- ggarrange(boxes, lines)
+plot <- annotate_figure(plot, top = text_grob('2-year progression of motor symptoms', size=30, face = 'bold'))
+print(plot)
+        
+# plot <- raincloudplot_1Factor(progression, 'Up3OfTotal', c('TimepointNr'), title = '2-year progression of motor symptoms',
+#                                       xlab='Time', ylab='MDS-UPDRS III total score', xticklabs = c('Baseline','Follow-up'),
+#                                       color_scheme = 'viridis') %>% print()
+
+
+```
+
+# Exclusions
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+diagnosis <- dfClin %>% filter(ParticipantType=='PD_POM') %>% select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist)
+
+# Diagnosis at baseline
+exclusion.diag_baseline <- diagnosis %>% 
+  filter(TimepointNr==0) %>% 
+  select(pseudonym, DiagParkCertain) %>% 
+  filter(DiagParkCertain != 'PD' & DiagParkCertain != 'DoubtAboutPD')
+df <- df %>%
+  filter(!(pseudonym %in% exclusion.diag_baseline$pseudonym))
+
+# Diagnosis at follow-up
+exclusion.diag_persistance <- diagnosis %>% 
+  filter(TimepointNr==2) %>% 
+  select(pseudonym, DiagParkPersist) %>%
+  filter(DiagParkPersist == 2)
+df <- df %>%
+  filter(!(pseudonym %in% exclusion.diag_persistance$pseudonym))
+
+# Performance
+df <- df %>%
+  filter(Percentage.Correct.BelowCutoff == FALSE)
+
+```
+
+# Demographics
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+```
+
+# Descriptives
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+y <- df %>%
+  select(pseudonym, TimepointNr, response_time, Percentage.Correct, Button.Press.SwitchRatio, Button.Press.CoV) %>%
+  group_by(pseudonym, TimepointNr) %>%
+  summarise(across(where(is.numeric), ~mean(.x,na.rm=TRUE)))
+
+gvars <- df %>%
+  filter(TimepointNr==0) %>%
+  group_by(pseudonym) %>%
+  select(pseudonym, ParticipantType, Age, Gender) %>%
+  summarise(across(everything(), ~first(.x)))
+
+y <- left_join(y, gvars, by='pseudonym')
+
+ggplot(y, aes(y=response_time, fill=ParticipantType)) + 
+  geom_boxplot() +
+  facet_grid(~TimepointNr) +
+  ggtitle('Average response times') %>%
+  print()
+
+ggplot(y, aes(y=Percentage.Correct, fill=ParticipantType)) + 
+  geom_boxplot() +
+  facet_grid(~TimepointNr) +
+  ggtitle('Average accuracy') %>%
+  print()
+
+```
+
+# Response times
+
+## PD-On vs HC
+
+### fMRI
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+compare_rts <- function(f, tmp, tmp.collapsed){
+        
+  # Fit mixed-effects model
+  print(paste('Fitting the following model:', f, sep=' '))
+  fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+  s <- summary(fit)
+  print(s, corr = FALSE, digits = 3)
+  anova <- anova(fit)
+  print(anova)
+  effectsize(anova) %>% print()
+  
+  # Fit linear model
+  fit_lm <- lm(log(response_time) ~ ParticipantType*TimepointNr*trial_type, data = tmp.collapsed, na.action = na.omit)
+  s <- summary(fit_lm)
+  print(s, corr = FALSE, digits = 3)
+  anova <- anova(fit_lm)
+  print(anova)
+  effectsize(anova) %>% print()
+  
+  # Post hoc
+  em <- emmeans(fit, ~ trial_type*TimepointNr*ParticipantType, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise', 'revpairwise'), adjust='mvt', type='response') %>% print()
+  em <- emmeans(fit, ~ trial_type*TimepointNr, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% print()
+  em <- emmeans(fit, ~ trial_type*ParticipantType, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% print()
+  
+  # Visualize
+  g_plot <- ggplot(tmp.collapsed, aes(y=response_time, x = ParticipantType, fill = factor(TimepointNr))) + 
+    geom_boxplot() +
+    facet_grid(~trial_type)
+  print(g_plot)
+  
+  tmp.collapsed2 <- tmp.collapsed %>%
+    pivot_wider(id_cols = c('pseudonym','ParticipantType','TimepointNr'),
+                values_from = response_time,
+                names_from = trial_type) %>%
+    mutate(TwoVsOne = `2choice`-`1choice`,
+           ThreeVsOne = `3choice`-`1choice`) %>%
+    pivot_longer(cols = c('TwoVsOne','ThreeVsOne'),
+                 names_to = 'Diff', values_to = 'response_time')
+  
+  g_plot2 <- ggplot(tmp.collapsed2, aes(y = response_time, x = ParticipantType, fill = factor(TimepointNr))) + 
+    geom_boxplot() +
+    facet_grid(~Diff)
+  print(g_plot2)
+  
+  tplot <- emmip(fit, trial_type~TimepointNr|ParticipantType, CIs = TRUE,
+                 type='response') + 
+    scale_colour_viridis_d(option='mako', begin = .1, end = .6,
+                           direction = -1,labels=c('One','Two','Three')) +
+    ggtitle('') + ylab('Predicted response times (s)') +
+    xlab('Time') + 
+    guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
+    theme_cowplot(font_size = 20)
+  print(tplot)
+  
+  # Diagnostics
+  plot(fit) %>% print()
+  qqmath(fit) %>% print()
+  qqmath(ranef(fit))
+        
+}
+
+f <- 'log(response_time) ~ 1 + ParticipantType*TimepointNr*trial_type*block + (1+TimepointNr+trial_type|pseudonym)'
+# removed due to non-significance
+
+groups <- c('PD_POM','HC_PIT')
+tmp <- df %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type))
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
+        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
+  ungroup()
+compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
+
+```
+
+### Practice
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+f <- 'log(response_time) ~ 1 + ParticipantType*TimepointNr*trial_type + (1|pseudonym)'
+# removed due to non-significance
+
+groups <- c('PD_POM','HC_PIT')
+tmp <- dfPrac %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type))
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
+        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
+  ungroup()
+compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
+
+```
+
+## HC only
+
+### fMRI
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+compare_rts <- function(f, tmp, tmp.collapsed){
+        
+  # Fit mixed-effects model
+  print(paste('Fitting the following model:', f, sep=' '))
+  fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+  s <- summary(fit)
+  print(s, corr = FALSE, digits = 3)
+  anova <- anova(fit)
+  print(anova)
+  effectsize(anova) %>% print()
+  
+  # Fit linear model
+  fit_lm <- lm(log(response_time) ~ TimepointNr*trial_type, data = tmp.collapsed, na.action = na.omit)
+  s <- summary(fit_lm)
+  print(s, corr = FALSE, digits = 3)
+  anova <- anova(fit_lm)
+  print(anova)
+  effectsize(anova) %>% print()
+  
+  # Visualize
+  g_plot <- ggplot(tmp.collapsed, aes(y=response_time, x = factor(TimepointNr), fill = trial_type)) + 
+    geom_boxplot()
+  print(g_plot)
+  
+  tmp.collapsed2 <- tmp.collapsed %>%
+    pivot_wider(id_cols = c('pseudonym','ParticipantType','TimepointNr'),
+                values_from = response_time,
+                names_from = trial_type) %>%
+    mutate(TwoVsOne = `2choice`-`1choice`,
+           ThreeVsOne = `3choice`-`1choice`) %>%
+    pivot_longer(cols = c('TwoVsOne','ThreeVsOne'),
+                 names_to = 'Diff', values_to = 'response_time')
+  
+  g_plot2 <- ggplot(tmp.collapsed2, aes(y = response_time, x = factor(TimepointNr), fill = Diff)) + 
+    geom_boxplot()
+  print(g_plot2)
+  
+  tplot <- emmip(fit, trial_type~TimepointNr|block, CIs = TRUE,
+                 type='response') + 
+    scale_colour_viridis_d(option='mako', begin = .1, end = .6,
+                           direction = -1,labels=c('One','Two','Three')) +
+    ggtitle('') + ylab('Predicted response times (s)') +
+    xlab('Time') + 
+    guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
+    theme_cowplot(font_size = 20)
+  print(tplot)
+  
+  # Diagnostics
+  plot(fit) %>% print()
+  qqmath(fit) %>% print()
+  qqmath(ranef(fit))
+        
+}
+
+f <- 'log(response_time) ~ 1 + TimepointNr*trial_type*block + (1+TimepointNr+trial_type|pseudonym)'
+# removed due to non-significance
+
+groups <- c('HC_PIT')
+tmp <- df %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type))
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
+        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
+  ungroup()
+compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
+
+```
+
+### Practice
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+f <- 'log(response_time) ~ 1 + TimepointNr*trial_type + (1|pseudonym)'
+# removed due to non-significance
+
+groups <- c('HC_PIT')
+tmp <- dfPrac %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type))
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
+        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
+  ungroup()
+compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
+
+```
+
+# Button selection variability
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+```
+
+# Switch ratio
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+```
+
+# Accuracy
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+```
+
+# Disease progression
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+```
