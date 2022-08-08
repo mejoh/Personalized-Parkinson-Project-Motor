@@ -19,12 +19,14 @@
 %% Collect existing log files and define output .tsv file
 % project = '3024006.01';
 % visit = 'ses-PITVisit2';
-project = '3022026.01';
-visit = 'ses-POMVisit3';
+% project = '3022026.01';
+% visit = 'ses-POMVisit3';
+project = '3024010.01';
+visit = 'ses-mri01';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
 BIDSDir  = fullfile(Root, 'bids');
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM3FM.*'));
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-0.*'));
 % BIDS     = spm_BIDS(BIDSDir);
 
 % Run = {'1', '2'}; 
