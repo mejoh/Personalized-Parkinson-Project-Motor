@@ -26,6 +26,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # funcs <- list.files(funcdir, full.names = TRUE)
 # sapply(funcs, source)
 library(MASS)
+library(ggpubr)
 library(emmeans)
 emm_options(lmerTest.df = 'satterthwaite')  # Calculates DFs in the same way as lmerTest
 emm_options(lmerTest.limit = 50000)
@@ -64,14 +65,16 @@ dfTask <- dfTask %>%
         relocate(pseudonym, TimepointNr, ParticipantType) %>%
         select(-Timepoint)
 
-fClin <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-05-25.csv'
+# fClin <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-05-25.csv'
+fClin <- 'P:/3022026.01/pep/ClinVars3/derivatives/merged_manipulated_2022-06-16.csv'
 clinvars <- c('pseudonym', 'TimepointNr', 'ParticipantType', 'CrossStudyParticipation', 'Subtype_DiagEx1_DisDurSplit', 'Subtype_Imputed_DiagEx1_DisDurSplit',
          'Age', 'Gender', 'NpsEducYears', 'PrefHand', 'MonthSinceDiag', 'ParkinMedUser', 'LEDD', 'Up3OfHoeYah', 'MostAffSide',
          'Up3OfTotal', 'Up3OfAppendicularSum', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum', 
          'Up3OfTotal_pit', 'Up3OfAppendicularSum_pit', 'Up3OfBradySum_pit', 'Up3OfRigiditySum_pit',
          'Up3OfPIGDSum_pit', 'Up3OfCompositeTremorSum_pit', 
          'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum',
-         'DiagParkCertain', 'DiagParkPersist', 'DiagParkReplace')
+         'DiagParkCertain', 'DiagParkPersist', 'DiagParkReplace',
+         'MotorComposite','CognitiveComposite','SCOPA_AUTSum', 'RBDSQSum')
 dfClin <- read_csv(fClin)
 dfClin <- dfClin %>%
         filter(MriNeuroPsychTask == 'Motor') %>%
@@ -140,49 +143,62 @@ df <- df %>%
 This section tells us a bit about how many participants were analyzed and how many were excluded.
 
 <!-- ```{r number, echo=FALSE} -->
+
 <!-- n <- data_task_clin %>% -->
+
 <!--         filter(Timepoint=='ses-Visit1' & Condition == 'Ext') %>% -->
+
 <!--         select(pseudonym) %>% -->
+
 <!--         unique() %>% -->
+
 <!--         nrow -->
+
 <!-- msg <- paste('Number of unique pseudonyms:', n) -->
+
 <!-- print(msg) -->
+
 <!-- ``` -->
 
-- Participants without data
+-   Participants without data
 
 <!-- ```{r missing, echo=FALSE} -->
+
 <!-- no_task <- data_task_clin %>% -->
+
 <!--         filter(Timepoint == 'ses-Visit1') %>% -->
+
 <!--         filter(Condition == 'Ext') %>% -->
+
 <!--         select(pseudonym, Response.Time, Age) %>% -->
+
 <!--         filter(is.na(Response.Time)) -->
+
 <!-- msg <- paste('Number of subjects without task data (defined as RTs on Ext):', length(unique(no_task$pseudonym))) -->
+
 <!-- print(msg) -->
+
 <!-- print(unique(no_task$pseudonym)) -->
 
 <!-- no_clin <- data_task_clin %>% -->
+
 <!--         filter(Timepoint == 'ses-Visit1') %>% -->
+
 <!--         filter(Condition == 'Ext') %>% -->
+
 <!--         select(pseudonym, Response.Time, Age) %>% -->
+
 <!--         filter(is.na(Age)) -->
+
 <!-- msg <- paste('Number of subjects without clinical data (defined as Age):', length(unique(no_clin$pseudonym))) -->
+
 <!-- print(msg) -->
+
 <!-- print(unique(no_clin$pseudonym)) -->
+
 <!-- ``` -->
 
-- Participants who performed at or below 25% correct responses in the 1-choice condition
-
-<!-- ```{r poor_performance, echo=FALSE} -->
-<!-- poor_performance <- data_task_clin %>% -->
-<!--         filter(Timepoint == 'ses-Visit1') %>% -->
-<!--         filter(Condition == 'Ext') %>% -->
-<!--         filter(Poor.Performance == 'Yes') %>% -->
-<!--         select(pseudonym) -->
-<!-- msg <- paste('Number of subjects with poor performance:', length(unique(poor_performance$pseudonym))) -->
-<!-- print(msg) -->
-<!-- print(unique(poor_performance$pseudonym)) -->
-<!-- ``` -->
+-   Patients who were misdiagnosed
 
 ```{r echo=FALSE, warning=FALSE}
 # Exclude patients with confirmed non-PD diagnosis
@@ -221,10 +237,26 @@ doubt2_at_ba <- diagnosis %>%
         select(pseudonym)
 diagnosis %>% filter(TimepointNr==2, pseudonym %in% doubt2_at_ba$pseudonym) %>% select(DiagParkPersist) %>% table()
 
+df.orig <- df
 df <- df %>%
         filter(!(pseudonym %in% diag_exclusions$pseudonym))
 # df <- df %>%
 #         filter(!(pseudonym %in% doubt_at_ba$pseudonym))
+```
+
+-   Participants who performed at or below 25% correct responses in the 1-choice condition
+
+```{r poor_performance, echo=FALSE}
+cat('Subjects below performance cutoff should be excluded:')
+df %>%
+        filter(TimepointNr==0) %>%
+        group_by(ParticipantType, pseudonym) %>%
+        summarise(across(everything(), ~first(.x))) %>% 
+        select(pseudonym, ParticipantType, Percentage.Correct.BelowCutoff) %>%
+        group_by(ParticipantType) %>%
+        summarise(Total=n(), 
+                  Below = sum(Percentage.Correct.BelowCutoff==TRUE,na.rm = TRUE), 
+                  Above = sum(Percentage.Correct.BelowCutoff==FALSE,na.rm = TRUE)) %>% print()
 ```
 
 # Demographics
@@ -235,24 +267,42 @@ demographics_table <- function(dat){
                 group_by(ParticipantType) %>%
                 summarise(across(where(is.numeric), list(mean=mean,sd=sd), .names = "{.col}.{.fn}", na.rm=TRUE),
                           N = n(),
-                          Sex_Male=sum(Gender=='Male', na.rm=TRUE), Sex_Fem=sum(Gender=='Female', na.rm=TRUE),
-                          Sex_PropMale=mean(Gender=='Male', na.rm=TRUE), Sex_PropFem=mean(Gender=='Female', na.rm=TRUE),
-                          PrefHand_R=sum(PrefHand=='Right', na.rm=TRUE), PrefHand_L=sum(PrefHand=='Left', na.rm=TRUE),
-                          PrefHand_PropR=mean(PrefHand=='Right', na.rm=TRUE), PrefHand_PropL=mean(PrefHand=='Left', na.rm=TRUE),
-                          RespHand_R=sum(RespondingHand=='Right', na.rm=TRUE), RespHand_L=sum(RespondingHand=='Left', na.rm=TRUE),
-                          RespHand_PropR=mean(RespondingHand=='Right', na.rm=TRUE), RespHand_PropL=mean(RespondingHand=='Left', na.rm=TRUE),
-                          RespHandDom_Y=sum(RespHandIsDominant==1, na.rm=TRUE), RespHandDom_N=sum(RespHandIsDominant==0, na.rm=TRUE),
-                          RespHandDom_PropY=mean(RespHandIsDominant==1, na.rm=TRUE), RespHandDom_PropN=mean(RespHandIsDominant==0, na.rm=TRUE),
-                          MostAffSide_R=sum(MostAffSide=='Right', na.rm=TRUE),MostAffSide_L=sum(MostAffSide=='Left', na.rm=TRUE),
-                          MostAffSide_PropR=mean(MostAffSide=='Right', na.rm=TRUE),MostAffSide_PropL=mean(MostAffSide=='Left', na.rm=TRUE),
-                          MedUser=sum(ParkinMedUser=='Yes', na.rm=TRUE), NonMedUser=sum(ParkinMedUser=='No', na.rm=TRUE),
-                          PropMedUser=mean(ParkinMedUser=='Yes', na.rm=TRUE), PropNonMedUser=mean(ParkinMedUser=='No', na.rm=TRUE),
-                          HnY_1=sum(Up3OfHoeYah==1, na.rm=TRUE), HnY_2=sum(Up3OfHoeYah==2, na.rm=TRUE),
-                          HnY_3=sum(Up3OfHoeYah==3, na.rm=TRUE), HnY_4=sum(Up3OfHoeYah==4, na.rm=TRUE),
-                          HnY_Prop1=mean(Up3OfHoeYah==1, na.rm=TRUE), HnY_Prop2=mean(Up3OfHoeYah==2, na.rm=TRUE),
-                          HnY_Prop3=mean(Up3OfHoeYah==3, na.rm=TRUE), HnY_Prop4=mean(Up3OfHoeYah==4, na.rm=TRUE),
-                          Diagnosis_PD=sum(DiagParkCertain=='PD', na.rm=TRUE), Diagnosis_Doubt=sum(DiagParkCertain=='DoubtAboutPD', na.rm=TRUE),
-                          Diagnosis_PropPD=mean(DiagParkCertain=='PD', na.rm=TRUE), Diagnosis_PropDoubt=mean(DiagParkCertain=='DoubtAboutPD', na.rm=TRUE)) %>%
+                          Sex_Male=sum(Gender=='Male', na.rm=TRUE), 
+                          Sex_Fem=sum(Gender=='Female', na.rm=TRUE),
+                          Sex_PropMale=mean(Gender=='Male', na.rm=TRUE), 
+                          Sex_PropFem=mean(Gender=='Female', na.rm=TRUE),
+                          PrefHand_R=sum(PrefHand=='Right', na.rm=TRUE), 
+                          PrefHand_L=sum(PrefHand=='Left', na.rm=TRUE),
+                          PrefHand_PropR=mean(PrefHand=='Right', na.rm=TRUE),
+                          PrefHand_PropL=mean(PrefHand=='Left', na.rm=TRUE),
+                          RespHand_R=sum(RespondingHand=='Right', na.rm=TRUE), 
+                          RespHand_L=sum(RespondingHand=='Left', na.rm=TRUE),
+                          RespHand_PropR=mean(RespondingHand=='Right', na.rm=TRUE), 
+                          RespHand_PropL=mean(RespondingHand=='Left', na.rm=TRUE),
+                          RespHandDom_Y=sum(RespHandIsDominant==1, na.rm=TRUE), 
+                          RespHandDom_N=sum(RespHandIsDominant==0, na.rm=TRUE),
+                          RespHandDom_PropY=mean(RespHandIsDominant==1, na.rm=TRUE), 
+                          RespHandDom_PropN=mean(RespHandIsDominant==0, na.rm=TRUE),
+                          MostAffSide_R=sum(MostAffSide=='Right', na.rm=TRUE),
+                          MostAffSide_L=sum(MostAffSide=='Left', na.rm=TRUE),
+                          MostAffSide_PropR=mean(MostAffSide=='Right', na.rm=TRUE),
+                          MostAffSide_PropL=mean(MostAffSide=='Left', na.rm=TRUE),
+                          MedUser=sum(ParkinMedUser=='Yes', na.rm=TRUE), 
+                          NonMedUser=sum(ParkinMedUser=='No', na.rm=TRUE),
+                          PropMedUser=mean(ParkinMedUser=='Yes', na.rm=TRUE), 
+                          PropNonMedUser=mean(ParkinMedUser=='No', na.rm=TRUE),
+                          HnY_1=sum(Up3OfHoeYah==1, na.rm=TRUE), 
+                          HnY_2=sum(Up3OfHoeYah==2, na.rm=TRUE),
+                          HnY_3=sum(Up3OfHoeYah==3, na.rm=TRUE), 
+                          HnY_4=sum(Up3OfHoeYah==4, na.rm=TRUE),
+                          HnY_Prop1=mean(Up3OfHoeYah==1, na.rm=TRUE), 
+                          HnY_Prop2=mean(Up3OfHoeYah==2, na.rm=TRUE),
+                          HnY_Prop3=mean(Up3OfHoeYah==3, na.rm=TRUE), 
+                          HnY_Prop4=mean(Up3OfHoeYah==4, na.rm=TRUE),
+                          Diagnosis_PD=sum(DiagParkCertain=='PD', na.rm=TRUE), 
+                          Diagnosis_Doubt=sum(DiagParkCertain=='DoubtAboutPD', na.rm=TRUE),
+                          Diagnosis_PropPD=mean(DiagParkCertain=='PD', na.rm=TRUE), 
+                          Diagnosis_PropDoubt=mean(DiagParkCertain=='DoubtAboutPD', na.rm=TRUE)) %>%
                 mutate(across(where(is.double), round, digits=2))
         
         # Format table to show values in mean (sd) for each variable in vars1
@@ -390,6 +440,7 @@ df_demo <- df %>%
         arrange(pseudonym,ParticipantType) %>%
         ungroup()
 
+cat('Number of patients excluded due to mis-diagnosis:', length(diag_exclusions$pseudonym))
 demographics_table(df_demo)
 
 groups <- c('HC_PIT','PD_POM')
@@ -523,9 +574,13 @@ compare_demographics.subs(demo.test,numvars,catvars)
 fmri.onvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_x_ExtInt2Int3Catch_NoOutliers2/marsbar/'
 vois <- dir(fmri.onvshc, '*csv', full.names = TRUE)
 
+# Make a list of subjects that were included in the functional analyses, used later for the VBM comparison
+funcsubs <- vois[1] %>% read_csv() %>% select(pseudonym) %>% unique()
+
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R')
+outliers <- c()
 for(v in 1:length(vois)){
         
         csvfile <- vois[v]
@@ -541,6 +596,21 @@ for(v in 1:length(vois)){
                 rename(Beta = Vals)
         
         bn <- basename(csvfile)
+        fmridat.subset <- fmridat
+        fmridat.subset <- fmridat.subset %>% pivot_wider(id_cols = c('pseudonym','Group'),
+                                       names_from = Cond,
+                                       values_from = Beta) %>%
+          mutate(Avg = (`3choice` + `2choice` + `1choice`)/3,
+                 IvL = `2choice` - `1choice`,
+                 HvL = `3choice` - `1choice`,
+                 Avg.Outlier = if_else(abs(Avg-mean(Avg)) > 3*sd(Avg), 1, 0),
+                 IvL.Outlier = if_else(abs(IvL-mean(IvL)) > 3*sd(IvL), 1, 0),
+                 HvL.Outlier = if_else(abs(HvL-mean(HvL)) > 3*sd(HvL), 1, 0)) %>%
+          select(-c(`1choice`,`2choice`,`3choice`))
+        print(bn)
+        outs <- fmridat.subset %>% filter(Avg.Outlier == TRUE | IvL.Outlier == TRUE | HvL.Outlier == TRUE) %>% print()
+        outliers <- c(outliers, outs$pseudonym)
+        
         if(str_detect(bn, 'MTean')){
                 fmridat <- fmridat %>%
                         group_by(pseudonym, Group) %>%
@@ -617,6 +687,58 @@ plot <- plot +
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HCvsON_HCgtON_Mean_Putamen1.tiff',
           plot, dpi=300, device='tiff')
+
+# Association with response times
+fmridat.rts <- fmridat %>%
+  rename(trial_type=Cond,
+         ParticipantType=Group)
+groups <- c('PD_POM','HC_PIT')
+tmp <- df %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        filter(Percentage.Correct.BelowCutoff == FALSE) %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type)) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, response_time)
+tmp.collapsed <- tmp %>% 
+        group_by(pseudonym, ParticipantType, trial_type) %>%
+        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
+  ungroup()
+t <- left_join(fmridat.rts, tmp.collapsed, by=c('pseudonym', 'ParticipantType','trial_type')) %>%
+  pivot_wider(id_cols = c('pseudonym', 'ParticipantType'),
+              names_from = trial_type,
+              values_from = c(Beta,response_time)) %>%
+  mutate(Beta.avg = (Beta_1choice+Beta_2choice+Beta_3choice)/3,
+         RT.avg = (response_time_1choice+response_time_2choice+response_time_3choice)/3) %>%
+  select(-starts_with('Beta_'),
+         -starts_with('response_time'))
+
+ggplot(t, aes(x=Beta.avg,y=RT.avg, fill=ParticipantType)) +
+  geom_point() +
+  geom_smooth(method='lm')
+
+plot <- ggplot(t, aes(y=RT.avg, x=Beta.avg, color=ParticipantType)) +
+        geom_point(alpha = .3, shape = 19, size = 1.5) +
+        geom_smooth(method='lm', se = FALSE, lwd = 2) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8,
+                              direction = -1, labels = c('HC','PD')) +
+        ggtitle('Association between response \ntimes and putamen activity') + 
+        xlab('Average beta') +
+        ylab('Average RT (s)') +
+        theme_cowplot(font_size = 14, font_family = 'Calibri') +
+        guides(color=guide_legend(title='', reverse = FALSE,
+                                 title.position = 'left', label.position = 'right')) +
+        theme(legend.position = c(0.8,1.10),
+              legend.key.size = unit(0.5,'cm'))
+print(plot)
+
+m <- lm(RT.avg ~ Beta.avg*ParticipantType, data = t)
+summary(m)
+
 #####
 
 ##### Parietal interaction #####
@@ -672,46 +794,72 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HCvsON_
 #####
 ```
 
-
 <!-- ## OFF vs. HC -->
 
 <!-- ```{r echo=FALSE, warning=FALSE, message=FALSE} -->
 
 <!-- fmri.offvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOff_x_ExtInt2Int3Catch_NoOutliers/' -->
+
 <!-- vois <- dir(fmri.offvshc, 'VOI.*csv', full.names = TRUE) -->
 
 <!-- source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+
 <!-- source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R') -->
+
 <!-- for(v in 1:length(vois)){ -->
 
 <!--         csvfile <- vois[v] -->
 
 <!--         fmridat <- read_csv(csvfile, show_col_types = FALSE) %>% -->
+
 <!--                 select(-scans) %>% -->
+
 <!--                 filter(Cond != 'Catch') %>% -->
+
 <!--                 mutate(Group = factor(Group, -->
+
 <!--                                       levels = c('HC_PIT','PD_PIT')), -->
+
 <!--                        Cond = factor(Cond, -->
+
 <!--                                      levels = c('Ext','Int2','Int3'), -->
+
 <!--                                      labels = c('1choice','2choice','3choice'))) %>% -->
+
 <!--                 rename(Beta = Vals) -->
 
 <!--         bn <- basename(csvfile) -->
+
 <!--         if(str_detect(bn, 'Mean')){ -->
+
 <!--                 fmridat <- fmridat %>% -->
+
 <!--                         group_by(pseudonym, Group) %>% -->
+
 <!--                         summarise(across(c(Beta), ~ mean(.x, na.rm=TRUE))) %>% -->
+
 <!--                         ungroup() -->
+
 <!--                 raincloudplot_1Factor(fmridat, 'Beta', c('Group'), title = basename(csvfile), -->
+
 <!--                                       xlab='Group', ylab='Beta', xticklabs = c('Healthy','PD-On'), -->
+
 <!--                                       color_scheme = 'viridis') %>% print()    -->
+
 <!--         }else{ -->
+
 <!--                 raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'), title = basename(csvfile), -->
+
 <!--                                       xlab='Group', ylab='Beta', xticklabs = c('Healthy','PD-On'), -->
+
 <!--                                       legend_title = 'No. of choices', legend_labels = c('One','Two','Three'), -->
+
 <!--                                       color_scheme = 'mako') %>% print()         -->
+
 <!--         } -->
+
 <!-- } -->
+
 <!-- ``` -->
 
 ## Subtypes vs subtypes
@@ -748,8 +896,29 @@ for(v in 1:length(vois)){
                                      labels = c('1choice','2choice','3choice'))) %>%
                 rename(Beta = Vals)
         
-        # fmridat <- fmridat %>%
-        #         filter(Group %in% c('1_Mild-Motor','3_Diffuse-Malignant'))
+        bn <- basename(csvfile)
+        if(str_detect(bn, 'HC_PD')){
+          fmridat.subset <- fmridat %>%
+            filter(Group == '1_Mild-Motor' | Group == '2_Intermediate' | Group == '3_Diffuse-Malignant')
+        }else if(str_detect(bn, 'Inter_DM')){
+          fmridat.subset <- fmridat %>%
+            filter(Group == '2_Intermediate' | Group == '3_Diffuse-Malignant')
+        }else if(str_detect(bn, 'MMP_DM') | str_detect(bn, 'MMP_MD')){
+          fmridat.subset <- fmridat %>%
+            filter(Group == '1_Mild-Motor' | Group == '3_Diffuse-Malignant')
+        }
+        fmridat.subset <- fmridat.subset %>% pivot_wider(id_cols = c('pseudonym','Group'),
+                                       names_from = Cond,
+                                       values_from = Beta) %>%
+          mutate(Avg = (`3choice` + `2choice` + `1choice`)/3,
+                 IvL = `2choice` - `1choice`,
+                 HvL = `3choice` - `1choice`,
+                 Avg.Outlier = if_else(abs(Avg-mean(Avg)) > 3*sd(Avg), 1, 0),
+                 IvL.Outlier = if_else(abs(IvL-mean(IvL)) > 3*sd(IvL), 1, 0),
+                 HvL.Outlier = if_else(abs(HvL-mean(HvL)) > 3*sd(HvL), 1, 0)) %>%
+          select(-c(`1choice`,`2choice`,`3choice`))
+        print(bn)
+        fmridat.subset %>% filter(Avg.Outlier == TRUE | IvL.Outlier == TRUE | HvL.Outlier == TRUE) %>% print()
         
         raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'), title = basename(csvfile),
                       xlab='Group', ylab='Beta', xticklabs = c('MMP','IM', 'DM'),
@@ -1107,6 +1276,30 @@ for(v in 1:length(vois)){
                                      levels = c('Ext','Int2','Int3'),
                                      labels = c('1choice','2choice','3choice'))) %>%
                 rename(Beta = Vals)
+        
+        bn <- basename(csvfile)
+        if(str_detect(bn, 'MMP_HC')){
+          fmridat.subset <- fmridat %>%
+            filter(Group == '1_Mild-Motor' | Group == '0_Healthy')
+        }else if(str_detect(bn, 'IM_HC')){
+          fmridat.subset <- fmridat %>%
+            filter(Group == '2_Intermediate' | Group == '0_Healthy')
+        }else if(str_detect(bn, 'HC_DM')){
+          fmridat.subset <- fmridat %>%
+            filter(Group == '3_Diffuse-Malignant' | Group == '0_Healthy')
+        }
+        fmridat.subset <- fmridat.subset %>% pivot_wider(id_cols = c('pseudonym','Group'),
+                                       names_from = Cond,
+                                       values_from = Beta) %>%
+          mutate(Avg = (`3choice` + `2choice` + `1choice`)/3,
+                 IvL = `2choice` - `1choice`,
+                 HvL = `3choice` - `1choice`,
+                 Avg.Outlier = if_else(abs(Avg-mean(Avg)) > 3*sd(Avg), 1, 0),
+                 IvL.Outlier = if_else(abs(IvL-mean(IvL)) > 3*sd(IvL), 1, 0),
+                 HvL.Outlier = if_else(abs(HvL-mean(HvL)) > 3*sd(HvL), 1, 0)) %>%
+          select(-c(`1choice`,`2choice`,`3choice`))
+        print(bn)
+        fmridat.subset %>% filter(Avg.Outlier == TRUE | IvL.Outlier == TRUE | HvL.Outlier == TRUE) %>% print()
         
         # fmridat <- fmridat %>%
         #         filter(Group %in% c('1_Mild-Motor','3_Diffuse-Malignant'))
@@ -1598,7 +1791,7 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Corr_ON
 
 ##### Three>One correlation #####
 
-parietal1 <- vois[15] # 3 gt 1
+parietal1 <- vois[12] # 3 gt 1
 # parietal2 <- vois[1]  # 2 gt 1
 voi.putamen <- fmridat.putamen.collapsed %>%
         mutate(INT3gtEXT = `3choice` - `1choice`) %>%
@@ -1646,7 +1839,7 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfAppendicularSum, y=Beta, color=fc
         geom_smooth(method = 'lm', se = FALSE, lwd = 1.5) +
         scale_colour_viridis_d(option='mako', begin = 0.1, end = .6, alpha = .8,
                                direction = -1,
-                               labels = c(paste('SPL', ' (n=', N[1],')',
+                               labels = c(paste('PMC', ' (n=', N[1],')',
                                                 ', r=', round(c.SPL$estimate,digits=2), sep=''),
                                           paste('Putamen', ' (n=', N[1],')',
                                                 ', r=', round(c.Putamen$estimate,digits=2), sep=''))) +
@@ -1655,7 +1848,7 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfAppendicularSum, y=Beta, color=fc
         theme_cowplot(font_size = 14, font_family = 'Calibri') +
         theme(legend.position = c(0.6,0.8),
               legend.key.size = unit(0.5,'cm')) +
-        xlab('MDS-UPDRS III (bradykinesia + rigidity)') +
+        xlab('MDS-UPDRS-III (bradykinesia + rigidity)') +
         ylab('Beta (three - one)')
 print(plot)
 
@@ -1706,49 +1899,37 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Corr_ON
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 
 compare_rts <- function(f, tmp, tmp.collapsed){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr = FALSE, digits = 3)
-        cat('\n \n Anova: ')
         anova <- anova(fit)
         print(anova)
-        cat('\n \n')
         effectsize(anova) %>% print()
+        
         # Post hoc test
-        # cat('\n \n Post hoc tests of interactions \n')
-        # em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        # contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        # emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
-
-        # em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        # contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, ParticipantType ~ block, type='response') %>% print()
-
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
         
-        em3 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
-
-        # em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        # contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, trial_type ~ block, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
+        emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
         
-        em4 <- emmeans(fit, pairwise ~ ParticipantType, type='response', adjust='mvt')
-        print(em4)
+        em <- emmeans(fit, pairwise ~ ParticipantType, type='response', adjust='mvt')
+        print(em)
         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
         
-        em5 <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
-        print(em5)
+        em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+        print(em)
         emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
-        cat('\n \n')
+        
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
+        
+        # Summary stats
                 # emmip with plotit=FALSE gives a table of summarystats that is very handy
                 # Some adjustments make it usable for the raincloudplot function below
         emm.summary <- emmip(fit, ParticipantType ~ trial_type, plotit = FALSE, type = 'response') %>%
@@ -1757,12 +1938,16 @@ compare_rts <- function(f, tmp, tmp.collapsed){
                        se = SE) %>%
                 select(-c(df, tvar, xvar)) %>%
                 mutate(ci = se*1.96)
+        print(emm.summary)
+        
+        # Plots
                 # Generate rainclouds where points, boxplots and densities reflect actual data
                 # Means, CIs, and lines reflect estimated marginal means
-        cat('\n \n Summary statistics \n')
-        N <- tmp.collapsed %>%
+        N <- tmp  %>% 
+                group_by(pseudonym, ParticipantType) %>%
+                summarise(across(everything(), ~first(.x))) %>%
+                na.omit() %>%
                 ungroup() %>%
-                filter(trial_type == '1choice') %>%
                 select(ParticipantType) %>%
                 table()
         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='response_time',
@@ -1813,6 +1998,7 @@ compare_rts <- function(f, tmp, tmp.collapsed){
                 theme_cowplot(font_size = 20)
         print(tplot)
         
+        # Diagnostics
         plot(fit) %>% print()
         qqmath(fit) %>% print()
         qqmath(ranef(fit))
@@ -1830,36 +2016,33 @@ tmp <- df %>%
         filter(Percentage.Correct.BelowCutoff == FALSE) %>%
         filter(ParticipantType %in% groups) %>%
         mutate(ParticipantType = droplevels(ParticipantType),
-               trial_type = droplevels(trial_type))
+               trial_type = droplevels(trial_type)) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, response_time)
 tmp.collapsed <- tmp %>% 
         group_by(pseudonym, ParticipantType, trial_type) %>%
         summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE)))
 compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 
-# f.me_null <- 'log(response_time) ~ 1 + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
-# fit.me_null <- lmer(f.me_null, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = FALSE)
-# f.group <- 'log(response_time) ~ 1 + ParticipantType + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
-# fit.group <- lmer(f.group, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = FALSE)
-# f.cond <- 'log(response_time) ~ 1 + trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
-# fit.cond <- lmer(f.cond, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = FALSE)
-# anova(fit.me_null,fit.group) %>% print()
-# anova(fit.me_null, fit.cond) %>% print()
-# emmeans(fit.cond, pairwise ~ trial_type, type='response', adjust = 'bonferroni') %>% print()
-# 
-# f.int_null <- 'log(response_time) ~ 1 + ParticipantType+trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
-# fit.int_null <- lmer(f.int_null, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = FALSE)
-# f.int <-'log(response_time) ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
-# fit.int <- lmer(f.int, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = FALSE)
-# anova(fit.int_null, fit.int) %>% print()
-# emmeans(fit.int, ~ParticipantType|trial_type) %>% contrast(interaction = c('pairwise','pairwise'), by = NULL, type = 'response', adjust = 'bonferroni')
-
 ```
 
-## ON, Bradykinesia-rigidity ~ RTs
+## ON, Bradykinesia-rigidity \~ RTs
 
 ```{r echo = FALSE, warning = TRUE}
-tmp.clincorr <- tmp %>%
-        filter(ParticipantType=='PD_POM')
+
+# Fit model
+tmp.clincorr <- df %>%
+        filter(ParticipantType=='PD_POM') %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        filter(Percentage.Correct.BelowCutoff == FALSE) %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type)) %>%
+        select(pseudonym, Up3OfAppendicularSum_Dmean, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, response_time, Up3OfAppendicularSum)
 f.clincorr <- 'log(response_time) ~ 1 + Up3OfAppendicularSum_Dmean*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
 fit.clincorr <- lmer(f.clincorr, tmp.clincorr, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
 s <- summary(fit.clincorr)
@@ -1867,21 +2050,28 @@ print(s, corr=FALSE, digits = 3)
 anova <- anova(fit.clincorr)
 print(anova)
 effectsize(anova) %>% print()
+
+# Post hoc test
+emt <- emtrends(fit.clincorr, ~trial_type, var='Up3OfAppendicularSum_Dmean')
+contrast(emt, 'revpairwise', adjust = 'mvt') %>% print()
+
+# Visualize
 plotdat <- tmp.clincorr %>%
         group_by(pseudonym, trial_type) %>%
         summarise(across(c(response_time, Up3OfAppendicularSum), ~ mean(.x, na.rm=TRUE))) %>%
         ungroup()
-
 c <- plotdat %>%
         group_by(pseudonym, trial_type) %>%
         summarise(across(c(response_time, Up3OfAppendicularSum), ~ mean(., na.rm=TRUE))) %>%
-        select(response_time, Up3OfAppendicularSum)
+        select(pseudonym, response_time, Up3OfAppendicularSum)
 c <- cor.test(c$response_time, c$Up3OfAppendicularSum)
-N <- plotdat %>%
-        filter(trial_type=='1choice') %>%
-                select(pseudonym) %>%
-                summarise(N=n())
-
+N <- tmp.clincorr  %>% 
+        group_by(pseudonym, ParticipantType) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        na.omit() %>%
+        ungroup() %>%
+        select(ParticipantType) %>%
+        table()
 plot <- ggplot(plotdat, aes(y=response_time, x=Up3OfAppendicularSum, color=trial_type)) +
         geom_point(alpha = .3, shape = 19, size = 1.5) +
         geom_smooth(method='lm', se = FALSE, lwd = 2) +
@@ -1902,110 +2092,158 @@ print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_Corr_ON_Severity.tiff',
           plot, dpi=300, device='tiff')
 
-# Post hoc test
-# Association between disease severity and response times
-cat('\n \n Emtrends \n \n ')
-emt <- emtrends(fit.clincorr, ~trial_type, var='Up3OfAppendicularSum_Dmean')
-contrast(emt, 'pairwise', adjust = 'mvt') %>% print()
-# emttplot <- emmip(fit.clincorr, trial_type ~ Up3OfAppendicularSum, cov.reduce=range,
-#                   CIs = TRUE)
-# emttplot <- emttplot +
-#         theme_cowplot(font_size = 20) +
-#         scale_colour_viridis_d(option='turbo', labels = c('One','Two','Three')) +
-#         ggtitle('') +
-#         xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
-#         guides(color=guide_legend(title='No. of choices', reverse = TRUE))
-# print(emttplot)
-# Association between subtype and trial type, corrected for by disease severity
-# cat('\n \n Emmeans \n \n')
-# emm <- emmeans(fit.clincorr, ~trial_type*Up3OfAppendicularSum, type='response')
-# print(emm)
-# contrast(emm, interaction = c(trial_type='revpairwise', Up3OfAppendicularSum='identity'), adjust = 'mvt', by = NULL) %>% print()
-# Visualization
-# emmip(fit.clincorr, Up3OfAppendicularSum ~ trial_type, type = 'response', CIs=TRUE) %>% print()
 ```
 
 <!-- ## OFF vs. HC -->
 
 <!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
+
 <!-- compare_rts <- function(f, tmp, tmp.collapsed){ -->
+
 <!--         # Fit model -->
+
 <!--         print(paste('Fitting the following model:', f, sep=' ')) -->
+
 <!--         fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+
 <!--         s <- summary(fit) -->
+
 <!--         print(s, corr = FALSE, digits = 3) -->
+
 <!--         cat('\n \n Anova: ') -->
+
 <!--         anova <- anova(fit) -->
+
 <!--         print(anova) -->
+
 <!--         cat('\n \n') -->
+
 <!--         effectsize(anova) %>% print() -->
+
 <!--         # Post hoc test -->
+
 <!--                 # Interaction -->
+
 <!--         cat('\n \n Post hoc tests of interaction ParticipantType x trial_type \n') -->
+
 <!--         em <- emmeans(fit, ~ ParticipantType | trial_type) -->
+
 <!--         print(em) -->
+
 <!--         contrast(em, interaction = c(ParticipantType = 'revpairwise', trial_type='revpairwise'), -->
+
 <!--                  by=NULL, adjust = 'mvt', type='response') %>% print() # by=NULL overrides the grouping of em -->
+
 <!--         # interaction specifies the contrasts that are defined and how they are presented -->
+
 <!--                 # Main effects -->
+
 <!--         cat('\n \n Post hoc tests of main effect ParticipantType \n') -->
+
 <!--         emmeans(fit, pairwise ~ ParticipantType|trial_type, type = 'response', adjust = 'mvt')$contrast %>% print() -->
+
 <!--         cat('\n \n Post hoc tests of main effect trial_type \n') -->
+
 <!--         emmeans(fit, pairwise ~ trial_type|ParticipantType, type = 'response', adjust = 'mvt')$contrast %>% print() -->
+
 <!--         # Visualization -->
+
 <!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+
 <!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R') -->
+
 <!--                 # emmip with plotit=FALSE gives a table of summarystats that is very handy -->
+
 <!--                 # Some adjustments make it usable for the raincloudplot function below -->
+
 <!--         emm.summary <- emmip(fit, ParticipantType ~ trial_type, plotit = FALSE, type = 'response') %>% -->
+
 <!--                 tibble() %>% -->
+
 <!--                 rename(mean = yvar, -->
+
 <!--                        se = SE) %>% -->
+
 <!--                 select(-c(df, tvar, xvar)) %>% -->
+
 <!--                 mutate(ci = se*1.96) -->
+
 <!--                 # Generate rainclouds where points, boxplots and densities reflect actual data -->
+
 <!--                 # Means, CIs, and lines reflect estimated marginal means -->
+
 <!--         cat('\n \n Summary statistics \n') -->
+
 <!--         raincloudplot_2Factor(data=tmp.collapsed, y='response_time', -->
+
 <!--                               groupvar=c('trial_type','ParticipantType'), -->
+
 <!--                               title='', xlab='Group', ylab='Response time (s)', -->
+
 <!--                               xticklabs=c('Healthy','PD-Off'), legend_title = 'No. of choices', -->
+
 <!--                               legend_labels = c('One','Two','Three'), -->
+
 <!--                               provided_summary = 'None') %>% print() -->
 
 <!--         tplot <- emmip(fit, trial_type~ParticipantType, CIs = TRUE, -->
+
 <!--                        type='response') + -->
+
 <!--                 scale_x_discrete(labels=c('Healthy','PD-Off')) +  -->
+
 <!--                 scale_colour_viridis_d(option='mako', begin = .1, end = .6, -->
+
 <!--                                        direction = -1,labels=c('One','Two','Three')) + -->
+
 <!--                 ggtitle('') + ylab('Predicted response times (s)') + -->
+
 <!--                 xlab('Group') +  -->
+
 <!--                 guides(color=guide_legend(title='No. of choices', reverse = FALSE)) + -->
+
 <!--                 theme_cowplot(font_size = 20) -->
+
 <!--         print(tplot) -->
 
 <!--         plot(fit) %>% print() -->
+
 <!--         qqmath(fit) %>% print() -->
+
 <!--         qqmath(ranef(fit)) -->
 
 <!-- } -->
 
 <!-- f <- 'log(response_time) ~ 1 + ParticipantType*trial_type*block + Age_Dmean + Gender + (1+trial_type+block|pseudonym)' -->
+
 <!-- # removed due to non-significance -->
 
 <!-- groups <- c('PD_PIT','HC_PIT') -->
+
 <!-- tmp <- df %>% -->
+
 <!--         filter(event_type == 'response') %>% -->
+
 <!--         filter(trial_type != 'Catch') %>% -->
+
 <!--         filter(response_time > 0.3) %>% -->
+
 <!--         filter(correct_response=='Hit') %>% -->
+
 <!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
+
 <!--         filter(ParticipantType %in% groups) %>% -->
+
 <!--         mutate(ParticipantType = droplevels(ParticipantType), -->
+
 <!--                trial_type = droplevels(trial_type)) -->
+
 <!-- tmp.collapsed <- tmp %>%  -->
+
 <!--         group_by(pseudonym, ParticipantType, trial_type) %>% -->
+
 <!--         summarise(across(c(response_time), ~ mean(.x))) -->
+
 <!-- compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed) -->
 
 <!-- ``` -->
@@ -2015,71 +2253,51 @@ contrast(emt, 'pairwise', adjust = 'mvt') %>% print()
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 
 compare_rts_for_medication <- function(f, tmp, tmp.collapsed){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
-        fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+        fit <- lmer(f, data=tmp2, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr=FALSE, digits = 3)
-        cat('\n \n Anova: ')
         anova <- anova(fit)
         print(anova)
-        cat('\n \n')
         effectsize(anova) %>% print()
+        
         # Post hoc test
-                # Association between disease severity and response times
-        # cat('\n \n Emtrends \n \n ')
-        # emt <- emtrends(fit, ~ParticipantType, var='Up3OfAppendicularSum_Dmean')
-        # print(emt)
-        # contrast(emt, 'pairwise', adjust = 'mvt') %>% print()
-                # Association between subtype and trial type, corrected for by disease severity
-        # cat('\n \n Post hoc tests of interactions \n')
-        # em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        # contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        # emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
-
-        # em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        # contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, ParticipantType ~ block, type='response') %>% print()
-
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
-
-        # em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        # contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, trial_type ~ block, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
         
-        em3 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('pairwise','pairwise'), adjust='mvt', type='response') %>% print()
+        emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
         
-        em4 <- emmeans(fit, pairwise ~ ParticipantType, type='response', adjust='mvt')
-        print(em4)
+        em <- emmeans(fit, revpairwise ~ ParticipantType, type='response', adjust='mvt')
+        print(em)
         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
         
-        em5 <- emmeans(fit, pairwise ~ trial_type, type='response', adjust='mvt')
-        print(em5)
+        em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+        print(em)
         emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
-        
-        cat('\n \n')
+
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
-                # emmip with plotit=FALSE gives a table of summarystats that is very handy
-                # Some adjustments make it usable for the raincloudplot function below
-        # emm.summary <- emmip(fit, ParticipantType ~ trial_type, plotit = FALSE,
-        #                      type = 'response', cov.reduce=Up3OfAppendicularSum_Dmean ~ ParticipantType) %>%
-        #         tibble() %>%
-        #         rename(mean = yvar,
-        #                se = SE) %>%
-        #         select(-c(df, tvar, xvar)) %>%
-        #         mutate(ci = se*1.96)
-                # Generate rainclouds where points, boxplots and densities reflect actual data
-                # Means, CIs, and lines reflect estimated marginal means
-        cat('\n \n Summary statistics \n')
-        N <- tmp.collapsed %>%
+        
+        # Summary stats
+        emm.summary <- emmip(fit, ParticipantType ~ trial_type, plotit = FALSE, type = 'response') %>%
+                tibble() %>%
+                rename(mean = yvar,
+                       se = SE) %>%
+                select(-c(df, tvar, xvar)) %>%
+                mutate(ci = se*1.96)
+        print(emm.summary)
+        
+        # Plots
+        N <- tmp  %>% 
+                group_by(pseudonym, ParticipantType) %>%
+                summarise(across(everything(), ~first(.x))) %>%
+                na.omit() %>%
                 ungroup() %>%
-                filter(trial_type == '1choice') %>%
                 select(ParticipantType) %>%
                 table()
         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='response_time',
@@ -2092,65 +2310,35 @@ compare_rts_for_medication <- function(f, tmp, tmp.collapsed){
                                       legend_position = legend_position,
                                       legend_labels = c('One', 'Two', 'Three'),
                                       provided_summary = 'None') +
-                ylim(0.3,1.75) #+
-                # geom_segment(x=1,xend=2,y=1.46,yend=1.46,size=lsize) +
-                # geom_segment(x=1,xend=1,y=1.46,yend=1.44,size=lsize) +
-                # geom_segment(x=2,xend=2,y=1.46,yend=1.44,size=lsize) +
-                # geom_segment(x=0.8,xend=1.2,y=1.44,yend=1.44,size=lsize) +
-                # geom_segment(x=1.8,xend=2.2,y=1.44,yend=1.44,size=lsize) +
-                # geom_segment(x=0.8,xend=0.8,y=1.44,yend=1.42,size=lsize) +
-                # geom_segment(x=1.2,xend=1.2,y=1.44,yend=1.42,size=lsize) +
-                # geom_segment(x=1.8,xend=1.8,y=1.44,yend=1.42,size=lsize) +
-                # geom_segment(x=2.2,xend=2.2,y=1.44,yend=1.42,size=lsize) +
-                # geom_text(x=1.5,y=1.5,label=('p = 0.085'),size=sigsize,
-                #           show.legend = FALSE)
+                ylim(0.3,1.75)
+        y <- 1.75
+        d = 0.1
+        segmap <- data.frame(
+                x =    c(0.80,  0.80,  1.80,  1.80),
+                xend = c(1.00,  1.20,  2.00,  2.20),
+                y =    c(y-d*2, y-d*3, y-d*2, y-d*3),
+                yend = c(y-d*2, y-d*3, y-d*2, y-d*3)
+        )
+        sigmap <- data.frame(
+                x =     c(0.90,  1.00,  1.90,  2.00),
+                y =     c(y-d*2, y-d*3, y-d*2, y-d*3),
+                label = c('***', '***', '***', '***')
+        )
+        plot <- plot + 
+                geom_segment(data=segmap,
+                             mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                             inherit.aes = FALSE,
+                             size = lsize) +
+                geom_text(data=sigmap, 
+                          mapping = aes(x=x,y=y,label=label),
+                          inherit.aes = FALSE,
+                          size = sigsize)
+        
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_ONvsOff.tiff',
           plot, dpi=300, device='tiff')
-        
-        # tplot <- emmip(fit, ParticipantType~Up3OfAppendicularSum, CIs = TRUE,
-        #                type='response', at=list(Up3OfAppendicularSum = c(7,26.5,46)), dodge=1.5) +
-        #         scale_colour_viridis_d(option='viridis', begin = .1, end = .6,
-        #                                direction = -1, labels = c('PD-Off','PD-On')) +
-        #         ggtitle('') + ylab('Predicted response times (s)') +
-        #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') + 
-        #         guides(color=guide_legend(title='Group', reverse = FALSE)) +
-        #         theme_cowplot(font_size = 20)
-        # print(tplot)
-        
-        # plotdat <- tmp %>%
-        #         group_by(pseudonym, ParticipantType) %>%
-        #         summarise(across(c(response_time, Up3OfAppendicularSum), ~ mean(.x, na.rm=TRUE))) %>%
-        #         ungroup()
-        # 
-        # dOff <- plotdat %>% filter(ParticipantType=='PD_PIT')
-        # cOff <- cor.test(dOff$response_time, dOff$Up3OfAppendicularSum)
-        # dOn <- plotdat %>% filter(ParticipantType=='PD_POM')
-        # cOn <- cor.test(dOn$response_time, dOn$Up3OfAppendicularSum)
-        # 
-        # plot <- ggplot(plotdat, aes(y=response_time, x=Up3OfAppendicularSum, 
-        #                             color = ParticipantType)) +
-        #         geom_point(alpha = .3, shape = 19, size = 2, show.legend = FALSE) +
-        #         geom_smooth(method='lm', se = FALSE, lwd = 2) +
-        #         scale_colour_viridis_d(option='mako', begin = 0.1, end = .6, alpha = .8,
-        #                                direction = -1,
-        #                                labels = c(paste('PD-Off', ' (n=', N[1],')',
-        #                                                 ', r=', round(cOff$estimate,digits=3), sep=''),
-        #                                   paste('PD-On', ' (n=', N[2],')',
-        #                                                 ', r=', round(cOn$estimate,digits=3), sep=''))) +
-        #         ggtitle('Influence of medication on the association \nbetween response times and disease severity') +
-        #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') + ylab('Response times (s)') + 
-        #         guides(color=guide_legend(title='', reverse = FALSE)) + 
-        #         theme_cowplot(font_size = 35, font_family = 'Calibri') +
-        #         theme(legend.position = c(.05,.85)) +
-        #         xlim(6,55)+
-        #         geom_segment(x=47,xend=47,y=1.005,yend=1.035,size=lsize) +
-        #         geom_text(x=48,y=1.014,label='*',size=sigsize, show.legend = FALSE)
-        #         
-        # print(plot)
-        # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/ONvsOFF_RTs_Severity.tiff',
-        #   plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
-        
+
+        # Diagnostics
         plot(fit) %>% print()
         qqmath(fit) %>% print()
         qqmath(ranef(fit))
@@ -2172,7 +2360,6 @@ ids <- df %>%
 OnAndOff <- ids[duplicated(ids),]
 
 f <- 'log(response_time) ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
-#
 
 groups <- c('PD_PIT','PD_POM')
 
@@ -2184,18 +2371,29 @@ tmp <- df %>%
         filter(correct_response=='Hit') %>%
         filter(ParticipantType %in% groups) %>%
         mutate(ParticipantType = droplevels(ParticipantType),
-               trial_type = droplevels(trial_type))
-disease_severity <- tmp %>%
-        filter(ParticipantType=='PD_POM') %>%
-        select(pseudonym, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean, NpsEducYears, NpsEducYears_Dmean) %>%
-        group_by(pseudonym) %>%
-        summarise(across(c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean), ~ mean(.x, na.rm=TRUE)))
+               trial_type = droplevels(trial_type)) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, response_time)
+# disease_severity <- tmp %>%
+#         filter(ParticipantType=='PD_POM') %>%
+#         select(pseudonym, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean, NpsEducYears, NpsEducYears_Dmean) %>%
+#         group_by(pseudonym) %>%
+#         summarise(across(c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean), ~ mean(.x, na.rm=TRUE)))
+# tmp <- tmp %>%
+#         select(-c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean)) %>%
+#         left_join(., disease_severity, by = 'pseudonym')
+covars <- tmp %>%
+  filter(ParticipantType=='PD_POM') %>%
+  select(pseudonym, Age_Dmean, Gender, NpsEducYears_Dmean) %>%
+  mutate(Gender = as.numeric(Gender)) %>%
+  group_by(pseudonym) %>%
+  summarise(across(c(NpsEducYears_Dmean,Age_Dmean, Gender), ~ mean(.x, na.rm=TRUE)))
 tmp <- tmp %>%
-        select(-c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean)) %>%
-        left_join(., disease_severity, by = 'pseudonym')
+        select(-c(Age_Dmean, Gender, NpsEducYears_Dmean)) %>%
+        left_join(., covars, by = 'pseudonym')
 tmp.collapsed <- tmp %>% 
         group_by(pseudonym, ParticipantType, trial_type) %>%
-        summarise(across(c(response_time), ~ mean(.x)))
+        summarise(across(c(response_time,Age_Dmean), ~ mean(.x)))
 compare_rts_for_medication(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 
 ```
@@ -2205,6 +2403,7 @@ compare_rts_for_medication(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 ```{r echo=FALSE, message=FALSE}
 
 compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
@@ -2213,88 +2412,49 @@ compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
         anova <- anova(fit)
         print(anova)
         effectsize(anova) %>% print()
+        
         # Post hoc test
-        cat('\n \n Post hoc tests of interactions \n')
-        # em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        # contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        # emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
-
-        # em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        # contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, ParticipantType ~ block, type='response') %>% print()
-
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
+        emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
         
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
+        emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
 
-        # em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        # contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, trial_type ~ block, type='response') %>% print()
-        
-        em4 <- emmeans(fit, pairwise ~ ParticipantType, adjust='mvt', type='response')
-        print(em4)
+        em <- emmeans(fit, pairwise ~ ParticipantType, adjust='none', type='response')
+        print(em)
         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
         
-        em5 <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
-        print(em5)
+        em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+        print(em)
         emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
-        cat('\n \n')
+        
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
-                # emmip with plotit=FALSE gives a table of summarystats that is very handy
-                # Some adjustments make it usable for the raincloudplot function below
-        # emm.summary <- emmip(fit, ParticipantType ~ trial_type, plotit = FALSE,
-        #                      type = 'response', cov.reduce=Up3OfAppendicularSum_Dmean ~ ParticipantType) %>%
-        #         tibble() %>%
-        #         rename(mean = yvar,
-        #                se = SE) %>%
-        #         select(-c(df, tvar, xvar)) %>%
-        #         mutate(ci = se*1.96)
-                # Generate rainclouds where points, boxplots and densities reflect actual data
-                # Means, CIs, and lines reflect estimated marginal means
         
-        # raincloudplot_2Factor(data=tmp.collapsed, y='response_time',
-        #                       groupvar=c('trial_type','ParticipantType'),
-        #                       title='', xlab='Number of choices', ylab='Response time (s)',
-        #                       xticklabs=c('MMP','IM', 'DM'), legend_title = 'No. of choices',
-        #                       legend_labels = c('One', 'Two', 'Three'),
-        #                       provided_summary = 'None') %>% print()
+        # Summary
+        emm.summary <- emmip(fit, ParticipantType ~ trial_type, plotit = FALSE, type = 'response') %>%
+                tibble() %>%
+                rename(mean = yvar,
+                       se = SE) %>%
+                select(-c(df, tvar, xvar)) %>%
+                mutate(ci = se*1.96)
+        print(emm.summary)
         
-        # tplot <- emmip(fit, trial_type~Up3OfAppendicularSum|ParticipantType, CIs = TRUE,
-        #                type='response', at=list(Up3OfAppendicularSum = c(5,31,57)), dodge=7) +
-        #         scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-        #                                direction = -1, labels = c('One','Two', 'Three')) +
-        #         ggtitle('') + ylab('Predicted response times (s)') +
-        #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
-        #         guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
-        #         theme_cowplot(font_size = 20)
-        # print(tplot)
-        
-        # plotdat <- tmp %>%
-        #         group_by(pseudonym, ParticipantType, trial_type) %>%
-        #         summarise(across(c(response_time, Up3OfAppendicularSum), ~ mean(.x, na.rm=TRUE))) %>%
-        #         ungroup()
-        # g <- ggplot(plotdat, aes(y=response_time, x=Up3OfAppendicularSum, color = trial_type, group = trial_type)) +
-        #         geom_point(alpha = .3, shape = 19, size = 2) +
-        #         geom_smooth(method='lm', se = FALSE, lwd = 2) +
-        #         scale_colour_viridis_d(option='mako', begin = 0.1, end = .6, alpha = .8,
-        #                                direction = -1, labels = c('One','Two','Three')) +
-        #         ggtitle('') + xlab('MDS-UPDRS III (bradykineisa + rigidity)') + ylab('Response times (s)') + 
-        #         guides(color=guide_legend(title='Group', reverse = FALSE)) + 
-        #         theme_cowplot(font_size = 20) +
-        #         facet_grid(~ParticipantType)
-        # print(g)
-        
-        # emmeans(fit, pairwise ~ trial_type*Up3OfAppendicularSum_Dmean|ParticipantType)
-        N <- tmp.collapsed %>%
+        # Plots
+        # N <- tmp.collapsed %>%
+        #         ungroup() %>%
+        #         filter(trial_type == '1choice',
+        #                block == '1') %>%
+        #         select(ParticipantType) %>%
+        #         table()
+        N <- tmp  %>% 
+                group_by(pseudonym, ParticipantType) %>%
+                summarise(across(everything(), ~first(.x))) %>%
+                na.omit() %>%
                 ungroup() %>%
-                filter(trial_type == '1choice',
-                       block == '1') %>%
                 select(ParticipantType) %>%
                 table()
         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='response_time',
@@ -2314,12 +2474,12 @@ compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
         segmap <- data.frame(
                 x =    c(0.80,  0.80,  1.80,  1.80,  2.80,  2.80),
                 xend = c(1.00,  1.20,  2.00,  2.20,  3.00,  3.20),
-                y =    c(y-d*1, y-d*2, y-d*1, y-d*2, y-d*1, y-d*2),
-                yend = c(y-d*1, y-d*2, y-d*1, y-d*2, y-d*1, y-d*2)
+                y =    c(y-d*2, y-d*3, y-d*2, y-d*3, y-d*2, y-d*3),
+                yend = c(y-d*2, y-d*3, y-d*2, y-d*3, y-d*2, y-d*3)
         )
         sigmap <- data.frame(
                 x =     c(0.90,  1.00,  1.90,  2.00,  2.90,  3.00),
-                y =     c(y-d*1, y-d*2, y-d*1, y-d*2, y-d*1, y-d*2),
+                y =     c(y-d*2, y-d*3, y-d*2, y-d*3, y-d*2, y-d*3),
                 label = c('***', '***', '***', '***', '***', '***')
         )
         plot <- plot + 
@@ -2335,88 +2495,15 @@ compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_Subtypes.tiff',
                   plot, dpi=300, device='tiff')
         
-        # dOff <- tmp. %>% filter(ParticipantType=='PD_PIT')
-        # cOff <- cor.test(dOff$response_time, dOff$Up3OfAppendicularSum)
-        # dOn <- plotdat %>% filter(ParticipantType=='PD_POM')
-        # cOn <- cor.test(dOn$response_time, dOn$Up3OfAppendicularSum)
-        
-        # faclabs <- c(MMP=paste('MMP',' (n=',N[1],')',sep=''),
-        #              IM=paste('IM',' (n=', N[2],')',sep=''),
-        #              DM=paste('DM',' (n=', N[3],')',sep=''))
-        # 
-        # segmap <- data.frame(
-        #         ParticipantType=factor(c(1,2,3,3),
-        #                                labels=c('MMP','IM','DM'),
-        #                                levels=c(1,2,3)),
-        #         x=c(45,59,53,57),
-        #         xend=c(45,59,53,57),
-        #         y=c(0.86,0.995,0.93,0.93),
-        #         yend=c(0.89,1.055,1.06,1.08)
-        # )
-        # sigmap <- data.frame(
-        #         ParticipantType=factor(c(1,2,3,3),
-        #                                labels=c('MMP','IM','DM'),
-        #                                levels=c(1,2,3)),
-        #         x=c(49,62,57,61),
-        #         y=c(0.875,1.025,0.995,1.005),
-        #         label=c('*','+','***','***')
-        # )
-        # 
-        # plot <- ggplot(tmp.collapsed, aes(y=response_time, x=Up3OfAppendicularSum)) +
-        #         geom_point(aes(color=trial_type),
-        #                    alpha = .3, shape = 19, size = 2, show.legend=FALSE) +
-        #         geom_smooth(aes(color=trial_type),
-        #                     method='lm', se = FALSE, lwd = 2) +
-        #         scale_colour_viridis_d(option='mako', begin = 0.1, end = .6, alpha = .8,
-        #                                direction = -1,
-        #                                labels = c('One','Two','Three')) +
-        #         ggtitle('Influence of subtype on the association \nbetween response times and disease severity') +
-        #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') + ylab('Response times (s)') + 
-        #         guides(color=guide_legend(title='', reverse = FALSE)) + 
-        #         theme_cowplot(font_size = 35, font_family = 'Calibri') +
-        #         theme(legend.position = c(0.02,0.9)) +
-        #         facet_grid(~ParticipantType, labeller=labeller(ParticipantType=faclabs)) +
-        #         xlim(5,62) +
-        #         geom_segment(data = segmap,
-        #                      mapping = aes(x=x,xend=xend,
-        #                                    y=y,yend=yend),
-        #                      size=lsize) +
-        #         geom_text(data=sigmap,
-        #                   mapping = aes(x=x,y=y,label=label,angle=90),
-        #                   size=sigsize,
-        #                   show.legend = FALSE)
-        #         
-        # print(plot)
-        # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Subtypes_RTs_Severity.tiff',
-        #   plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
-        
+        # Diagnostics
         plot(fit) %>% print()
         qqmath(fit) %>% print()
         qqmath(ranef(fit))
         
 }
-plot_rts_for_subtypes <- function(tmp){
-        plotdat <- tmp %>%
-                group_by(pseudonym, trial_type, Subtype) %>%
-                summarise(across(c(response_time, Up3OfAppendicularSum), ~ mean(.x, na.rm=TRUE))) %>%
-                ungroup() %>%
-                na.omit()
-        # plotdat$Subtype <- factor(plotdat$Subtype, labels = c('MMP','IM','DM'))
-        g <- ggplot(plotdat, aes(y=Up3OfAppendicularSum, x=response_time, color = trial_type, group = trial_type)) +
-                geom_point(alpha = .4, shape = 19, size = 2) +
-                geom_smooth(method='lm', se = FALSE, lwd = 2) +
-                scale_colour_viridis_d(option='turbo', labels = c('One','Two','Three')) +
-                ggtitle('') + ylab('MDS-UPDRS III (bradykineisa + rigidity)') + xlab('Response times (s)') + 
-                guides(color=guide_legend(title='No. of choices', reverse = TRUE)) + 
-                theme_cowplot(font_size = 20) +
-                facet_grid(~Subtype)
-        print(g)
-}
 
 f <- 'log(response_time) ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
-#
 
-# Subtypes only
 groups <- c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant')
 tmp <- df %>%
         filter(ParticipantType=='PD_POM' | ParticipantType == 'HC_PIT') %>%
@@ -2430,114 +2517,184 @@ tmp <- df %>%
                trial_type = droplevels(trial_type),
                ParticipantType=factor(Subtype,
                                       levels = c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant'),
-                                      labels = c('MMP', 'IM', 'DM')))
+                                      labels = c('MMP', 'IM', 'DM'))) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, response_time)
 
 tmp.collapsed <- tmp %>% 
-        group_by(pseudonym, ParticipantType, block, trial_type) %>%
-        summarise(across(c(response_time, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean), ~ mean(.x)))
+        group_by(pseudonym, ParticipantType, trial_type) %>%
+        summarise(across(c(response_time), ~ mean(.x)))
+tmp.for.struc <- tmp.collapsed
 compare_rts_for_subtypes(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 
 cat('\n\n\n\n')
 ```
 
-## Subtypes vs HC
+<!-- ## Subtypes vs HC -->
 
-```{r echo=FALSE, warning=FALSE}
+<!-- ```{r echo=FALSE, warning=FALSE} -->
 
-compare_rts_for_subtypeshc <- function(f, tmp, tmp.collapsed){
-        # Fit model
-        print(paste('Fitting the following model:', f, sep=' '))
-        fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
-        s <- summary(fit)
-        print(s, corr=FALSE, digits = 3)
-        anova <- anova(fit)
-        print(anova)
-        effectsize(anova) %>% print()
-        # Post hoc test
-        cat('\n \n Post hoc tests of interactions \n')
-        em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
+<!-- compare_rts_for_subtypeshc <- function(f, tmp, tmp.collapsed){ -->
 
-        # em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        # contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, ParticipantType ~ block, type='response') %>% print()
+<!--         # Fit model -->
 
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
+<!--         print(paste('Fitting the following model:', f, sep=' ')) -->
 
-        # em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        # contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, trial_type ~ block, type='response') %>% print()
-        
-        em4 <- emmeans(fit, trt.vs.ctrl ~ ParticipantType, adjust='mvt', type='response')
-        print(em4)
-        emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
-        
-        em5 <- emmeans(fit, pairwise ~ trial_type, type='response')
-        print(em5)
-        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
-        cat('\n \n')
-        # Visualization
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
-        
-        N <- tmp.collapsed %>%
-                ungroup() %>%
-                filter(trial_type == '1choice',
-                       block == '1') %>%
-                select(ParticipantType) %>%
-                table()
-        plot <- raincloudplot_2Factor(data=tmp.collapsed, y='response_time',
-                                      groupvar=c('trial_type','ParticipantType'),
-                                      title='Influence of subtype on \nresponse times',
-                                      xlab='', ylab='Response time (s)',
-                                      xticklabs=c(paste('HC', ' (n=', N[1],')', sep=''),
-                                                  paste('MMP', ' (n=', N[2],')', sep=''),
-                                                  paste('IM', ' (n=', N[3],')', sep=''),
-                                                  paste('DM', ' (n=', N[4],')', sep='')), 
-                                      legend_title = '',
-                                      legend_position = legend_position,
-                                      legend_labels = c('One', 'Two', 'Three'),
-                                      provided_summary = 'None') +
-                ylim(0.3,1.75)
-        print(plot)
-        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_SubtypesHc.tiff',
-          plot, dpi=300, device='tiff')
-        
-        plot(fit) %>% print()
-        qqmath(fit) %>% print()
-        qqmath(ranef(fit))
-        
-}
+<!--         fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
 
-f <- 'log(response_time) ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)'
-#
+<!--         s <- summary(fit) -->
 
-# Subtypes compared to healthy controls
-groups <- c('0_Healthy', '1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant')
-tmp <- df %>%
-        filter(ParticipantType=='PD_POM' | ParticipantType == 'HC_PIT') %>%
-        filter(event_type == 'response') %>%
-        filter(trial_type != 'Catch') %>%
-        filter(response_time > 0.3) %>%
-        filter(correct_response=='Hit') %>%
-        filter(Percentage.Correct.BelowCutoff == FALSE) %>%
-        filter(Subtype %in% groups) %>%
-        mutate(Subtype = droplevels(Subtype),
-               trial_type = droplevels(trial_type),
-               ParticipantType=factor(Subtype,
-                                      levels = c('0_Healthy', '1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant'),
-                                      labels = c('HC', 'MMP', 'IM', 'DM')))
+<!--         print(s, corr=FALSE, digits = 3) -->
 
-tmp.collapsed <- tmp %>% 
-        group_by(pseudonym, ParticipantType, block, trial_type) %>%
-        summarise(across(c(response_time, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean), ~ mean(.x)))
-compare_rts_for_subtypes(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
+<!--         anova <- anova(fit) -->
 
-```
+<!--         print(anova) -->
 
+<!--         effectsize(anova) %>% print() -->
+
+<!--         # Post hoc test -->
+
+<!--         cat('\n \n Post hoc tests of interactions \n') -->
+
+<!--         em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response') -->
+
+<!--         contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print() -->
+
+<!--         emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print() -->
+
+<!--         # em1 <- emmeans(fit, ~ block|ParticipantType, type='response') -->
+
+<!--         # contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print() -->
+
+<!--         # emmip(fit, ParticipantType ~ block, type='response') %>% print() -->
+
+<!--         em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response') -->
+
+<!--         contrast(em2, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print() -->
+
+<!--         emmip(fit, ParticipantType ~ trial_type, type='response') %>% print() -->
+
+<!--         # em3 <- emmeans(fit, ~ block|trial_type, type='response') -->
+
+<!--         # contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print() -->
+
+<!--         # emmip(fit, trial_type ~ block, type='response') %>% print() -->
+
+<!--         em4 <- emmeans(fit, trt.vs.ctrl ~ ParticipantType, adjust='mvt', type='response') -->
+
+<!--         print(em4) -->
+
+<!--         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print() -->
+
+<!--         em5 <- emmeans(fit, pairwise ~ trial_type, type='response') -->
+
+<!--         print(em5) -->
+
+<!--         emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print() -->
+
+<!--         cat('\n \n') -->
+
+<!--         # Visualization -->
+
+<!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+
+<!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R') -->
+
+<!--         N <- tmp.collapsed %>% -->
+
+<!--                 ungroup() %>% -->
+
+<!--                 filter(trial_type == '1choice', -->
+
+<!--                        block == '1') %>% -->
+
+<!--                 select(ParticipantType) %>% -->
+
+<!--                 table() -->
+
+<!--         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='response_time', -->
+
+<!--                                       groupvar=c('trial_type','ParticipantType'), -->
+
+<!--                                       title='Influence of subtype on \nresponse times', -->
+
+<!--                                       xlab='', ylab='Response time (s)', -->
+
+<!--                                       xticklabs=c(paste('HC', ' (n=', N[1],')', sep=''), -->
+
+<!--                                                   paste('MMP', ' (n=', N[2],')', sep=''), -->
+
+<!--                                                   paste('IM', ' (n=', N[3],')', sep=''), -->
+
+<!--                                                   paste('DM', ' (n=', N[4],')', sep='')),  -->
+
+<!--                                       legend_title = '', -->
+
+<!--                                       legend_position = legend_position, -->
+
+<!--                                       legend_labels = c('One', 'Two', 'Three'), -->
+
+<!--                                       provided_summary = 'None') + -->
+
+<!--                 ylim(0.3,1.75) -->
+
+<!--         print(plot) -->
+
+<!--         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_SubtypesHc.tiff', -->
+
+<!--           plot, dpi=300, device='tiff') -->
+
+<!--         plot(fit) %>% print() -->
+
+<!--         qqmath(fit) %>% print() -->
+
+<!--         qqmath(ranef(fit)) -->
+
+<!-- } -->
+
+<!-- f <- 'log(response_time) ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1+trial_type|pseudonym)' -->
+
+<!-- # -->
+
+<!-- # Subtypes compared to healthy controls -->
+
+<!-- groups <- c('0_Healthy', '1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant') -->
+
+<!-- tmp <- df %>% -->
+
+<!--         filter(ParticipantType=='PD_POM' | ParticipantType == 'HC_PIT') %>% -->
+
+<!--         filter(event_type == 'response') %>% -->
+
+<!--         filter(trial_type != 'Catch') %>% -->
+
+<!--         filter(response_time > 0.3) %>% -->
+
+<!--         filter(correct_response=='Hit') %>% -->
+
+<!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
+
+<!--         filter(Subtype %in% groups) %>% -->
+
+<!--         mutate(Subtype = droplevels(Subtype), -->
+
+<!--                trial_type = droplevels(trial_type), -->
+
+<!--                ParticipantType=factor(Subtype, -->
+
+<!--                                       levels = c('0_Healthy', '1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant'), -->
+
+<!--                                       labels = c('HC', 'MMP', 'IM', 'DM'))) -->
+
+<!-- tmp.collapsed <- tmp %>%  -->
+
+<!--         group_by(pseudonym, ParticipantType, block, trial_type) %>% -->
+
+<!--         summarise(across(c(response_time, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean), ~ mean(.x))) -->
+
+<!-- compare_rts_for_subtypes(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed) -->
+
+<!-- ``` -->
 
 # Button selection variability
 
@@ -2546,6 +2703,7 @@ compare_rts_for_subtypes(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 
 compare_cov <- function(f, tmp, outlier_method = 2){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fitOutliersRetained <- lm(f, data=tmp)
@@ -2554,16 +2712,15 @@ compare_cov <- function(f, tmp, outlier_method = 2){
                 tmp <- tmp[-c(outliers),]
         }else if(outlier_method == 2){
                 tmp <- tmp %>%
-                        group_by(ParticipantType) %>%
                         filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV)) %>%
                         ungroup()
         }
         fit <- lm(f, data=tmp)
         s <- summary(fit)
         print(s, digits=3)
-        # anovaOutliersRetained <- anova(fitOutliersRetained)
-        # cat('\n \n Outliers retained: ')
-        # print(anovaOutliersRetained)
+        anovaOutliersRetained <- anova(fitOutliersRetained)
+        cat('\n \n Outliers retained: ')
+        print(anovaOutliersRetained)
         cat('\n \n Outliers removed: ')
         anova <- anova(fit)
         print(anova)
@@ -2614,12 +2771,13 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType)) %>%
         group_by(pseudonym, ParticipantType) %>%
         summarise(across(everything(), ~first(.x))) %>%
-        ungroup()
+        ungroup() %>%
+  select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV)
 compare_cov(f=f, tmp=tmp)
 
 ```
 
-## ON, Bradykinesia-rigidity ~ CoV
+## ON, Bradykinesia-rigidity \~ CoV
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 f <- 'log(Button.Press.CoV) ~ 1 + Up3OfAppendicularSum_Dmean + Age_Dmean + Gender + NpsEducYears_Dmean'
@@ -2632,7 +2790,10 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType)) %>%
         group_by(pseudonym) %>%
         summarise(across(everything(), ~first(.x))) %>%
-        ungroup()
+        ungroup() %>%
+  select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV, Up3OfAppendicularSum_Dmean, Up3OfAppendicularSum)
+tmp <- tmp %>%
+  filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio))
 
 fit <- lm(f, tmp)
 s <- summary(fit)
@@ -2661,78 +2822,141 @@ print(plot)
 <!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
 
 <!-- compare_cov <- function(f, tmp, outlier_method = 2){ -->
+
 <!--         # Fit model -->
+
 <!--         print(paste('Fitting the following model:', f, sep=' ')) -->
+
 <!--         fitOutliersRetained <- lm(f, data=tmp) -->
+
 <!--         if(outlier_method == 1){ -->
+
 <!--                 outliers <- outlierTest(fitOutliersRetained)[[1]] %>% names() %>% as.numeric() -->
+
 <!--                 tmp <- tmp[-c(outliers),] -->
+
 <!--         }else if(outlier_method == 2){ -->
+
 <!--                 tmp <- tmp %>% -->
+
 <!--                         group_by(ParticipantType) %>% -->
+
 <!--                         filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV)) %>% -->
+
 <!--                         ungroup() -->
+
 <!--         } -->
+
 <!--         fit <- lm(f, data=tmp) -->
+
 <!--         s <- summary(fit) -->
+
 <!--         print(s, digits=3) -->
+
 <!--         # anovaOutliersRetained <- anova(fitOutliersRetained) -->
+
 <!--         # cat('\n \n Outliers retained: ') -->
+
 <!--         # print(anovaOutliersRetained) -->
+
 <!--         cat('\n \n Outliers removed: ') -->
+
 <!--         anova <- anova(fit) -->
+
 <!--         print(anova) -->
+
 <!--         cat('\n \n') -->
+
 <!--         effectsize(anova) %>% print() -->
+
 <!--         # Post hoc test -->
+
 <!--         cat('\n \n EMMs \n') -->
+
 <!--         em <- emmeans(fit, ~ ParticipantType, type = 'response') -->
+
 <!--         print(em) -->
+
 <!--                 # Main effects -->
+
 <!--         cat('\n \n Post hoc tests of main effect ParticipantType \n') -->
+
 <!--         emmeans(fit, pairwise ~ ParticipantType, type = 'response', adjust = 'mvt')$contrast %>% print() -->
+
 <!--         # Visualization -->
+
 <!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+
 <!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R') -->
+
 <!--         cat('\n \n Summary statistics \n') -->
+
 <!--         emm.summary <- emmip(fit, ~ ParticipantType, plotit = FALSE, type = 'response') %>% -->
+
 <!--                 tibble() %>% -->
+
 <!--                 rename(mean = yvar, -->
+
 <!--                        se = SE) %>% -->
+
 <!--                 select(-c(df, tvar, xvar)) %>% -->
+
 <!--                 mutate(ci = se*1.96) -->
+
 <!--         raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType', -->
+
 <!--                               title = '', ylab = 'Coefficient of variation', xlab = 'Group', -->
+
 <!--                               xticklabs = c('Healthy','PD-On'), provided_summary = 'None') %>% print() -->
 
 <!--         tplot <- emmip(fit, ~ ParticipantType, CIs = TRUE, type='response') -->
+
 <!--         tplot <- tplot +  -->
+
 <!--                 theme_cowplot(font_size = 20) + -->
+
 <!--                 scale_x_discrete(labels = c('Healthy','PD-Off')) + -->
+
 <!--                 scale_colour_viridis_d(option='viridis', begin = .1, end = .6, -->
+
 <!--                                        direction = -1) + -->
+
 <!--                 ggtitle('') +  -->
+
 <!--                 xlab('Group') -->
+
 <!--         print(tplot) -->
 
 <!--         plot(fit, which = 1) %>% print() -->
+
 <!--         plot(fit, which = 2) %>% print() -->
+
 <!--         plot(fit, which = 4) %>% print() -->
 
 <!-- } -->
 
 <!-- f <- 'log(Button.Press.CoV) ~ 1 + ParticipantType + Age_Dmean + Gender + RespHandIsDominant' -->
+
 <!-- # removed due to non-significance -->
 
 <!-- groups <- c('PD_PIT','HC_PIT') -->
+
 <!-- tmp <- df %>% -->
+
 <!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
+
 <!--         filter(ParticipantType %in% groups) %>% -->
+
 <!--         mutate(ParticipantType = droplevels(ParticipantType)) %>% -->
+
 <!--         group_by(pseudonym, ParticipantType) %>% -->
+
 <!--         summarise(across(everything(), ~first(.x))) %>% -->
+
 <!--         ungroup() -->
+
 <!-- compare_cov(f=f, tmp=tmp) -->
+
 <!-- ``` -->
 
 ## OFF vs. ON
@@ -2752,9 +2976,9 @@ compare_cov_for_medication <- function(f, tmp, outlier_method = 2){
         fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr = FALSE, digits=3)
-        # anovaOutliersRetained <- anova(fitOutliersRetained)
-        # cat('\n \n Outliers retained: ')
-        # print(anovaOutliersRetained)
+        anovaOutliersRetained <- anova(fitOutliersRetained)
+        cat('\n \n Outliers retained: ')
+        print(anovaOutliersRetained)
         cat('\n \n Outliers removed: ')
         anova <- anova(fit)
         print(anova, digits=4)
@@ -2831,15 +3055,19 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType)) %>%
         group_by(pseudonym, ParticipantType) %>%
         summarise(across(everything(), ~first(.x))) %>%
-        ungroup()
-disease_severity <- tmp %>%
-        filter(ParticipantType=='PD_POM') %>%
-        select(pseudonym, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean) %>%
-        group_by(pseudonym) %>%
-        summarise(across(c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean), ~ mean(.x, na.rm=TRUE)))
+        ungroup() %>%
+        select(pseudonym, ParticipantType, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV)
+covars <- tmp %>%
+  filter(ParticipantType=='PD_POM') %>%
+  select(pseudonym, Age_Dmean, Gender, NpsEducYears_Dmean) %>%
+  mutate(Gender = as.numeric(Gender)) %>%
+  group_by(pseudonym) %>%
+  summarise(across(c(NpsEducYears_Dmean,Age_Dmean, Gender), ~ mean(.x, na.rm=TRUE))) %>%
+  mutate(Gender=as.factor(Gender))
 tmp <- tmp %>%
-        select(-c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean)) %>%
-        left_join(., disease_severity, by = 'pseudonym')
+        select(-c(Age_Dmean, Gender, NpsEducYears_Dmean)) %>%
+        left_join(., covars, by = 'pseudonym')
 compare_cov_for_medication(f=f, tmp=tmp)
 ```
 
@@ -2855,16 +3083,15 @@ compare_cov_for_subtypes <- function(f, tmp, outlier_method = 2){
                 tmp <- tmp[-c(outliers),]
         }else if(outlier_method == 2){
                 tmp <- tmp %>%
-                        group_by(ParticipantType) %>%
                         filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV)) %>%
                 ungroup()
         }
         fit <- lm(f, data=tmp)
         s <- summary(fit)
         print(s, digits=3)
-        # anovaOutliersRetained <- anova(fitOutliersRetained)
-        # cat('\n \n Outliers retained: ')
-        # print(anovaOutliersRetained)
+        anovaOutliersRetained <- anova(fitOutliersRetained)
+        cat('\n \n Outliers retained: ')
+        print(anovaOutliersRetained)
         cat('\n \n Outliers removed: ')
         anova <- anova(fit)
         print(anova)
@@ -2936,7 +3163,8 @@ tmp <- df %>%
                trial_type = droplevels(trial_type),
                ParticipantType=factor(Subtype,
                                       levels = c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant'),
-                                      labels = c('MMP', 'IM', 'DM')))
+                                      labels = c('MMP', 'IM', 'DM'))) %>%
+  select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV)
 compare_cov_for_subtypes(f=f, tmp=tmp)
 
 # cat('\n\n\n\n')
@@ -2990,16 +3218,15 @@ compare_switch <- function(f, tmp, outlier_method = 2){
                 tmp <- tmp[-c(outliers),]
         }else if(outlier_method == 2){
                 tmp <- tmp %>%
-                        group_by(ParticipantType) %>%
-                        filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV)) %>%
+                        filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio)) %>%
                         ungroup()
         }
         fit <- lm(f, data=tmp)
         s <- summary(fit)
         print(s, digits=3)
-        # anovaOutliersRetained <- anova(fitOutliersRetained)
-        # cat('\n \n Outliers retained: ')
-        # print(anovaOutliersRetained)
+        anovaOutliersRetained <- anova(fitOutliersRetained)
+        cat('\n \n Outliers retained: ')
+        print(anovaOutliersRetained)
         cat('\n \n Outliers removed: ')
         anova <- anova(fit)
         print(anova)
@@ -3050,11 +3277,12 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType)) %>%
         group_by(pseudonym, ParticipantType) %>%
         summarise(across(everything(), ~first(.x))) %>%
-        ungroup()
+        ungroup() %>%
+  select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.SwitchRatio)
 compare_switch(f=f, tmp=tmp)
 ```
 
-## ON, Bradykinesia-rigidity ~ Switch
+## ON, Bradykinesia-rigidity \~ Switch
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 f <- 'log(Button.Press.SwitchRatio) ~ 1 + Up3OfAppendicularSum_Dmean + Age_Dmean + Gender + NpsEducYears_Dmean'
@@ -3067,8 +3295,10 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType)) %>%
         group_by(pseudonym) %>%
         summarise(across(everything(), ~first(.x))) %>%
-        ungroup()
-
+        ungroup() %>%
+  select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.SwitchRatio, Up3OfAppendicularSum_Dmean, Up3OfAppendicularSum)
+tmp <- tmp %>%
+  filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio))
 fit <- lm(f, tmp)
 s <- summary(fit)
 print(s, corr=FALSE, digits = 3)
@@ -3094,77 +3324,139 @@ print(plot)
 <!-- ## OFF vs. HC -->
 
 <!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
+
 <!-- compare_switch <- function(f, tmp, outlier_method = 2){ -->
+
 <!--         # Fit model -->
+
 <!--         print(paste('Fitting the following model:', f, sep=' ')) -->
+
 <!--         fitOutliersRetained <- lm(f, data=tmp) -->
+
 <!--         if(outlier_method == 1){ -->
+
 <!--                 outliers <- outlierTest(fitOutliersRetained)[[1]] %>% names() %>% as.numeric() -->
+
 <!--                 tmp <- tmp[-c(outliers),] -->
+
 <!--         }else if(outlier_method == 2){ -->
+
 <!--                 tmp <- tmp %>% -->
+
 <!--                         group_by(ParticipantType) %>% -->
+
 <!--                         filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV)) %>% -->
+
 <!--                         ungroup() -->
+
 <!--         } -->
+
 <!--         fit <- lm(f, data=tmp) -->
+
 <!--         s <- summary(fit) -->
+
 <!--         print(s, digits=3) -->
+
 <!--         # anovaOutliersRetained <- anova(fitOutliersRetained) -->
+
 <!--         # cat('\n \n Outliers retained: ') -->
+
 <!--         # print(anovaOutliersRetained) -->
+
 <!--         cat('\n \n Outliers removed: ') -->
+
 <!--         anova <- anova(fit) -->
+
 <!--         print(anova) -->
+
 <!--         cat('\n \n') -->
+
 <!--         effectsize(anova) %>% print() -->
+
 <!--         # Post hoc test -->
+
 <!--         cat('\n \n EMMs \n') -->
+
 <!--         em <- emmeans(fit, ~ ParticipantType, type = 'response') -->
+
 <!--         print(em) -->
+
 <!--                 # Main effects -->
+
 <!--         cat('\n \n Post hoc tests of main effect ParticipantType \n') -->
+
 <!--         emmeans(fit, pairwise ~ ParticipantType, type = 'response', adjust = 'mvt')$contrast %>% print() -->
+
 <!--         # Visualization -->
+
 <!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+
 <!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R') -->
+
 <!--         cat('\n \n Summary statistics \n') -->
+
 <!--         emm.summary <- emmip(fit, ~ ParticipantType, plotit = FALSE, type = 'response') %>% -->
+
 <!--                 tibble() %>% -->
+
 <!--                 rename(mean = yvar, -->
+
 <!--                        se = SE) %>% -->
+
 <!--                 select(-c(df, tvar, xvar)) %>% -->
+
 <!--                 mutate(ci = se*1.96) -->
+
 <!--         raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType', -->
+
 <!--                               title = '', ylab = 'Switch ratio', xlab = 'Group', -->
+
 <!--                               xticklabs = c('Healthy','PD-On'), provided_summary = 'None') %>% print() -->
 
 <!--         tplot <- emmip(fit, ~ ParticipantType, CIs = TRUE, type='response') -->
+
 <!--         tplot <- tplot +  -->
+
 <!--                 theme_cowplot(font_size = 20) + -->
+
 <!--                 scale_x_discrete(labels = c('Healthy','PD-Off')) + -->
+
 <!--                 ggtitle('') +  -->
+
 <!--                 xlab('Group') -->
+
 <!--         print(tplot) -->
 
 <!--         plot(fit, which = 1) %>% print() -->
+
 <!--         plot(fit, which = 2) %>% print() -->
+
 <!--         plot(fit, which = 4) %>% print() -->
 
 <!-- } -->
 
 <!-- f <- 'log(Button.Press.SwitchRatio) ~ 1 + ParticipantType + Age_Dmean + Gender + RespHandIsDominant' -->
+
 <!-- # removed due to non-significance -->
 
 <!-- groups <- c('PD_PIT','HC_PIT') -->
+
 <!-- tmp <- df %>% -->
+
 <!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
+
 <!--         filter(ParticipantType %in% groups) %>% -->
+
 <!--         mutate(ParticipantType = droplevels(ParticipantType)) %>% -->
+
 <!--         group_by(pseudonym, ParticipantType) %>% -->
+
 <!--         summarise(across(everything(), ~first(.x))) %>% -->
+
 <!--         ungroup() -->
+
 <!-- compare_switch(f=f, tmp=tmp) -->
+
 <!-- ``` -->
 
 ## OFF vs. ON
@@ -3180,14 +3472,14 @@ compare_switch_repeated <- function(f, tmp, outlier_method = 2){
                 tmp <- tmp[-c(outliers),]
         }else if(outlier_method == 2){
                 tmp <- tmp %>%
-                        filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV))
+                        filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio))
         }
         fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr = FALSE, digits=3)
-        # anovaOutliersRetained <- anova(fitOutliersRetained)
-        # cat('\n \n Outliers retained: ')
-        # print(anovaOutliersRetained)
+        anovaOutliersRetained <- anova(fitOutliersRetained)
+        cat('\n \n Outliers retained: ')
+        print(anovaOutliersRetained)
         cat('\n \n Outliers removed: ')
         anova <- anova(fit)
         print(anova)
@@ -3305,15 +3597,19 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType)) %>%
         group_by(pseudonym, ParticipantType) %>%
         summarise(across(everything(), ~first(.x))) %>%
-        ungroup()
-disease_severity <- tmp %>%
-        filter(ParticipantType=='PD_POM') %>%
-        select(pseudonym, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean) %>%
-        group_by(pseudonym) %>%
-        summarise(across(c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean), ~ mean(.x, na.rm=TRUE)))
+        ungroup() %>%
+        select(pseudonym, ParticipantType, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.SwitchRatio)
+covars <- tmp %>%
+  filter(ParticipantType=='PD_POM') %>%
+  select(pseudonym, Age_Dmean, Gender, NpsEducYears_Dmean) %>%
+  mutate(Gender = as.numeric(Gender)) %>%
+  group_by(pseudonym) %>%
+  summarise(across(c(NpsEducYears_Dmean,Age_Dmean, Gender), ~ mean(.x, na.rm=TRUE))) %>%
+  mutate(Gender=as.factor(Gender))
 tmp <- tmp %>%
-        select(-c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean)) %>%
-        left_join(., disease_severity, by = 'pseudonym')
+        select(-c(Age_Dmean, Gender, NpsEducYears_Dmean)) %>%
+        left_join(., covars, by = 'pseudonym')
 compare_switch_repeated(f=f, tmp=tmp)
 ```
 
@@ -3329,16 +3625,15 @@ compare_switch_for_subtypes <- function(f, tmp, outlier_method = 2){
                 tmp <- tmp[-c(outliers),]
         }else if(outlier_method == 2){
                 tmp <- tmp %>%
-                        group_by(ParticipantType) %>%
-                        filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV)) %>%
+                        filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio)) %>%
                         ungroup()
         }
         fit <- lm(f, data=tmp)
         s <- summary(fit)
         print(s, digits=3)
-        # anovaOutliersRetained <- anova(fitOutliersRetained)
-        # cat('\n \n Outliers retained: ')
-        # print(anovaOutliersRetained)
+        anovaOutliersRetained <- anova(fitOutliersRetained)
+        cat('\n \n Outliers retained: ')
+        print(anovaOutliersRetained)
         cat('\n \n Outliers removed: ')
         anova <- anova(fit)
         print(anova)
@@ -3359,7 +3654,7 @@ compare_switch_for_subtypes <- function(f, tmp, outlier_method = 2){
         cat('\n \n Post hoc tests of interactions \n')
         em <- emmeans(fit, ~ ParticipantType, type='response')
         contrast(em, interaction = c('pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ~ ParticipantType, type='response') %>% print()
+        emmip(fit, ~ ParticipantType, type='response', CIs = TRUE) %>% print()
         cat('\n \n')
         # Visualization
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
@@ -3456,96 +3751,43 @@ compare_switch_for_subtypes(f=f, tmp=tmp)
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 
 compare_correct <- function(f, tmp, tmp.collapsed){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- glmer(f, data=tmp, family = binomial,
                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr = FALSE)
-        cat('\n \n')
         anova <- Anova(fit, type = 'III')
         print(anova)
-        cat('\n \n Odds ratios:')
         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/
-        tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
+        tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
         exp(tab) %>% print()
+        
         # Post hoc test
-        cat('\n \n Post hoc tests of interactions \n')
-        # em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        # contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        # emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
 
-        # em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        # contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, ParticipantType ~ block, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
+        emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
+        
+        em <- emmeans(fit, pairwise ~ ParticipantType, type='response', adjust='mvt')
+        print(em)
+        emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
+        
+        em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+        print(em)
+        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
 
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
-
-        # em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        # contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, trial_type ~ block, type='response') %>% print()
-
-        em4 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em4, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
-
-        cat('\n \n')
         # Visualization
-        N <- tmp %>%
-                group_by(pseudonym, ParticipantType) %>%
-                filter(trial_type == '1choice') %>%
-                summarise(across(response_time, ~mean(.x,na.rm=TRUE))) %>%
-                ungroup() %>%
-                select(ParticipantType) %>%
-                table()
-        pcorr <- tmp %>%
-                select(pseudonym, trial_type,ParticipantType,Percentage.Correct) %>%
-                group_by(pseudonym, trial_type, ParticipantType) %>%
-                summarise(across(Percentage.Correct, ~mean(.x,na.rm=TRUE)))
-        tplot <- emmip(fit, trial_type ~ ParticipantType,
-                       type = 'response', CIs=TRUE, plotit=FALSE) %>%
-                ggplot(aes(x=xvar,y=yvar*100, color=trial_type)) +
-                geom_point(position=position_dodge(width=0.6),size=8) +
-                geom_errorbar(aes(ymin=LCL*100,ymax=UCL*100), lwd=2, width=0.5,
-                              position=position_dodge(width=0.6)) +
-                scale_x_discrete(labels=c(paste('Healthy', ' (n=', N[1],')', sep=''),
-                                          paste('PD-On', ' (n=', N[2],')', sep=''))) +
-                scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-                                       direction = -1,labels=c('One','Two','Three')) +
-                ggtitle('Influence of Parkinson\'s disease \non accuracy') + ylab('Correct (%)') +
-                xlab('') +
-                guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 60, font_family = 'Calibri') +
-                theme(legend.position = c(0.79,1.3)) +
-                ylim(98.5,100) #+
-                # geom_text(x=1.5,y=99.97,label='***',size=sigsize,
-                #           show.legend = FALSE)+
-                # geom_segment(x=1,xend=2,y=99.95,yend=99.95,size=lsize)+
-                # geom_segment(x=1,xend=1,y=99.95,yend=99.92,size=lsize)+
-                # geom_segment(x=2,xend=2,y=99.95,yend=99.92,size=lsize)+
-                # geom_segment(x=0.8,xend=1.2,y=99.92,yend=99.92,size=lsize)+
-                # geom_segment(x=1.8,xend=2.2,y=99.92,yend=99.92,size=lsize)+
-                # geom_segment(x=0.8,xend=0.8,y=99.92,yend=99.89,size=lsize)+
-                # geom_segment(x=1.2,xend=1.2,y=99.92,yend=99.89,size=lsize)+
-                # geom_segment(x=1.8,xend=1.8,y=99.92,yend=99.89,size=lsize)+
-                # geom_segment(x=2.2,xend=2.2,y=99.92,yend=99.89,size=lsize)+
-                # geom_text(x=2,y=99.82,label='***',size=sigsize,
-                #           show.legend = FALSE)+
-                # geom_segment(x=1.8,xend=2.2,y=99.80,yend=99.80,size=lsize)+
-                # geom_text(x=2.1,y=99.71,label='***',size=sigsize,
-                #           show.legend = FALSE)+
-                # geom_segment(x=2,xend=2.2,y=99.69,yend=99.69,size=lsize)
-        print(tplot)
-        # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_HCvsON.tiff',
-        #           tplot, dpi=300, device='tiff')
-
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
-        N <- tmp.collapsed %>%
+        N <- tmp  %>% 
+                group_by(pseudonym, ParticipantType) %>%
+                summarise(across(everything(), ~first(.x))) %>%
+                na.omit() %>%
                 ungroup() %>%
-                filter(trial_type == '1choice') %>%
                 select(ParticipantType) %>%
                 table()
         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
@@ -3562,13 +3804,13 @@ compare_correct <- function(f, tmp, tmp.collapsed){
         y <- 70
         d = 5
         segmap <- data.frame(
-                x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20,  1.80,  1.80),
-                xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20,  2.00,  2.20),
+                x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20,  1.80,  2.00),
+                xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20,  2.20,  2.20),
                 y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*3, y-d*4),
                 yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2, y-d*3, y-d*4)
         )
         sigmap <- data.frame(
-                x =     c(1.50,  1.90,  2.00),
+                x =     c(1.50,  2.00,  2.10),
                 y =     c(y,     y-d*3, y-d*4),
                 label = c('***', '***', '***')
         )
@@ -3599,7 +3841,10 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType),
                trial_type = droplevels(trial_type),
                correct_response_fct = factor(if_else(correct_response=='Hit',1,0)),
-               incorrect_response_fct = factor(if_else(correct_response=='Incorrect',1,0)))
+               incorrect_response_fct = factor(if_else(correct_response=='Incorrect',1,0))) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, incorrect_response_fct, Percentage.Correct)
+        
 tmp.collapsed <- tmp %>%
         group_by(pseudonym, ParticipantType, trial_type) %>%
         summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
@@ -3608,45 +3853,60 @@ compare_correct(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed)
 
 ```
 
-## ON, Bradykinesia ~ Accuracy
+## ON, Bradykinesia \~ Accuracy
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 
-tmp.clincorr <- tmp %>%
+# Fit model
+tmp.clincorr <- df %>%
         filter(ParticipantType=='PD_POM') %>%
-        mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(Percentage.Correct.BelowCutoff == FALSE) %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type),
+               correct_response_fct = factor(if_else(correct_response=='Hit',1,0)),
+               incorrect_response_fct = factor(if_else(correct_response=='Incorrect',1,0)),
+               Percentage.Incorrect = (1-Percentage.Correct)*100) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, incorrect_response_fct, Percentage.Correct,
+               Percentage.Incorrect, Up3OfAppendicularSum, Up3OfAppendicularSum_Dmean)
 f.clincorr <- 'incorrect_response_fct ~ 1 + trial_type*Up3OfAppendicularSum_Dmean + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
-# f.clincorr <- 'correct_response ~ 1 + trial_type*Up3OfAppendicularSum_Dmean + (1|pseudonym)'
 fit.clincorr <- glmer(f.clincorr, data=tmp.clincorr, family = binomial,
                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
 s <- summary(fit.clincorr)
 print(s, corr = FALSE)
 anova <- Anova(fit.clincorr, type = 'III')
 print(anova)
+
+# Post hoc
 emt <- emtrends(fit.clincorr, ~ trial_type, var='Up3OfAppendicularSum_Dmean')
 contrast(emt, 'revpairwise', adjust = 'mvt') %>% print()
 
+# Visualization
 plotdat <- tmp.clincorr %>%
         group_by(pseudonym, trial_type) %>%
         summarise(across(c(Percentage.Incorrect, Up3OfAppendicularSum), ~ mean(.x, na.rm=TRUE))) %>%
         ungroup()
-
 c <- plotdat %>%
         group_by(pseudonym, trial_type) %>%
         summarise(across(c(Percentage.Incorrect, Up3OfAppendicularSum), ~ mean(., na.rm=TRUE))) %>%
-        select(Percentage.Incorrect, Up3OfAppendicularSum)
+        select(pseudonym, Percentage.Incorrect, Up3OfAppendicularSum)
 c <- cor.test(c$Percentage.Incorrect, c$Up3OfAppendicularSum)
-N <- plotdat %>%
-        filter(trial_type=='1choice') %>%
-                select(pseudonym) %>%
-                summarise(N=n())
-
+N <- tmp.clincorr  %>% 
+        group_by(pseudonym, ParticipantType) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        na.omit() %>%
+        ungroup() %>%
+        select(ParticipantType) %>%
+        table()
 plot <- ggplot(plotdat, aes(y=Percentage.Incorrect, x=Up3OfAppendicularSum, color=trial_type)) +
         geom_point(alpha = .3, shape = 19, size = 1.5) +
         geom_smooth(method='lm', se = FALSE, lwd = 2) +
         scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8,
                               direction = -1, labels = c('One','Two','Three')) +
-        ggtitle('Association between accuracy \n and disease severity') +
+        ggtitle('Association between error rate \nand disease severity') +
         xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
         ylab('Errors (%)') +
         theme_cowplot(font_size = 14, font_family = 'Calibri') +
@@ -3656,55 +3916,95 @@ plot <- ggplot(plotdat, aes(y=Percentage.Incorrect, x=Up3OfAppendicularSum, colo
               legend.key.size = unit(0.5,'cm')) +
         geom_text(x=10,y=40, label = paste('N=', N, ', r=', round(c$estimate,digits=2), sep=''),
                   size=4, inherit.aes = FALSE) +
-        ylim(0,65) + xlim(0,60)
+        ylim(0,65) + xlim(0,60) +
+  geom_segment(x=59,xend=59,y=5,yend=12,size=lsize) +
+  geom_segment(x=58,xend=59,y=5,yend=5,size=lsize) +
+  geom_segment(x=58,xend=59,y=12,yend=12,size=lsize) +
+  geom_text(x=61.3,y=6.2,label='**', size=sigsize, inherit.aes = FALSE)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_Corr_ON_Severity.tiff',
           plot, dpi=300, device='tiff')
 
 ```
 
-
 <!-- ## OFF vs. HC -->
 
 <!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
 
 <!-- compare_correct <- function(f, tmp){ -->
+
 <!--         # Fit model -->
+
 <!--         print(paste('Fitting the following model:', f, sep=' ')) -->
+
 <!--         fit <- glmer(f, data=tmp, family = binomial, -->
+
 <!--                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+
 <!--         s <- summary(fit) -->
+
 <!--         print(s, corr = FALSE) -->
+
 <!--         cat('\n \n') -->
+
 <!--         anova <- Anova(fit, type = 'III') -->
+
 <!--         print(anova) -->
+
 <!--         cat('\n \n Odds ratios:') -->
+
 <!--         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/ -->
+
 <!--         tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se) -->
+
 <!--         exp(tab) %>% print() -->
+
 <!--         # Post hoc test -->
+
 <!--         emm_options(lmer.df = 'satterthwaite') -->
+
 <!--                 # Interaction -->
+
 <!--         cat('\n \n Post hoc tests \n \n') -->
+
 <!--         em <- emmeans(fit, ~ ParticipantType | trial_type, type = 'response') -->
+
 <!--         print(em) -->
+
 <!--         contrast(em, 'eff', interaction = c(ParticipantType = 'pairwise', trial_type = 'revpairwise'), -->
+
 <!--                  by=NULL, adjust = 'mvt') %>% print() # by=NULL overrides the grouping of em -->
+
 <!--         # interaction specifies the contrasts that are defined and how they are presented -->
+
 <!--                 # Main effects -->
+
 <!--         cat('\n \n Post hoc tests of main effect ParticipantType \n') -->
+
 <!--         emmeans(fit, pairwise ~ ParticipantType|trial_type, type = 'response', adjust = 'mvt')$contrast %>% print() -->
+
 <!--         cat('\n \n Post hoc tests of main effect trial_type \n') -->
+
 <!--         emmeans(fit, revpairwise ~ trial_type|ParticipantType, type = 'response', adjust = 'mvt')$contrast %>% print() -->
+
 <!--         # Visualization -->
+
 <!--         tplot <- emmip(fit, trial_type ~ ParticipantType, type = 'response', CIs=TRUE) + -->
+
 <!--                 scale_x_discrete(labels=c('Healthy','PD-Off')) + -->
+
 <!--                 scale_colour_viridis_d(option='mako', begin = .1, end = .6, -->
+
 <!--                                        direction = -1,labels=c('One','Two','Three')) + -->
+
 <!--                 ggtitle('') + ylab('Predicted probability of correct response') + -->
+
 <!--                 xlab('Group') + -->
+
 <!--                 guides(color=guide_legend(title='No. of choices', reverse = FALSE)) + -->
+
 <!--                 theme_cowplot(font_size = 20) -->
+
 <!--         print(tplot) -->
 
 <!--         plot(fit) %>% print() -->
@@ -3712,146 +4012,107 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_Corr
 <!-- } -->
 
 <!-- f <- 'correct_response ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + (1|pseudonym)' -->
+
 <!-- # removed due to non-significance -->
 
 <!-- groups <- c('PD_PIT','HC_PIT') -->
+
 <!-- tmp <- df %>% -->
+
 <!--         filter(event_type == 'response') %>% -->
+
 <!--         filter(trial_type != 'Catch') %>% -->
+
 <!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
+
 <!--         filter(ParticipantType %in% groups) %>% -->
+
 <!--         mutate(ParticipantType = droplevels(ParticipantType), -->
+
 <!--                trial_type = droplevels(trial_type), -->
+
 <!--                correct_response = factor(if_else(correct_response=='Hit',1,0))) -->
+
 <!-- compare_correct(f=f, tmp=tmp) -->
+
 <!-- ``` -->
 
 ## ON vs. OFF
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 compare_correct_for_medication <- function(f, tmp, tmp.collapsed){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- glmer(f, data=tmp, family = binomial,
                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr=FALSE)
-        cat('\n \n')
         anova <- Anova(fit, type = 'III')
         print(anova)
-        cat('\n \n Odds ratios:')
         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/
-        tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
+        tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
         exp(tab) %>% print()
+        
         # Post hoc test
-        cat('\n \n Post hoc tests of interactions \n')
-        # em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        # contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        # emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
-
-        # em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        # contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, ParticipantType ~ block, type='response') %>% print()
-
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
         
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
+        emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
         
-        em5 <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
-        print(em5)
+        em <- emmeans(fit, revpairwise ~ ParticipantType, type='response', adjust='mvt')
+        print(em)
+        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
+        
+        em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+        print(em)
         emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
 
-        # em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        # contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        # emmip(fit, trial_type ~ block, type='response') %>% print()
-        cat('\n \n')
         # Visualization
-        N <- tmp %>%
-                select(pseudonym) %>%
-                unique() %>%
-                nrow()
-        tplot <- emmip(fit, trial_type ~ ParticipantType,
-                       type = 'response', CIs=TRUE, plotit=FALSE) %>%
-                ggplot(aes(x=xvar,y=yvar*100, color=tvar)) +
-                geom_point(position=position_dodge(width=0.6),size=8) +
-                geom_errorbar(aes(ymin=LCL*100,ymax=UCL*100), lwd=2, width=0.5,
-                              position=position_dodge(width=0.6)) +
-                scale_x_discrete(labels=c(paste('PD-Off', ' (n=', N[1],')', sep=''),
-                                          paste('PD-On', ' (n=', N[1],')', sep=''))) +
-                scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-                                       direction = -1,labels=c('One','Two','Three')) +
-                ggtitle('Influence of medication \non accuracy') + ylab('Correct (%)') +
-                xlab('') +
-                guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 60, font_family = 'Calibri') +
-                theme(legend.position = c(0.79,1.3)) +
-                ylim(97.5,100) #+
-                # geom_segment(x=0.8,xend=1.2,y=0.9998,yend=0.9998,size=lsize)+
-                # geom_text(x=1,y=1,label='**',size=sigsize,show.legend=FALSE) +
-                # geom_segment(x=1,xend=1.2,y=0.9988,yend=0.9988,size=lsize)+
-                # geom_text(x=1.1,y=0.999,label='**',size=sigsize,show.legend=FALSE)+
-                # geom_segment(x=1.8,xend=2.2,y=0.9998,yend=0.9998,size=lsize)+
-                # geom_text(x=2,y=1,label='**',size=sigsize,show.legend=FALSE)
-
-        print(tplot)
-        # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_ONvsOFF.tiff',
-        #           tplot, dpi=300, device='tiff')
-
-        # tplot <- emmip(fit, trial_type ~ Up3OfAppendicularSum, at=list(Up3OfAppendicularSum = c(7,26.5,46)),
-        #                CIs = TRUE, type='response', dodge=2)
-        # tplot <- tplot +
-        #         scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-        #                                direction = -1, labels = c('One','Two', 'Three')) +
-        #         ggtitle('') + ylab('Predicted probability of correct response') +
-        #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
-        #         guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
-        #         theme_cowplot(font_size = 20)
-        # print(tplot)
-
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
-        N <- tmp.collapsed %>%
+        N <- tmp  %>% 
+                group_by(pseudonym, ParticipantType) %>%
+                summarise(across(everything(), ~first(.x))) %>%
+                na.omit() %>%
                 ungroup() %>%
-                filter(trial_type == '1choice') %>%
                 select(ParticipantType) %>%
                 table()
         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
                               groupvar=c('trial_type','ParticipantType'),
                               title='Influence of medication \non accuracy',
                               xlab='', ylab='Errors (%)',
-                              xticklabs=c(paste('PD-Off', ' (n=', N[1],')', sep=''),
-                                          paste('PD-On', ' (n=', N[2],')', sep='')),
+                              xticklabs=c(paste('PD-On', ' (n=', N[1],')', sep=''),
+                                          paste('PD-Off', ' (n=', N[2],')', sep='')),
                               legend_title = '',
                               legend_labels = c('One','Two','Three'),
                               legend_position = legend_position,
                               provided_summary = 'None') +
                 ylim(0,70)
-        # y <- 70
-        # d = 3
-        # segmap <- data.frame(
-        #         x =    c(),
-        #         xend = c(),
-        #         y =    c(),
-        #         yend = c()
-        # )
-        # sigmap <- data.frame(
-        #         x =     c(),
-        #         y =     c(),
-        #         label = c()
-        # )
-        # plot <- plot +
-        #         geom_segment(data=segmap,
-        #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
-        #                      inherit.aes = FALSE,
-        #                      size = lsize) +
-        #         geom_text(data=sigmap,
-        #                   mapping = aes(x=x,y=y,label=label),
-        #                   inherit.aes = FALSE,
-        #                   size = sigsize)
+        y <- 70
+        d = 5
+        segmap <- data.frame(
+                x =    c(0.80,  1.00,  1.80,  2.00),
+                xend = c(1.20,  1.20,  2.20,  2.20),
+                y =    c(y-d*3, y-d*4, y-d*3, y-d*4),
+                yend = c(y-d*3, y-d*4, y-d*3, y-d*4)
+        )
+        sigmap <- data.frame(
+                x =     c(1.00,  1.10,  2.00,  2.10),
+                y =     c(y-d*3, y-d*4, y-d*3, y-d*4),
+                label = c('***', '**',  '***', '**')
+        )
+        plot <- plot +
+                geom_segment(data=segmap,
+                             mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                             inherit.aes = FALSE,
+                             size = lsize) +
+                geom_text(data=sigmap,
+                          mapping = aes(x=x,y=y,label=label),
+                          inherit.aes = FALSE,
+                          size = sigsize)
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_ONvsOFF_v2.tiff',
           plot, dpi=300, device='tiff')
@@ -3885,22 +4146,22 @@ tmp <- df %>%
         mutate(ParticipantType = droplevels(ParticipantType),
                trial_type = droplevels(trial_type),
                correct_response_fct = factor(if_else(correct_response=='Hit',1,0)),
-               incorrect_response_fct = factor(if_else(correct_response=='Incorrect',1,0)))
-disease_severity <- tmp %>%
-        filter(ParticipantType=='PD_POM') %>%
-        select(pseudonym, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean, NpsEducYears, NpsEducYears_Dmean) %>%
-        group_by(pseudonym) %>%
-        summarise(across(c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,
-                           NpsEducYears, NpsEducYears_Dmean), ~ mean(.x, na.rm=TRUE)))
+               incorrect_response_fct = factor(if_else(correct_response=='Incorrect',1,0))) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, incorrect_response_fct, Percentage.Correct)
+covars <- tmp %>%
+  filter(ParticipantType=='PD_POM') %>%
+  select(pseudonym, Age_Dmean, Gender, NpsEducYears_Dmean) %>%
+  mutate(Gender = as.numeric(Gender)) %>%
+  group_by(pseudonym) %>%
+  summarise(across(c(NpsEducYears_Dmean,Age_Dmean, Gender), ~ mean(.x, na.rm=TRUE)))
 tmp <- tmp %>%
-        select(-c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean)) %>%
-        left_join(., disease_severity, by = 'pseudonym')
-
+        select(-c(Age_Dmean, Gender, NpsEducYears_Dmean)) %>%
+        left_join(., covars, by = 'pseudonym')
 tmp.collapsed <- tmp %>%
         group_by(pseudonym, ParticipantType, trial_type) %>%
         summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
         mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
-
 compare_correct_for_medication(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed)
 ```
 
@@ -3908,115 +4169,43 @@ compare_correct_for_medication(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed)
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 compare_correct_for_subtypes <- function(f, tmp, tmp.collapsed){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- glmer(f, data=tmp, family = binomial,
                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr = FALSE)
-        cat('\n \n')
         anova <- Anova(fit, type = 'III')
         print(anova)
-        cat('\n \n Odds ratios:')
         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/
-        tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
+        tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
         exp(tab) %>% print()
+        
         # Post hoc test
-        cat('\n \n Post hoc tests of interactions \n')
-        em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
+        
+        em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+        contrast(em, interaction = c('revpairwise','pairwise'), adjust='mvt', type='response') %>% print()
+        emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
 
-        em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ block, type='response') %>% print()
+        em <- emmeans(fit, pairwise ~ ParticipantType, type='response', adjust='mvt')
+        print(em)
+        emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
+        
+        em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+        print(em)
+        emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
 
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
-
-        em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, trial_type ~ block, type='response') %>% print()
-
-        em4 <- emmeans(fit, ~ ParticipantType, type='response')
-        contrast(em4, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ~ParticipantType, type='response') %>% print()
-        cat('\n \n')
-        # contrast(emm, interaction = c('revpairwise','revpairwise', 'identity'), adjust = 'mvt', by = NULL) %>% print()
         # Visualization
-        # tplot <- emmip(fit, trial_type~Up3OfAppendicularSum_Dmean|ParticipantType, CIs = TRUE,
-        #                type='response', cov.reduce=range, dodge=7) +
-        #         scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-        #                                direction = -1, labels = c('One','Two', 'Three')) +
-        #         ggtitle('') + ylab('Predicted probability of correct response') +
-        #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
-        #         guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
-        #         theme_cowplot(font_size = 20)
-        # print(tplot)
-
-        N <- tmp %>%
-                group_by(pseudonym, ParticipantType) %>%
-                filter(trial_type == '1choice') %>%
-                summarise(across(response_time, ~mean(.x,na.rm=TRUE))) %>%
-                ungroup() %>%
-                select(ParticipantType) %>%
-                table()
-
-        tplot <- emmip(fit, trial_type ~ ParticipantType,
-                       type = 'response', CIs=TRUE, plotit=FALSE) %>%
-                ggplot(aes(x=xvar,y=yvar*100, color=tvar)) +
-                geom_point(position=position_dodge(width=0.6),size=8) +
-                geom_errorbar(aes(ymin=LCL*100,ymax=UCL*100), lwd=2, width=0.5,
-                              position=position_dodge(width=0.6)) +
-                scale_x_discrete(labels=c(paste('MMP', ' (n=', N[1],')', sep=''),
-                                          paste('IM', ' (n=', N[2],')', sep=''),
-                                          paste('DM', ' (n=', N[3],')', sep=''))) +
-                scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-                                       direction = -1,labels=c('One','Two','Three')) +
-                ggtitle('Influence of subtype \non accuracy') + ylab('Correct (%)') +
-                xlab('') +
-                guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 60, font_family = 'Calibri') +
-                theme(legend.position = c(0.78, 1.25)) +
-                ylim(97,100) #+
-#
-#                 geom_text(x=2,y=1.0075,label='**',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=1,xend=3,y=1.007,yend=1.007,size=lsize) +
-#                 geom_segment(x=1,xend=1,y=1.007,yend=1.006,size=lsize) +
-#                 geom_segment(x=3,xend=3,y=1.007,yend=1.006,size=lsize) +
-#                 geom_segment(x=0.8,xend=1.2,y=1.006,yend=1.006,size=lsize) +
-#                 geom_segment(x=2.8,xend=3.2,y=1.006,yend=1.006,size=lsize) +
-#                 geom_segment(x=0.8,xend=0.8,y=1.006,yend=1.005,size=lsize) +
-#                 geom_segment(x=1.2,xend=1.2,y=1.006,yend=1.005,size=lsize) +
-#                 geom_segment(x=2.8,xend=2.8,y=1.006,yend=1.005,size=lsize) +
-#                 geom_segment(x=3.2,xend=3.2,y=1.006,yend=1.005,size=lsize) +
-#
-#                 geom_text(x=1,y=1.0045,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=0.8,xend=1.2,y=1.004,yend=1.004,size=lsize) +
-#                 geom_text(x=1.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=1,xend=1.2,y=1.002,yend=1.002,size=lsize) +
-#
-#                 geom_text(x=2,y=1.0045,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=1.8,xend=2.2,y=1.004,yend=1.004,size=lsize) +
-#                 geom_text(x=2.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=2,xend=2.2,y=1.002,yend=1.002,size=lsize) +
-#
-#                 geom_text(x=3,y=1.0045,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=2.8,xend=3.2,y=1.004,yend=1.004,size=lsize) +
-#                 geom_text(x=3.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=3,xend=3.2,y=1.002,yend=1.002,size=lsize)
-
-        print(tplot)
-        # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_Subtypes.tiff',
-        #           tplot, dpi=300, device='tiff')
-
-
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
-        N <- tmp.collapsed %>%
+        N <- tmp  %>% 
+                group_by(pseudonym, ParticipantType) %>%
+                summarise(across(everything(), ~first(.x))) %>%
+                na.omit() %>%
                 ungroup() %>%
-                filter(trial_type == '1choice') %>%
                 select(ParticipantType) %>%
                 table()
         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
@@ -4031,37 +4220,36 @@ compare_correct_for_subtypes <- function(f, tmp, tmp.collapsed){
                               legend_position = legend_position,
                               provided_summary = 'None') +
                 ylim(0,70)
-        # y <- 70
-        # d = 3
-        # segmap <- data.frame(
-        #         x =    c(),
-        #         xend = c(),
-        #         y =    c(),
-        #         yend = c()
-        # )
-        # sigmap <- data.frame(
-        #         x =     c(),
-        #         y =     c(),
-        #         label = c()
-        # )
-        # plot <- plot +
-        #         geom_segment(data=segmap,
-        #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
-        #                      inherit.aes = FALSE,
-        #                      size = lsize) +
-        #         geom_text(data=sigmap,
-        #                   mapping = aes(x=x,y=y,label=label),
-        #                   inherit.aes = FALSE,
-        #                   size = sigsize)
+        y <- 70
+        d = 5
+        segmap <- data.frame(
+                x =    c(0.80,  1.00,  1.80,  2.00,  2.80,  3.00),
+                xend = c(1.20,  1.20,  2.20,  2.20,  3.20,  3.20),
+                y =    c(y-d*3, y-d*4, y-d*3, y-d*4, y-d*3, y-d*4),
+                yend = c(y-d*3, y-d*4, y-d*3, y-d*4, y-d*3, y-d*4)
+        )
+        sigmap <- data.frame(
+                x =     c(1.00,  1.10,  2.00,  2.10,  3.00,  3.10),
+                y =     c(y-d*3, y-d*4, y-d*3, y-d*4, y-d*3, y-d*4),
+                label = c('***', '***',  '***', '***',  '***', '*')
+        )
+        plot <- plot +
+                geom_segment(data=segmap,
+                             mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                             inherit.aes = FALSE,
+                             size = lsize) +
+                geom_text(data=sigmap,
+                          mapping = aes(x=x,y=y,label=label),
+                          inherit.aes = FALSE,
+                          size = sigsize)
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_Subtypes_v2.tiff',
           plot, dpi=300, device='tiff')
 
 }
 
-# f <- 'correct_response ~ 1 + ParticipantType*trial_type*block + (1+trial_type+block|pseudonym)'
-f <- 'incorrect_response_fct ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + (1|pseudonym)'
-# Random slopes and Gender removed to solve singular fits and convergence issues
+f <- 'incorrect_response_fct ~ 1 + ParticipantType*trial_type + block + Gender + Age_Dmean + NpsEducYears_Dmean + (1|pseudonym)'
+# Random slopes removed to solve singular fits and convergence issues
 
 groups <- c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant')
 tmp <- df %>%
@@ -4074,482 +4262,907 @@ tmp <- df %>%
                trial_type = droplevels(trial_type),
                ParticipantType=factor(Subtype),
                correct_response_fct = factor(if_else(correct_response=='Hit',1,0)),
-               incorrect_response_fct = factor(if_else(correct_response=='Incorrect',1,0)))
+               incorrect_response_fct = factor(if_else(correct_response=='Incorrect',1,0))) %>%
+        select(pseudonym, ParticipantType, trial_type, block, 
+               Age_Dmean, Gender, NpsEducYears_Dmean, incorrect_response_fct, Percentage.Correct)
 tmp.collapsed <- tmp %>%
         group_by(pseudonym, ParticipantType, trial_type) %>%
         summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
         mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
 compare_correct_for_subtypes(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed)
 
-cat('\n\n\n\n')
-
-# groups <- c('1_Mild-Motor', '2_Intermediate')
-# tmp <- df %>%
-#         filter(event_type == 'response') %>%
-#         filter(trial_type != 'Catch') %>%
-#         filter(Percentage.Correct.BelowCutoff == FALSE) %>%
-#         filter(Subtype %in% groups) %>%
-#         mutate(Subtype = droplevels(Subtype),
-#                trial_type = droplevels(trial_type),
-#                ParticipantType=factor(Subtype),
-#                correct_response = factor(if_else(correct_response=='Hit',1,0)))
-# compare_correct_for_subtypes(f=f, tmp=tmp)
-#
-# cat('\n\n\n\n')
-#
-# groups <- c('1_Mild-Motor', '3_Diffuse-Malignant')
-# tmp <- df %>%
-#         filter(event_type == 'response') %>%
-#         filter(trial_type != 'Catch') %>%
-#         filter(Percentage.Correct.BelowCutoff == FALSE) %>%
-#         filter(Subtype %in% groups) %>%
-#         mutate(Subtype = droplevels(Subtype),
-#                trial_type = droplevels(trial_type),
-#                ParticipantType=factor(Subtype),
-#                correct_response = factor(if_else(correct_response=='Hit',1,0)))
-# compare_correct_for_subtypes(f=f, tmp=tmp)
-#
-# cat('\n\n\n\n')
-#
-# groups <- c('2_Intermediate', '3_Diffuse-Malignant')
-# tmp <- df %>%
-#         filter(event_type == 'response') %>%
-#         filter(trial_type != 'Catch') %>%
-#         filter(Percentage.Correct.BelowCutoff == FALSE) %>%
-#         filter(Subtype %in% groups) %>%
-#         mutate(Subtype = droplevels(Subtype),
-#                trial_type = droplevels(trial_type),
-#                ParticipantType=factor(Subtype),
-#                correct_response = factor(if_else(correct_response=='Hit',1,0)))
-# compare_correct_for_subtypes(f=f, tmp=tmp)
 ```
 
-## Subtypes vs HC
+<!-- ## Subtypes vs HC -->
+
+<!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
+
+<!-- compare_correct_for_subtypes <- function(f, tmp, tmp.collapsed){ -->
+
+<!--         # Fit model -->
+
+<!--         print(paste('Fitting the following model:', f, sep=' ')) -->
+
+<!--         fit <- glmer(f, data=tmp, family = binomial, -->
+
+<!--                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+
+<!--         s <- summary(fit) -->
+
+<!--         print(s, corr = FALSE) -->
+
+<!--         cat('\n \n') -->
+
+<!--         anova <- Anova(fit, type = 'III') -->
+
+<!--         print(anova) -->
+
+<!--         cat('\n \n Odds ratios:') -->
+
+<!--         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/ -->
+
+<!--         tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se) -->
+
+<!--         exp(tab) %>% print() -->
+
+<!--         # Post hoc test -->
+
+<!--         cat('\n \n Post hoc tests of interactions \n') -->
+
+<!--         em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response') -->
+
+<!--         contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print() -->
+
+<!--         emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print() -->
+
+<!--         em1 <- emmeans(fit, ~ block|ParticipantType, type='response') -->
+
+<!--         contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print() -->
+
+<!--         emmip(fit, ParticipantType ~ block, type='response') %>% print() -->
+
+<!--         em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response') -->
+
+<!--         contrast(em2, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print() -->
+
+<!--         emmip(fit, ParticipantType ~ trial_type, type='response') %>% print() -->
+
+<!--         em3 <- emmeans(fit, ~ block|trial_type, type='response') -->
+
+<!--         contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print() -->
+
+<!--         emmip(fit, trial_type ~ block, type='response') %>% print() -->
+
+<!--         cat('\n \n') -->
+
+<!--         # contrast(emm, interaction = c('revpairwise','revpairwise', 'identity'), adjust = 'mvt', by = NULL) %>% print() -->
+
+<!--         # Visualization -->
+
+<!--         # tplot <- emmip(fit, trial_type~Up3OfAppendicularSum_Dmean|ParticipantType, CIs = TRUE, -->
+
+<!--         #                type='response', cov.reduce=range, dodge=7) + -->
+
+<!--         #         scale_colour_viridis_d(option='mako', begin = .1, end = .6, -->
+
+<!--         #                                direction = -1, labels = c('One','Two', 'Three')) + -->
+
+<!--         #         ggtitle('') + ylab('Predicted probability of correct response') + -->
+
+<!--         #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') + -->
+
+<!--         #         guides(color=guide_legend(title='No. of choices', reverse = FALSE)) + -->
+
+<!--         #         theme_cowplot(font_size = 20) -->
+
+<!--         # print(tplot) -->
+
+<!--         N <- tmp %>% -->
+
+<!--                 group_by(pseudonym, ParticipantType) %>% -->
+
+<!--                 filter(trial_type == '1choice') %>% -->
+
+<!--                 summarise(across(response_time, ~mean(.x,na.rm=TRUE))) %>% -->
+
+<!--                 ungroup() %>% -->
+
+<!--                 select(ParticipantType) %>% -->
+
+<!--                 table() -->
+
+<!--         tplot <- emmip(fit, trial_type ~ ParticipantType, -->
+
+<!--                        type = 'response', CIs=TRUE, plotit=FALSE) %>% -->
+
+<!--                 ggplot(aes(x=xvar,y=yvar*100, color=tvar)) + -->
+
+<!--                 geom_point(position=position_dodge(width=0.6),size=8) + -->
+
+<!--                 geom_errorbar(aes(ymin=LCL*100,ymax=UCL*100), lwd=2, width=0.5, -->
+
+<!--                               position=position_dodge(width=0.6)) + -->
+
+<!--                 scale_x_discrete(labels=c(paste('HC', ' (n=', N[1],')', sep=''), -->
+
+<!--                                           paste('MMP', ' (n=', N[2],')', sep=''), -->
+
+<!--                                           paste('IM', ' (n=', N[3],')', sep=''), -->
+
+<!--                                           paste('DM', ' (n=', N[4],')', sep=''))) + -->
+
+<!--                 scale_colour_viridis_d(option='mako', begin = .1, end = .6, -->
+
+<!--                                        direction = -1,labels=c('One','Two','Three')) + -->
+
+<!--                 ggtitle('Influence of subtype \non accuracy') + ylab('Correct (%)') + -->
+
+<!--                 xlab('') + -->
+
+<!--                 guides(color=guide_legend(title='', reverse = FALSE)) + -->
+
+<!--                 theme_cowplot(font_size = 60, font_family = 'Calibri') + -->
+
+<!--                 theme(legend.position = c(0.78, 1.25)) + -->
+
+<!--                 ylim(96.5,100.5) #+ -->
+
+<!-- # -->
+
+<!-- #                 geom_text(x=2,y=1.0075,label='**',size=sigsize,show.legend=FALSE) + -->
+
+<!-- #                 geom_segment(x=1,xend=3,y=1.007,yend=1.007,size=lsize) + -->
+
+<!-- #                 geom_segment(x=1,xend=1,y=1.007,yend=1.006,size=lsize) + -->
+
+<!-- #                 geom_segment(x=3,xend=3,y=1.007,yend=1.006,size=lsize) + -->
+
+<!-- #                 geom_segment(x=0.8,xend=1.2,y=1.006,yend=1.006,size=lsize) + -->
+
+<!-- #                 geom_segment(x=2.8,xend=3.2,y=1.006,yend=1.006,size=lsize) + -->
+
+<!-- #                 geom_segment(x=0.8,xend=0.8,y=1.006,yend=1.005,size=lsize) + -->
+
+<!-- #                 geom_segment(x=1.2,xend=1.2,y=1.006,yend=1.005,size=lsize) + -->
+
+<!-- #                 geom_segment(x=2.8,xend=2.8,y=1.006,yend=1.005,size=lsize) + -->
+
+<!-- #                 geom_segment(x=3.2,xend=3.2,y=1.006,yend=1.005,size=lsize) + -->
+
+<!-- # -->
+
+<!-- #                 geom_text(x=1,y=1.0045,label='***',size=sigsize,show.legend=FALSE) + -->
+
+<!-- #                 geom_segment(x=0.8,xend=1.2,y=1.004,yend=1.004,size=lsize) + -->
+
+<!-- #                 geom_text(x=1.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) + -->
+
+<!-- #                 geom_segment(x=1,xend=1.2,y=1.002,yend=1.002,size=lsize) + -->
+
+<!-- # -->
+
+<!-- #                 geom_text(x=2,y=1.0045,label='***',size=sigsize,show.legend=FALSE) + -->
+
+<!-- #                 geom_segment(x=1.8,xend=2.2,y=1.004,yend=1.004,size=lsize) + -->
+
+<!-- #                 geom_text(x=2.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) + -->
+
+<!-- #                 geom_segment(x=2,xend=2.2,y=1.002,yend=1.002,size=lsize) + -->
+
+<!-- # -->
+
+<!-- #                 geom_text(x=3,y=1.0045,label='***',size=sigsize,show.legend=FALSE) + -->
+
+<!-- #                 geom_segment(x=2.8,xend=3.2,y=1.004,yend=1.004,size=lsize) + -->
+
+<!-- #                 geom_text(x=3.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) + -->
+
+<!-- #                 geom_segment(x=3,xend=3.2,y=1.002,yend=1.002,size=lsize) -->
+
+<!--         print(tplot) -->
+
+<!--         # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_SubtypesHc.tiff', -->
+
+<!--         #           tplot, dpi=300, device='tiff') -->
+
+<!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+
+<!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R') -->
+
+<!--         N <- tmp.collapsed %>% -->
+
+<!--                 ungroup() %>% -->
+
+<!--                 filter(trial_type == '1choice') %>% -->
+
+<!--                 select(ParticipantType) %>% -->
+
+<!--                 table() -->
+
+<!--         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect', -->
+
+<!--                               groupvar=c('trial_type','ParticipantType'), -->
+
+<!--                               title='Influence of subtypes \non accuracy', -->
+
+<!--                               xlab='', ylab='Errors (%)', -->
+
+<!--                               xticklabs=c(paste('HC', ' (n=', N[1],')', sep=''), -->
+
+<!--                                           paste('MMP', ' (n=', N[2],')', sep=''), -->
+
+<!--                                           paste('IM', ' (n=', N[3],')', sep=''), -->
+
+<!--                                           paste('DM', ' (n=', N[4],')', sep='')), -->
+
+<!--                               legend_title = '', -->
+
+<!--                               legend_labels = c('One','Two','Three'), -->
+
+<!--                               legend_position = legend_position, -->
+
+<!--                               provided_summary = 'None') + -->
+
+<!--                 ylim(0,70) -->
+
+<!--         # y <- 70 -->
+
+<!--         # d = 3 -->
+
+<!--         # segmap <- data.frame( -->
+
+<!--         #         x =    c(), -->
+
+<!--         #         xend = c(), -->
+
+<!--         #         y =    c(), -->
+
+<!--         #         yend = c() -->
+
+<!--         # ) -->
+
+<!--         # sigmap <- data.frame( -->
+
+<!--         #         x =     c(), -->
+
+<!--         #         y =     c(), -->
+
+<!--         #         label = c() -->
+
+<!--         # ) -->
+
+<!--         # plot <- plot + -->
+
+<!--         #         geom_segment(data=segmap, -->
+
+<!--         #                      mapping = aes(x=x,xend=xend,y=y,yend=yend), -->
+
+<!--         #                      inherit.aes = FALSE, -->
+
+<!--         #                      size = lsize) + -->
+
+<!--         #         geom_text(data=sigmap, -->
+
+<!--         #                   mapping = aes(x=x,y=y,label=label), -->
+
+<!--         #                   inherit.aes = FALSE, -->
+
+<!--         #                   size = sigsize) -->
+
+<!--         print(plot) -->
+
+<!--         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_SubtypesHc_v2.tiff', -->
+
+<!--           plot, dpi=300, device='tiff') -->
+
+<!-- } -->
+
+<!-- f <- 'correct_response ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)' -->
+
+<!-- # Random slopes and Gender removed to solve singular fits and convergence issues -->
+
+<!-- groups <- c('0_Healthy', '1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant') -->
+
+<!-- tmp <- df %>% -->
+
+<!--         filter(ParticipantType=='PD_POM' | ParticipantType == 'HC_PIT') %>% -->
+
+<!--         filter(event_type == 'response') %>% -->
+
+<!--         filter(trial_type != 'Catch') %>% -->
+
+<!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
+
+<!--         filter(Subtype %in% groups) %>% -->
+
+<!--         mutate(Subtype = droplevels(Subtype), -->
+
+<!--                trial_type = droplevels(trial_type), -->
+
+<!--                ParticipantType=factor(Subtype), -->
+
+<!--                correct_response = factor(if_else(correct_response=='Hit',1,0))) -->
+
+<!-- tmp.collapsed <- tmp %>% -->
+
+<!--         group_by(pseudonym, ParticipantType, trial_type) %>% -->
+
+<!--         summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>% -->
+
+<!--         mutate(Percentage.Incorrect = (1-Percentage.Correct)*100) -->
+
+<!-- compare_correct_for_subtypes(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed) -->
+
+<!-- cat('\n\n\n\n') -->
+
+<!-- ``` -->
+
+# Percentage correct (catch)
+
+## ON vs. HC
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-compare_correct_for_subtypes <- function(f, tmp, tmp.collapsed){
+
+compare_catch_correct <- function(f, tmp){
+  
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fit <- glmer(f, data=tmp, family = binomial,
                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
         s <- summary(fit)
         print(s, corr = FALSE)
-        cat('\n \n')
         anova <- Anova(fit, type = 'III')
         print(anova)
-        cat('\n \n Odds ratios:')
         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/
-        tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
+        tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
         exp(tab) %>% print()
+        
         # Post hoc test
-        cat('\n \n Post hoc tests of interactions \n')
-        em <- emmeans(fit, ~ ParticipantType*trial_type | block, type='response')
-        contrast(em, interaction = c('pairwise','pairwise','pairwise'), adjust='mvt', type='response') %>% print()
-        emmip(fit, ParticipantType ~ trial_type | block, type='response') %>% print()
-
-        em1 <- emmeans(fit, ~ block|ParticipantType, type='response')
-        contrast(em1, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ block, type='response') %>% print()
-
-        em2 <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
-        contrast(em2, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, ParticipantType ~ trial_type, type='response') %>% print()
-
-        em3 <- emmeans(fit, ~ block|trial_type, type='response')
-        contrast(em3, interaction = c('pairwise','pairwise'), adjust='mvt', type='response', by=NULL) %>% print()
-        emmip(fit, trial_type ~ block, type='response') %>% print()
-        cat('\n \n')
-        # contrast(emm, interaction = c('revpairwise','revpairwise', 'identity'), adjust = 'mvt', by = NULL) %>% print()
+        emmeans(fit, pairwise ~ ParticipantType, type = 'response', adjust = 'mvt') %>% summary()
+        
         # Visualization
-        # tplot <- emmip(fit, trial_type~Up3OfAppendicularSum_Dmean|ParticipantType, CIs = TRUE,
-        #                type='response', cov.reduce=range, dodge=7) +
-        #         scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-        #                                direction = -1, labels = c('One','Two', 'Three')) +
-        #         ggtitle('') + ylab('Predicted probability of correct response') +
-        #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
-        #         guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
-        #         theme_cowplot(font_size = 20)
-        # print(tplot)
-
-        N <- tmp %>%
-                group_by(pseudonym, ParticipantType) %>%
-                filter(trial_type == '1choice') %>%
-                summarise(across(response_time, ~mean(.x,na.rm=TRUE))) %>%
-                ungroup() %>%
-                select(ParticipantType) %>%
-                table()
-
-        tplot <- emmip(fit, trial_type ~ ParticipantType,
-                       type = 'response', CIs=TRUE, plotit=FALSE) %>%
-                ggplot(aes(x=xvar,y=yvar*100, color=tvar)) +
-                geom_point(position=position_dodge(width=0.6),size=8) +
-                geom_errorbar(aes(ymin=LCL*100,ymax=UCL*100), lwd=2, width=0.5,
-                              position=position_dodge(width=0.6)) +
-                scale_x_discrete(labels=c(paste('HC', ' (n=', N[1],')', sep=''),
-                                          paste('MMP', ' (n=', N[2],')', sep=''),
-                                          paste('IM', ' (n=', N[3],')', sep=''),
-                                          paste('DM', ' (n=', N[4],')', sep=''))) +
-                scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-                                       direction = -1,labels=c('One','Two','Three')) +
-                ggtitle('Influence of subtype \non accuracy') + ylab('Correct (%)') +
-                xlab('') +
-                guides(color=guide_legend(title='', reverse = FALSE)) +
-                theme_cowplot(font_size = 60, font_family = 'Calibri') +
-                theme(legend.position = c(0.78, 1.25)) +
-                ylim(96.5,100.5) #+
-#
-#                 geom_text(x=2,y=1.0075,label='**',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=1,xend=3,y=1.007,yend=1.007,size=lsize) +
-#                 geom_segment(x=1,xend=1,y=1.007,yend=1.006,size=lsize) +
-#                 geom_segment(x=3,xend=3,y=1.007,yend=1.006,size=lsize) +
-#                 geom_segment(x=0.8,xend=1.2,y=1.006,yend=1.006,size=lsize) +
-#                 geom_segment(x=2.8,xend=3.2,y=1.006,yend=1.006,size=lsize) +
-#                 geom_segment(x=0.8,xend=0.8,y=1.006,yend=1.005,size=lsize) +
-#                 geom_segment(x=1.2,xend=1.2,y=1.006,yend=1.005,size=lsize) +
-#                 geom_segment(x=2.8,xend=2.8,y=1.006,yend=1.005,size=lsize) +
-#                 geom_segment(x=3.2,xend=3.2,y=1.006,yend=1.005,size=lsize) +
-#
-#                 geom_text(x=1,y=1.0045,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=0.8,xend=1.2,y=1.004,yend=1.004,size=lsize) +
-#                 geom_text(x=1.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=1,xend=1.2,y=1.002,yend=1.002,size=lsize) +
-#
-#                 geom_text(x=2,y=1.0045,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=1.8,xend=2.2,y=1.004,yend=1.004,size=lsize) +
-#                 geom_text(x=2.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=2,xend=2.2,y=1.002,yend=1.002,size=lsize) +
-#
-#                 geom_text(x=3,y=1.0045,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=2.8,xend=3.2,y=1.004,yend=1.004,size=lsize) +
-#                 geom_text(x=3.1,y=1.0025,label='***',size=sigsize,show.legend=FALSE) +
-#                 geom_segment(x=3,xend=3.2,y=1.002,yend=1.002,size=lsize)
-
-        print(tplot)
-        # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_SubtypesHc.tiff',
-        #           tplot, dpi=300, device='tiff')
-
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
-        N <- tmp.collapsed %>%
-                ungroup() %>%
-                filter(trial_type == '1choice') %>%
-                select(ParticipantType) %>%
-                table()
-        plot <- raincloudplot_2Factor(data=tmp.collapsed, y='Percentage.Incorrect',
-                              groupvar=c('trial_type','ParticipantType'),
-                              title='Influence of subtypes \non accuracy',
-                              xlab='', ylab='Errors (%)',
-                              xticklabs=c(paste('HC', ' (n=', N[1],')', sep=''),
-                                          paste('MMP', ' (n=', N[2],')', sep=''),
-                                          paste('IM', ' (n=', N[3],')', sep=''),
-                                          paste('DM', ' (n=', N[4],')', sep='')),
-                              legend_title = '',
-                              legend_labels = c('One','Two','Three'),
-                              legend_position = legend_position,
-                              provided_summary = 'None') +
-                ylim(0,70)
-        # y <- 70
-        # d = 3
-        # segmap <- data.frame(
-        #         x =    c(),
-        #         xend = c(),
-        #         y =    c(),
-        #         yend = c()
-        # )
-        # sigmap <- data.frame(
-        #         x =     c(),
-        #         y =     c(),
-        #         label = c()
-        # )
-        # plot <- plot +
-        #         geom_segment(data=segmap,
-        #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
-        #                      inherit.aes = FALSE,
-        #                      size = lsize) +
-        #         geom_text(data=sigmap,
-        #                   mapping = aes(x=x,y=y,label=label),
-        #                   inherit.aes = FALSE,
-        #                   size = sigsize)
-        print(plot)
-        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Accuracy_SubtypesHc_v2.tiff',
-          plot, dpi=300, device='tiff')
+        emmip(fit, ~ ParticipantType, type = 'response', CIs=TRUE) %>% print()
 
 }
 
-f <- 'correct_response ~ 1 + ParticipantType*trial_type + block + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
-# Random slopes and Gender removed to solve singular fits and convergence issues
+f <- 'false_alarm ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
+# Random slope of block removed due to convergence issues
 
-groups <- c('0_Healthy', '1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant')
+groups <- c('PD_POM','HC_PIT')
 tmp <- df %>%
-        filter(ParticipantType=='PD_POM' | ParticipantType == 'HC_PIT') %>%
-        filter(event_type == 'response') %>%
-        filter(trial_type != 'Catch') %>%
+        filter(event_type == 'cue') %>%
+        filter(trial_type == 'Catch') %>%
+        filter(Percentage.Correct.BelowCutoff == FALSE) %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type),
+               false_alarm = factor(if_else(correct_response=='False Alarm',1,0)))
+compare_catch_correct(f=f, tmp=tmp)
+
+```
+
+<!-- ## OFF vs. HC -->
+
+<!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
+
+<!-- f <- 'correct_response ~ 1 + ParticipantType*block*Up3OfAppendicularSum_Dmean + Age_Dmean + Gender + (1|pseudonym)' -->
+
+<!-- # Random slope of block removed due to convergence issues -->
+
+<!-- groups <- c('PD_PIT','HC_PIT') -->
+
+<!-- tmp <- df %>% -->
+
+<!--         filter(event_type == 'cue') %>% -->
+
+<!--         filter(trial_type == 'Catch') %>% -->
+
+<!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
+
+<!--         filter(ParticipantType %in% groups) %>% -->
+
+<!--         mutate(ParticipantType = droplevels(ParticipantType), -->
+
+<!--                trial_type = droplevels(trial_type), -->
+
+<!--                correct_response = factor(if_else(correct_response=='False Alarm',1,0))) -->
+
+<!-- compare_catch_correct(f=f, tmp=tmp) -->
+
+<!-- ``` -->
+
+## ON vs. OFF
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+compare_catch_correct_for_medication <- function(f, tmp){
+  
+        # Fit model
+        print(paste('Fitting the following model:', f, sep=' '))
+        fit <- glmer(f, data=tmp, family = binomial,
+                     control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+        s <- summary(fit)
+        print(s, corr = FALSE)
+        anova <- Anova(fit, type = 'III')
+        print(anova)
+        se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/
+        tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
+        exp(tab) %>% print()
+        
+        # Post hoc test
+        emmeans(fit, pairwise ~ ParticipantType, type = 'response', adjust = 'mvt') %>% summary()
+        
+        # Visualization
+        emmip(fit, ~ ParticipantType, type = 'response', CIs=TRUE) %>% print()
+
+}
+
+ids <- df %>%
+        filter(ParticipantType %in% c('PD_PIT','PD_POM'),
+               TimepointNr==0,
+               trial_type=='1choice',
+               Percentage.Correct.BelowCutoff == FALSE,
+               CrossStudyParticipation==TRUE) %>%
+        select(pseudonym,ParticipantType,response_time) %>%
+        group_by(pseudonym,ParticipantType) %>%
+        summarise(across(response_time, ~mean(.x,na.rm=TRUE))) %>%
+        ungroup() %>%
+        select(pseudonym)
+
+OnAndOff <- ids[duplicated(ids),]
+
+f <- 'false_alarm ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
+# Random slope of block removed due to convergence issues
+
+groups <- c('PD_PIT','PD_POM')
+tmp <- df %>%
+        filter(pseudonym %in% OnAndOff$pseudonym) %>%
+        filter(event_type == 'cue') %>%
+        filter(trial_type == 'Catch') %>%
+        filter(Percentage.Correct.BelowCutoff == FALSE) %>%
+        filter(ParticipantType %in% groups) %>%
+        mutate(ParticipantType = droplevels(ParticipantType),
+               trial_type = droplevels(trial_type),
+               false_alarm = factor(if_else(correct_response=='False Alarm',1,0)))
+covars <- tmp %>%
+  filter(ParticipantType=='PD_POM') %>%
+  select(pseudonym, Age_Dmean, Gender, NpsEducYears_Dmean) %>%
+  mutate(Gender = as.numeric(Gender)) %>%
+  group_by(pseudonym) %>%
+  summarise(across(c(NpsEducYears_Dmean,Age_Dmean, Gender), ~ mean(.x, na.rm=TRUE)))
+tmp <- tmp %>%
+        select(-c(Age_Dmean, Gender, NpsEducYears_Dmean)) %>%
+        left_join(., covars, by = 'pseudonym')
+compare_catch_correct_for_medication(f=f, tmp=tmp)
+```
+
+## Subtypes
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+compare_catch_correct_for_subtypes <- function(f, tmp){
+  
+        # Fit model
+        print(paste('Fitting the following model:', f, sep=' '))
+        fit <- glmer(f, data=tmp, family = binomial,
+                     control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+        s <- summary(fit)
+        print(s, corr = FALSE)
+        anova <- Anova(fit, type = 'III')
+        print(anova)
+        se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/
+        tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
+        exp(tab) %>% print()
+        
+        # Post hoc test
+        emmeans(fit, pairwise ~ ParticipantType, type = 'response', adjust = 'mvt') %>% summary()
+        
+        # Visualization
+        emmip(fit, ~ ParticipantType, type = 'response', CIs=TRUE) %>% print()
+
+}
+
+f <- 'false_alarm ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
+# Random slope of block removed to solve convergence issues
+
+groups <- c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant')
+tmp <- df %>%
+        filter(ParticipantType=='PD_POM') %>%
+        filter(event_type == 'cue') %>%
+        filter(trial_type == 'Catch') %>%
         filter(Percentage.Correct.BelowCutoff == FALSE) %>%
         filter(Subtype %in% groups) %>%
         mutate(Subtype = droplevels(Subtype),
                trial_type = droplevels(trial_type),
                ParticipantType=factor(Subtype),
-               correct_response = factor(if_else(correct_response=='Hit',1,0)))
-tmp.collapsed <- tmp %>%
-        group_by(pseudonym, ParticipantType, trial_type) %>%
-        summarise(across(c(Percentage.Correct), ~ mean(.x, na.rm=TRUE))) %>%
-        mutate(Percentage.Incorrect = (1-Percentage.Correct)*100)
-compare_correct_for_subtypes(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed)
+               false_alarm = factor(if_else(correct_response=='False Alarm',1,0)))
+compare_catch_correct_for_subtypes(f=f, tmp=tmp)
 
-cat('\n\n\n\n')
 ```
 
-<!-- # Percentage correct (catch) -->
+# VBM
 
-<!-- ## ON vs. HC -->
+```{r echo=FALSE, message=FALSE}
 
-<!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
+prep_roi_dat <- function(roi_data, roi_to_cols=TRUE){
+  
+  roi_data1 <- roi_data
+  
+  # Demean covariates
+  roi_data1 <- roi_data1 %>%
+          group_by(group) %>%
+          mutate(Age_Dmean = scale(Age, center=TRUE,scale=FALSE),
+                 TIV_Dmean = scale(TIV, center=TRUE,scale=FALSE)) %>%
+          ungroup()
+  
+  # Remove superfluous info from mask names
+  colnames(roi_data1) <- colnames(roi_data1) %>% str_replace(., 'x_','')
+  colnames(roi_data1) <- colnames(roi_data1) %>% str_replace(., 'mask_','')
+  
+  # Break mask name into variables
+  roi_data1 <- pivot_longer(roi_data1,
+                     !c(pseudonym,group,scan,L2Rflip,Age,Age_Dmean,TIV,TIV_Dmean),
+                     names_to = c('MaskFlip','Contrast','ROI'),
+                     names_pattern = '(.*)_(.*_.*)_(.*)',
+                     values_to = 'Volume')
+  
+  # Turn ROIs into separate columns
+  if(roi_to_cols){
+    roi_data1 <- pivot_wider(roi_data1,
+                            id_cols = c('pseudonym','group','scan','L2Rflip','Age','Age_Dmean',
+                                        'TIV', 'TIV_Dmean','MaskFlip','Contrast'),
+                            names_from = 'ROI',
+                            names_prefix = 'ROI_',
+                            values_from = 'Volume') %>%
+      arrange(Contrast,pseudonym)
+  }
+  
+  # Keep:
+  # Flipped contrast + Values from flipped mask
+  # Regular contrast + Values from regular mask
+  roi_data1 <- roi_data1 %>%
+    filter((L2Rflip==1 & MaskFlip=='f') | (L2Rflip==0 & MaskFlip=='nf'))
+  
+  # Factorize
+  roi_data <- roi_data1 %>%
+    mutate(Contrast = factor(Contrast))
+  
+  roi_data1
+  
+}
 
-<!-- compare_catch_correct <- function(f, tmp){ -->
-<!--         # Fit model -->
-<!--         print(paste('Fitting the following model:', f, sep=' ')) -->
-<!--         fit <- glmer(f, data=tmp, family = binomial, -->
-<!--                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
-<!--         s <- summary(fit) -->
-<!--         print(s, corr = FALSE) -->
-<!--         cat('\n \n') -->
-<!--         anova <- Anova(fit, type = 'III') -->
-<!--         print(anova) -->
-<!--         cat('\n \n Odds ratios:') -->
-<!--         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/ -->
-<!--         tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se) -->
-<!--         exp(tab) %>% print() -->
-<!--         # Post hoc test -->
-<!--         emm_options(lmer.df = 'satterthwaite') -->
-<!--                 # Main effects -->
-<!--         cat('\n \n Post hoc tests of main effect ParticipantType \n') -->
-<!--         emmeans(fit, pairwise ~ ParticipantType, type = 'response', adjust = 'mvt') %>% summary() -->
-<!--         # Visualization -->
-<!--         emmip(fit, ~ ParticipantType, type = 'response', CIs=TRUE) %>% print() -->
+# Prep data
+vbm_hc.vs.pd <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/HCvsPD/roi_data.csv') %>%
+  prep_roi_dat(., roi_to_cols=TRUE)
 
-<!--         plot(fit) %>% print() -->
+vbm_subtypes <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/Subtypes/roi_data.csv') %>%
+  prep_roi_dat(., roi_to_cols=TRUE)
+types <- dfClin %>% filter(TimepointNr==0) %>% filter(ParticipantType!='PD_PIT') %>% select(pseudonym, Subtype) %>%
+  mutate(Subtype = as.character(Subtype))
+vbm_subtypes <- left_join(vbm_subtypes,types,by='pseudonym') %>%
+  relocate(pseudonym, group, Subtype)
 
-<!-- } -->
+vbm_hc.vs.subtypes <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/HcSubtypes/roi_data.csv') %>%
+  prep_roi_dat(., roi_to_cols=TRUE)
+vbm_hc.vs.subtypes <- left_join(vbm_hc.vs.subtypes,types,by='pseudonym') %>%
+  relocate(pseudonym, group, Subtype)
 
-<!-- f <- 'correct_response ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)' -->
-<!-- # Random slope of block removed due to convergence issues -->
+# # Visualize
+# ggplot(df.HCgtPD_Mean, aes(y = ROI_1, x = group)) + 
+#   geom_boxplot()
+# df.HCgtPD_Mean %>%
+#   pivot_longer(cols = starts_with('ROI_'),
+#                values_to = 'volume',
+#                names_to = 'ROI',
+#                names_prefix = 'ROI_') %>%
+#   ggplot(aes(y = volume, x = ROI, fill = group)) +
+#   geom_boxplot()
 
-<!-- groups <- c('PD_POM','HC_PIT') -->
-<!-- tmp <- df %>% -->
-<!--         filter(event_type == 'cue') %>% -->
-<!--         filter(trial_type == 'Catch') %>% -->
-<!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
-<!--         filter(ParticipantType %in% groups) %>% -->
-<!--         mutate(ParticipantType = droplevels(ParticipantType), -->
-<!--                trial_type = droplevels(trial_type), -->
-<!--                correct_response = factor(if_else(correct_response=='False Alarm',1,0))) -->
-<!-- compare_catch_correct(f=f, tmp=tmp) -->
+# Test
+# ma <- manova(cbind(ROI_1,ROI_2,ROI_3,ROI_4,ROI_5,ROI_6) ~ group, data = df.HCgtPD_Mean)
+# s <- summary(ma)
+# print(s)
+# s.aov <- summary.aov(ma)
+# print(s.aov)
+# em <- emmeans(ma, ~ group)
+# summary(em)
+# emmip(em, ~ group, CIs = TRUE)
+```
 
-<!-- ``` -->
+## HC vs PD
 
-<!-- <!-- ## OFF vs. HC --> -->
+```{r echo=FALSE,message=FALSE,warning=FALSE}
 
-<!-- <!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} --> -->
+cons <- vbm_hc.vs.pd$Contrast %>% factor() %>% levels()
+for(c in cons){
+  
+        print(c)
+        if(c=='HCgtPD_Mean'){
+                xticks = c('R_CB','L_Put', 'L_S1', 'R_Put', 'SMA', 'R_PMC')     
+        }else if(c=='PDgtHC_3gt1'){
+                xticks = c('R_IPL')
+        }
+        
+  # One-way anova on average volume is the simplest
+  vbm_test <- vbm_hc.vs.pd %>%
+          filter(Contrast == c) %>%
+          filter(pseudonym %in% funcsubs$pseudonym)
+  vbm_test <- vbm_test[,colSums(is.na(vbm_test))<nrow(vbm_test)]
+  vols <- vbm_test %>% select(starts_with('ROI'))
+  avg_vols <- apply(vols, 1, mean)
+  vbm_test <- bind_cols(vbm_test, Avg = avg_vols)
+  m <- lm(Avg ~ group + Age_Dmean + TIV_Dmean, data = vbm_test)
+  # summary(m) %>% print()
+  anova(m) %>% print()
+  eta_squared(anova(m)) %>% print()
+  emmeans(m, pairwise ~ group, adjust='mvt') %>% print()
+  
+  box_by_roi <- vbm_test %>%
+    pivot_longer(cols = starts_with('ROI_'),
+                 values_to = 'volume',
+                 names_to = 'ROI',
+                 names_prefix = 'ROI_') %>%
+    ggplot(aes(y = volume, x = ROI, fill = group)) +
+    geom_boxplot() +
+          scale_x_discrete(labels = xticks)
+  
+  box_by_avg <- vbm_test %>%
+    ggplot(aes(y = Avg, fill = group)) +
+    geom_boxplot()
+  
+  box <- ggarrange(box_by_roi, box_by_avg, common.legend = TRUE)
+  print(box)
+  
+  # # PCA perhaps? Probably not.
+  # data.pca <- vbm_test %>% select(starts_with('ROI_'))
+  # if(ncol(data.pca)>1){
+  #         pca <- prcomp(data.pca, center = TRUE, scale. = TRUE)
+  #         fviz_pca_biplot(pca, geom.ind = "point", pointshape = 21, 
+  #                         pointsize = 2, 
+  #                         fill.ind = vbm_test$group, 
+  #                         col.ind = "black", 
+  #                         palette = "jco", 
+  #                         addEllipses = TRUE,
+  #                         label = "var",
+  #                         col.var = "black",
+  #                         repel = TRUE,
+  #                         legend.title = "Group") +
+  #                 ggtitle("2D PCA-plot from 30 feature dataset") +
+  #                 theme(plot.title = element_text(hjust = 0.5))
+  #}
+  
+}
 
-<!-- <!-- f <- 'correct_response ~ 1 + ParticipantType*block*Up3OfAppendicularSum_Dmean + Age_Dmean + Gender + (1|pseudonym)' --> -->
-<!-- <!-- # Random slope of block removed due to convergence issues --> -->
+```
 
-<!-- <!-- groups <- c('PD_PIT','HC_PIT') --> -->
-<!-- <!-- tmp <- df %>% --> -->
-<!-- <!--         filter(event_type == 'cue') %>% --> -->
-<!-- <!--         filter(trial_type == 'Catch') %>% --> -->
-<!-- <!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% --> -->
-<!-- <!--         filter(ParticipantType %in% groups) %>% --> -->
-<!-- <!--         mutate(ParticipantType = droplevels(ParticipantType), --> -->
-<!-- <!--                trial_type = droplevels(trial_type), --> -->
-<!-- <!--                correct_response = factor(if_else(correct_response=='False Alarm',1,0))) --> -->
-<!-- <!-- compare_catch_correct(f=f, tmp=tmp) --> -->
-<!-- <!-- ``` --> -->
+## Subtypes
 
-<!-- ## ON vs. OFF -->
+```{r echo=FALSE,message=FALSE,warning=FALSE}
 
-<!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
-<!-- compare_catch_correct_for_medication <- function(f, tmp){ -->
-<!--         # Fit model -->
-<!--         print(paste('Fitting the following model:', f, sep=' ')) -->
-<!--         fit <- glmer(f, data=tmp, family = binomial, -->
-<!--                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
-<!--         s <- summary(fit) -->
-<!--         print(s, corr = FALSE) -->
-<!--         cat('\n \n') -->
-<!--         anova <- Anova(fit, type = 'III') -->
-<!--         print(anova) -->
-<!--         cat('\n \n Odds ratios:') -->
-<!--         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/ -->
-<!--         tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se) -->
-<!--         exp(tab) %>% print() -->
-<!--         # Post hoc test -->
-<!--         # emm_options(lmer.df = 'satterthwaite') -->
-<!--         #         # Association between disease severity and response times -->
-<!--         # cat('\n \n Emtrends \n \n ') -->
-<!--         # emt <- emtrends(fit, ~ParticipantType, var='Up3OfAppendicularSum') -->
-<!--         # print(emt) -->
-<!--         # contrast(emt, interaction = c('revpairwise'), adjust = 'mvt') %>% print() -->
-<!--         # tplot <- emmip(fit, ParticipantType ~ Up3OfAppendicularSum, cov.reduce=range, -->
-<!--         #                CIs = TRUE) -->
-<!--         # tplot <- tplot + -->
-<!--         #         theme_cowplot(font_size = 20) + -->
-<!--         #         scale_colour_viridis_d(option='turbo') + -->
-<!--         #         ggtitle('') + -->
-<!--         #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') + -->
-<!--         #         guides(color=guide_legend(title='Group', reverse = TRUE)) -->
-<!--         # print(tplot) -->
-<!--                 # Association between subtype, corrected for by disease severity -->
-<!--         cat('\n \n Emmeans \n \n') -->
-<!--         emm <- emmeans(fit, ~ParticipantType, type = 'response') -->
-<!--         print(emm) -->
-<!--         contrast(emm, interaction = c('revpairwise'), adjust = 'mvt', by = NULL) %>% print() -->
-<!--         # Visualization -->
-<!--         emmip(fit, ~ ParticipantType, type = 'response', CIs=TRUE) %>% print() -->
+cons <- vbm_subtypes$Contrast %>% factor() %>% levels()
+for(c in cons){
+  
+  print(c)
+        if(c=='IMgtDM_3gt1'){
+                xticks = c('L_PMC')     
+        }else if(c=='MMPgtDM_3gt1'){
+                xticks = c('R_PMC', 'R_SPL', 'L_IPS', 'R_IPL', 'L_PMC')
+        }else if(c=='MMPgtDM_Mean'){
+                xticks = c('R_IPS', 'R_V5')
+        }
+  
+  # # MANOVA followed by univariate anovas and LDA
+  # vbm_test <- vbm_subtypes %>%
+  #   filter(Contrast == c)
+  # dv <- vbm_test %>% select(starts_with('ROI_')) %>% as.matrix()
+  # iv <- vbm_test %>% select(Subtype) %>% as.matrix()
+  # maov <- manova(dv ~ iv, data = vbm_test)
+  # s <- summary(maov)
+  # s.aov <- summary.aov(maov)
+  # effsize <- effectsize(maov)
+  # lda <- lda(iv ~ dv, CV = FALSE)
+  # lda_df <- data.frame(
+  #   groups = vbm_test[, 'Subtype'],
+  #   lda = predict(lda)$x
+  # )
+  # ggplot(lda_df) + 
+  #   geom_point(aes(x = lda.LD1, y = lda.LD2, color = Subtype), size = 4) +
+  #   theme_classic()
+  
+  # Group x ROI ANOVA also possible...
+  
+  # One-way anova on average volume is the simplest
+  vbm_test <- vbm_subtypes %>%
+    filter(Contrast == c) %>%
+          filter(pseudonym %in% funcsubs$pseudonym)
+  vbm_test <- vbm_test[,colSums(is.na(vbm_test))<nrow(vbm_test)]
+  g <- tibble(MMP = str_detect(c,'MMP'), IM = str_detect(c,'IM'), DM = str_detect(c, 'DM'))
+  if(g$MMP & g$IM){
+    vbm_test <- vbm_test %>% filter(Subtype == '1_Mild-Motor' | Subtype == '2_Intermediate')
+  }else if(g$MMP & g$DM){
+    vbm_test <- vbm_test %>% filter(Subtype == '1_Mild-Motor' | Subtype == '3_Diffuse-Malignant')
+  }else if(g$IM & g$DM){
+    vbm_test <- vbm_test %>% filter(Subtype == '2_Intermediate' | Subtype == '3_Diffuse-Malignant')
+  }
+  vols <- vbm_test %>% select(starts_with('ROI'))
+  avg_vols <- apply(vols, 1, mean)
+  vbm_test <- bind_cols(vbm_test, Avg = avg_vols)
+  m <- lm(Avg ~ Subtype + Age_Dmean + TIV_Dmean, data = vbm_test)
+  # summary(m) %>% print()
+  anova(m) %>% print()
+  eta_squared(anova(m)) %>% print()
+  emmeans(m, pairwise ~ Subtype, adjust='mvt') %>% print()
+  
+  box_by_roi <- vbm_test %>%
+    pivot_longer(cols = starts_with('ROI_'),
+                 values_to = 'volume',
+                 names_to = 'ROI',
+                 names_prefix = 'ROI_') %>%
+    ggplot(aes(y = volume, x = ROI, fill = Subtype)) +
+    geom_boxplot() +
+          scale_x_discrete(labels = xticks)
 
-<!--         plot(fit) %>% print() -->
+  box_by_avg <- vbm_test %>%
+    ggplot(aes(y = Avg, fill = Subtype)) +
+    geom_boxplot()
+  
+  box <- ggarrange(box_by_roi, box_by_avg, common.legend = TRUE)
+  print(box)
+  
+}
 
-<!-- } -->
+```
 
-<!-- ids <- df %>% -->
-<!--         filter(ParticipantType %in% c('PD_PIT','PD_POM'), -->
-<!--                TimepointNr==0, -->
-<!--                trial_type=='1choice', -->
-<!--                Percentage.Correct.BelowCutoff == FALSE, -->
-<!--                CrossStudyParticipation==TRUE) %>% -->
-<!--         select(pseudonym,ParticipantType,response_time) %>% -->
-<!--         group_by(pseudonym,ParticipantType) %>% -->
-<!--         summarise(across(response_time, ~mean(.x,na.rm=TRUE))) %>% -->
-<!--         ungroup() %>% -->
-<!--         select(pseudonym) -->
+## HC vs Subtypes
 
-<!-- OnAndOff <- ids[duplicated(ids),] -->
+```{r echo=FALSE,message=FALSE,warning=FALSE}
 
-<!-- f <- 'correct_response ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)' -->
-<!-- # Random slope of block removed due to convergence issues -->
+cons <- vbm_hc.vs.subtypes$Contrast %>% factor() %>% levels()
+for(c in cons){
+  
+  print(c)
+        if(c=='HCgtDM_2gt1'){
+                xticks = c('L_PMC')     
+        }else if(c=='HCgtDM_3gt1'){
+                xticks = c('L_PMC')
+        }else if(c=='IMgtHC_2gt1'){
+                xticks = c('R_Put')
+        }else if(c=='MMPgtHC_3gt1'){
+                xticks = c('R_MTG', 'R_PMC', 'R_FP', 'R_IPL')
+        }else if(c=='MMPgtHC_3gt2'){
+                xticks = c('R_MTG')
+        }
+  
+  # One-way anova on average volume is the simplest
+  vbm_test <- vbm_hc.vs.subtypes %>%
+    filter(Contrast == c) %>%
+          filter(pseudonym %in% funcsubs$pseudonym)
+  vbm_test <- vbm_test[,colSums(is.na(vbm_test))<nrow(vbm_test)]
+  g <- tibble(HC = str_detect(c,'HC'), MMP = str_detect(c,'MMP'), IM = str_detect(c,'IM'), DM = str_detect(c, 'DM'))
+  if(g$HC & g$MMP){
+    vbm_test <- vbm_test %>% filter(Subtype == '0_Healthy' | Subtype == '1_Mild-Motor')
+  }else if(g$HC & g$IM){
+    vbm_test <- vbm_test %>% filter(Subtype == '0_Healthy' | Subtype == '2_Intermediate')
+  }else if(g$HC & g$DM){
+    vbm_test <- vbm_test %>% filter(Subtype == '0_Healthy' | Subtype == '3_Diffuse-Malignant')
+  }
+  vols <- vbm_test %>% select(starts_with('ROI_'))
+  avg_vols <- apply(vols, 1, mean)
+  vbm_test <- bind_cols(vbm_test, Avg = avg_vols)
+  
+  # # Check outliers
+  # summary <- vbm_test %>%
+  #   summarise(avg=mean(Avg),sd=sd(Avg))
+  # outliers <- vbm_test %>%
+  #   mutate(Outlier = if_else(Avg > summary$avg+3*summary$sd | Avg < summary$avg-3*summary$sd, 1, 0)) %>%
+  #   filter(Outlier==1)
+  # vbm_test_clean <- vbm_test %>% filter(!(pseudonym %in% outliers$pseudonym))
+  
+  m <- lm(Avg ~ Subtype + Age_Dmean + TIV_Dmean, data = vbm_test)
+  # summary(m) %>% print()
+  anova(m) %>% print()
+  eta_squared(anova(m)) %>% print()
+  emmeans(m, pairwise ~ Subtype, adjust='mvt') %>% print()
+  
+  box_by_roi <- vbm_test %>%
+    pivot_longer(cols = starts_with('ROI_'),
+                 values_to = 'volume',
+                 names_to = 'ROI',
+                 names_prefix = 'ROI_') %>%
+    ggplot(aes(y = volume, x = ROI, fill = Subtype)) +
+    geom_boxplot() +
+          scale_x_discrete(labels = xticks)
+  
+  box_by_avg <- vbm_test %>%
+    ggplot(aes(y = Avg, x = Subtype, fill = Subtype)) +
+    geom_boxplot()
+  
+  box <- ggarrange(box_by_roi, box_by_avg, common.legend = TRUE)
+  print(box)
 
-<!-- groups <- c('PD_PIT','PD_POM') -->
-<!-- tmp <- df %>% -->
-<!--         filter(pseudonym %in% OnAndOff$pseudonym) %>% -->
-<!--         filter(event_type == 'cue') %>% -->
-<!--         filter(trial_type == 'Catch') %>% -->
-<!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
-<!--         filter(ParticipantType %in% groups) %>% -->
-<!--         mutate(ParticipantType = droplevels(ParticipantType), -->
-<!--                trial_type = droplevels(trial_type), -->
-<!--                correct_response = factor(if_else(correct_response=='False Alarm',1,0))) -->
-<!-- disease_severity <- tmp %>% -->
-<!--         filter(ParticipantType=='PD_POM') %>% -->
-<!--         select(pseudonym, Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean, NpsEducYears, NpsEducYears_Dmean) %>% -->
-<!--         group_by(pseudonym) %>% -->
-<!--         summarise(across(c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean, -->
-<!--                            NpsEducYears, NpsEducYears_Dmean), ~ mean(.x, na.rm=TRUE))) -->
-<!-- tmp <- tmp %>% -->
-<!--         select(-c(Up3OfAppendicularSum,Up3OfAppendicularSum_Dmean,NpsEducYears,NpsEducYears_Dmean)) %>% -->
-<!--         left_join(., disease_severity, by = 'pseudonym') -->
-<!-- compare_catch_correct_for_medication(f=f, tmp=tmp) -->
-<!-- ``` -->
+}
 
-<!-- ## Subtypes -->
+# Post hoc exploration of structure vs function
 
-<!-- ```{r echo=FALSE, message=FALSE, warning=TRUE} -->
-<!-- compare_catch_correct_for_subtypes <- function(f, tmp){ -->
-<!--         # Fit model -->
-<!--         print(paste('Fitting the following model:', f, sep=' ')) -->
-<!--         fit <- glmer(f, data=tmp, family = binomial, -->
-<!--                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
-<!--         s <- summary(fit) -->
-<!--         print(s, corr = FALSE) -->
-<!--         cat('\n \n') -->
-<!--         anova <- Anova(fit, type = 'III') -->
-<!--         print(anova) -->
-<!--         cat('\n \n Odds ratios:') -->
-<!--         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/ -->
-<!--         tab <- cbind(Est = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se) -->
-<!--         exp(tab) %>% print() -->
-<!--         # Post hoc test -->
-<!--         # emm_options(lmer.df = 'satterthwaite') -->
-<!--         #         # Association between disease severity and response times -->
-<!--         # cat('\n \n Emtrends \n \n ') -->
-<!--         # emt <- emtrends(fit, ~ParticipantType, var='Up3OfAppendicularSum_Dmean') -->
-<!--         # print(emt) -->
-<!--         # contrast(emt, interaction = c('revpairwise'), adjust = 'mvt') %>% print() -->
-<!--         # tplot <- emmip(fit, ParticipantType ~ Up3OfAppendicularSum_Dmean, cov.reduce=range, -->
-<!--         #                CIs = TRUE) -->
-<!--         # tplot <- tplot + -->
-<!--         #         theme_cowplot(font_size = 20) + -->
-<!--         #         scale_colour_viridis_d(option='turbo', labels = c('One','Two','Three')) + -->
-<!--         #         ggtitle('') + -->
-<!--         #         xlab('MDS-UPDRS III (bradykineisa + rigidity)') + -->
-<!--         #         guides(color=guide_legend(title='No. of choices', reverse = TRUE)) -->
-<!--         # print(tplot) -->
-<!--                 # Association between subtype, corrected for by disease severity -->
-<!--         cat('\n \n Emmeans \n \n') -->
-<!--         emm <- emmeans(fit, ~ParticipantType, type = 'response') -->
-<!--         print(emm) -->
-<!--         contrast(emm, interaction = c('revpairwise'), adjust = 'mvt', by = NULL) %>% print() -->
-<!--         # Visualization -->
-<!--         emmip(fit, ~ ParticipantType, type = 'response', CIs=TRUE) %>% print() -->
+MMPvsHC.vbm <- vbm_hc.vs.subtypes %>%
+        filter(Subtype=='0_Healthy' | Subtype=='1_Mild-Motor',
+               Contrast=='MMPgtHC_3gt1')
 
-<!--         plot(fit) %>% print() -->
+MMPvsHC.mtg <- read_csv("P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers2/marsbar/MMP_HC_(Int3_Ext)_21_48_44.csv") %>% select(-c(Group,scans))
+MMPvsHC.pmc <- read_csv("P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers2/marsbar/MMP_HC_(Int3_Ext)_27_11_40.csv") %>% select(-c(Group,scans))
+MMPvsHC.fp <- read_csv("P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers2/marsbar/MMP_HC_(Int3_Ext)_49_-57_22.csv") %>% select(-c(Group,scans))
+MMPvsHC.ipl <- read_csv("P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers2/marsbar/MMP_HC_(Int3_Ext)_67_-47_-4.csv") %>% select(-c(Group,scans))
 
-<!-- } -->
+disease_severity <- dfClin %>%
+  filter(ParticipantType == 'PD_POM') %>%
+  filter(Subtype == '1_Mild-Motor') %>%
+  filter(TimepointNr == 0) %>%
+  select(pseudonym, MotorComposite, Up3OfTotal, Up3OfAppendicularSum,
+         CognitiveComposite,SCOPA_AUTSum,RBDSQSum, MonthSinceDiag)
 
-<!-- f <- 'correct_response ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)' -->
-<!-- # Random slope of block removed to solve convergence issues -->
+struc.vs.fun <- full_join(MMPvsHC.mtg,MMPvsHC.vbm, by = 'pseudonym') %>%
+        arrange(pseudonym) %>%
+        na.omit() %>%
+        filter(Cond != 'Catch') %>%
+        select(-c(scan, L2Rflip, MaskFlip, Contrast, group)) %>%
+        pivot_wider(id_cols = c('pseudonym', 'Subtype', 'Age', 'TIV', 'ROI_1', 'ROI_2', 'ROI_3', 'ROI_4'),
+                    names_from = Cond, values_from = Vals) %>%
+        mutate(Avg.vbm = (ROI_1 + ROI_2 + ROI_3 + ROI_4) / 4,
+               Diff.3gt1 = Int3 - Ext,
+               Diff.3gt2 = Int3 - Int2) %>%
+  left_join(., disease_severity, by = 'pseudonym')
 
-<!-- groups <- c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant') -->
-<!-- tmp <- df %>% -->
-<!--         filter(ParticipantType=='PD_POM') %>% -->
-<!--         filter(event_type == 'cue') %>% -->
-<!--         filter(trial_type == 'Catch') %>% -->
-<!--         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
-<!--         filter(Subtype %in% groups) %>% -->
-<!--         mutate(Subtype = droplevels(Subtype), -->
-<!--                trial_type = droplevels(trial_type), -->
-<!--                ParticipantType=factor(Subtype), -->
-<!--                correct_response = factor(if_else(correct_response=='False Alarm',1,0))) -->
-<!-- compare_catch_correct_for_subtypes(f=f, tmp=tmp) -->
+struc.vs.fun %>% select(Subtype) %>% table()
 
-<!-- cat('\n\n\n\n') -->
+# Is there an association between brain activity and structure?
+ggplot(struc.vs.fun, aes(x=Avg.vbm, y=Diff.3gt1, color=Subtype)) + 
+        geom_point() + 
+        geom_smooth(method='lm') + 
+        facet_grid(~Subtype)
 
-<!-- # groups <- c('1_Mild-Motor', '2_Intermediate') -->
-<!-- # tmp <- df %>% -->
-<!-- #         filter(event_type == 'cue') %>% -->
-<!-- #         filter(trial_type == 'Catch') %>% -->
-<!-- #         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
-<!-- #         filter(Subtype %in% groups) %>% -->
-<!-- #         mutate(Subtype = droplevels(Subtype), -->
-<!-- #                trial_type = droplevels(trial_type), -->
-<!-- #                ParticipantType=factor(Subtype), -->
-<!-- #                correct_response = factor(if_else(correct_response=='False Alarm',1,0))) -->
-<!-- # compare_catch_correct_for_subtypes(f=f, tmp=tmp) -->
-<!-- # -->
-<!-- # cat('\n\n\n\n') -->
-<!-- # -->
-<!-- # groups <- c('1_Mild-Motor', '3_Diffuse-Malignant') -->
-<!-- # tmp <- df %>% -->
-<!-- #         filter(event_type == 'cue') %>% -->
-<!-- #         filter(trial_type == 'Catch') %>% -->
-<!-- #         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
-<!-- #         filter(Subtype %in% groups) %>% -->
-<!-- #         mutate(Subtype = droplevels(Subtype), -->
-<!-- #                trial_type = droplevels(trial_type), -->
-<!-- #                ParticipantType=factor(Subtype), -->
-<!-- #                correct_response = factor(if_else(correct_response=='False Alarm',1,0))) -->
-<!-- # compare_catch_correct_for_subtypes(f=f, tmp=tmp) -->
-<!-- # -->
-<!-- # cat('\n\n\n\n') -->
-<!-- # -->
-<!-- # groups <- c('2_Intermediate', '3_Diffuse-Malignant') -->
-<!-- # tmp <- df %>% -->
-<!-- #         filter(event_type == 'cue') %>% -->
-<!-- #         filter(trial_type == 'Catch') %>% -->
-<!-- #         filter(Percentage.Correct.BelowCutoff == FALSE) %>% -->
-<!-- #         filter(Subtype %in% groups) %>% -->
-<!-- #         mutate(Subtype = droplevels(Subtype), -->
-<!-- #                trial_type = droplevels(trial_type), -->
-<!-- #                ParticipantType=factor(Subtype), -->
-<!-- #                correct_response = factor(if_else(correct_response=='Hit',1,0))) -->
-<!-- # compare_catch_correct_for_subtypes(f=f, tmp=tmp) -->
-<!-- ``` -->
+m.hc <- lm(Avg.vbm ~ Diff.3gt1+Age+TIV, data = struc.vs.fun, subset = (struc.vs.fun$Subtype=='0_Healthy'))
+anova(m.hc)
+m.mmp <- lm(Avg.vbm ~ Diff.3gt1+Age+TIV, data = struc.vs.fun, subset = (struc.vs.fun$Subtype=='1_Mild-Motor'))
+anova(m.mmp)
+
+# Is there an association between structure and symptom severity?
+struc.vs.fun %>%
+  filter(Subtype == '1_Mild-Motor') %>%
+  ggplot(aes(x=Avg.vbm, y=Up3OfTotal, color=Subtype)) + 
+  geom_point() +
+  geom_smooth(method='lm')
+m.mmp <- lm(Avg.vbm ~ Up3OfAppendicularSum + Age + TIV, data = struc.vs.fun, subset = (struc.vs.fun$Subtype=='1_Mild-Motor'))
+anova(m.mmp) # Larger volumes = More severe symptoms
+
+# Is there an association between task performance and structure?
+RTs <- tmp.for.struc %>%
+  ungroup() %>%
+  filter(ParticipantType=='MMP') %>%
+  mutate(ParticipantType='1_Mild-Motor') %>%
+  pivot_wider(id_cols = c('pseudonym','ParticipantType'),
+              names_from = trial_type,
+              values_from = response_time) %>%
+  mutate(RT.Avg = (`1choice` + `2choice` + `3choice`)/3,
+         RT.Diff.3gt1 = `3choice` - `1choice`) %>%
+  rename(Subtype = ParticipantType) %>%
+  select(pseudonym, Subtype, RT.Avg, RT.Diff.3gt1)
+
+struc.vs.fun2 <- left_join(struc.vs.fun, RTs, by=c('pseudonym','Subtype')) %>%
+  filter(Subtype == '1_Mild-Motor')
+
+struc.vs.fun2 %>%
+  ggplot(aes(x=Avg.vbm,y=RT.Avg)) + 
+  geom_point() + 
+  geom_smooth(method='lm')
+m <- lm(Avg.vbm ~ RT.Avg + Age + TIV, data = struc.vs.fun2)
+anova(m)  # Smaller volumes = Slower avg RTs
+
+struc.vs.fun2 %>%
+  ggplot(aes(x=Avg.vbm,y=RT.Diff.3gt1)) + 
+  geom_point() + 
+  geom_smooth(method='lm')
+m <- lm(Avg.vbm ~ RT.Diff.3gt1 + Age + TIV, data = struc.vs.fun2)
+anova(m)
+
+m <- lm(RT.Avg ~ Up3OfTotal, data = struc.vs.fun2)
+
+
+```
