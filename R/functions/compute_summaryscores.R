@@ -111,6 +111,15 @@ compute_summaryscores <- function(df){
                                 'ScopaAut21', 'ScopaAut27', 'ScopaAut28')
         list.MOCA <- c('NpsMocVisExe', 'NpsMocNaming', 'NpsMocAtten1', 'NpsMocAtten2', 'NpsMocAtten3',
                        'NpsMocLangu1', 'NpsMocLangu2', 'NpsMocAbstra', 'NpsMocDelRec', 'NpsMocOrient')
+                # Scores that have not yet been summarized
+        # list.ESS <- c('Ess1','Ess2','Ess3','Ess4','Ess5','Ess6','Ess7','Ess8',)
+        # list.SCOPASLP_night <- c('ScopaSlp03','ScopaSlp04','ScopaSlp05','ScopaSlp06','ScopaSlp07')
+        # list.SCOPASLP_global <- c('ScopaSlp08')
+        # list.SCOPASLP_day <- c('ScopaSlp09','ScopaSlp10','ScopaSlp11','ScopaSlp12','ScopaSlp13','ScopaSlp14')
+        # list.NFOGQ <- c('FrOfGait02','FrOfGait03','FrOfGait04','FrOfGait05','FrOfGait06','FrOfGait07','FrOfGait08','FrOfGait09')
+        # list.PASE <- c()
+        # list.WOQ <- c()
+        # list.SF12 <-c()
         #####
         df1 <- df %>%
                 plyr::mutate(Up3OfTotal = rowSums(.[list.TotalOff]), Up3OfTotal.NrItems = length(list.TotalOff),
