@@ -14,13 +14,12 @@ end
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri4.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri5.csv');
 baseid = ClinicalConfs.TimepointNr == 0;
 ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "HC_PIT";
 g2 = string(ClinicalConfs.ParticipantType) == "PD_POM";
 ClinicalConfs = ClinicalConfs(logical(g1 + g2),:);
-% Subtypes = readtable('/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv');
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, GroupFolder, 'con_0001', ses), '.*sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
 fprintf('Number of subjects processed: %i\n', numel(Sub))
@@ -51,7 +50,7 @@ for n = 1:numel(SubInfo.Sub)
     if strcmp(SubInfo.Group{n}, 'PD_POM')
         idx = strcmp(ClinicalConfs.pseudonym, SubInfo.Sub{n});
         if sum(idx)>0
-            t = ClinicalConfs.Subtype_DisDurSplit{idx};
+            t = ClinicalConfs.Subtype_DiagEx1_DisDurSplit{idx};
             SubInfo.Type{n} = t;
         else
             SubInfo.Type{n} = 'Undefined';
@@ -69,9 +68,8 @@ for n = 1:numel(SubInfo.Sub)
     end
 end
 SubInfo = subset_subinfo(SubInfo,Sel);
+tabulate(SubInfo.Type)
 
-% Exclude outliers
-% Exclude outliers
 % Exclude outliers
 mriqc_outliers = readtable('/project/3024006.02/Analyses/mriqc_outliers.txt');
 Con1 = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC/con_0001/Group.txt';
@@ -95,6 +93,19 @@ ResMS_f_s = ResMS_f(ResMS_f.Outlier==1,:);
 % AllOutliers = sortrows([Con1_f_s; Con2_f_s; Con3_f_s; Con12_f_s; Con13_f_s; ResMS_f_s]);
 outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
 % outliers = unique([Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+% outliers = unique(mriqc_outliers);
+outliers = [];
+% outliers = cell2table({'POMU3213FF895A391B8E'; 'POMU566ED54BF23566B6'; 'POMU7A45AB468540FBD2'; 'POMU7AABE759AC531D35'; 'POMUCA6A9EC3637FBF91';...
+%     'sub-POMUD03A248AEB7001CF'}, 'VariableNames',{'pseudonym'});
+outliers = cell2table({'POMU3213FF895A391B8E'; 'POMU566ED54BF23566B6'; 'POMU7A45AB468540FBD2'; 'POMU7AABE759AC531D35'; 'POMUCA6A9EC3637FBF91';...
+    'sub-POMUD03A248AEB7001CF';}, 'VariableNames',{'pseudonym'});
+% HC vs MMP!
+% outliers = cell2table({'POMU3213FF895A391B8E'; 'POMU566ED54BF23566B6'; 'POMU7A45AB468540FBD2'; 'POMU7AABE759AC531D35'; 'POMUCA6A9EC3637FBF91';...
+%     'sub-POMUD03A248AEB7001CF';...
+%     'sub-POMU942853AA5F620FD8'; 'sub-POMU00A6F1FC997C42C6'; 'sub-POMUE0EBE590CC91EF57'; 'sub-POMUA6F5671F320EA927'; 'sub-POMUD214335D3448F992';...
+%     'sub-POMU9AED42CD2E3E2370'; 'sub-POMU84491AF5A367D766'; 'sub-POMU167517CC94C263E3'; 'sub-POMU9056920DE2D533BB'; 'sub-POMU88EC9E198C36CDED';...
+%     'sub-POMUEEB7307F823DB346'; 'sub-POMU7E16E08D6D3BD46C'}, 'VariableNames',{'pseudonym'});
+
 if istrue(exclude_outliers)
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
@@ -105,6 +116,7 @@ if istrue(exclude_outliers)
     end
     SubInfo = subset_subinfo(SubInfo, Sel);
 end
+tabulate(SubInfo.Type)
 
 % Exclude subjects with partial FOV
 % subsWithPartial={'sub-POMU0AEE0E7E9F195659' 'sub-POMU4EFC0F78C5AE0D4D' 'sub-POMU08DC74B16BF4B68D'...
@@ -120,26 +132,16 @@ end
 % end
 % SubInfo = subset_subinfo(SubInfo, Sel);
 
-% Exclude patients with non-PD diagnosis at baseline (patients
-% without diagnosis are excluded above because their subtype is NA, but only if
-% you use the non-imputed subtype classification)
-% baseline_diagnosis_exclusions = readtable('/project/3024006.02/Data/Subtyping/Baseline_diagnosis_exclusions.csv');
-% Sel = true(size(SubInfo.Sub));
-% for n = 1:numel(SubInfo.Sub)
-%     if contains(SubInfo.Sub{n}, baseline_diagnosis_exclusions.pseudonym)
-%        Sel(n) = false;
-%     fprintf('Excluding due to baseline misdiagnosis: %s %s %s \n', SubInfo.Sub{n}, SubInfo.Group{n}, SubInfo.Type{n})
-%     end
-% end
-% SubInfo = subset_subinfo(SubInfo, Sel);
-
+% Exclude patients with non-PD diagnosis at baseline
+% This part will only exclude patients if none of the DiagEx
+% options are used for subtyping
 Sel = true(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
-        fprintf('Misdiagnosis or re-diagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
+    if ClinicalConfs.non_pd_diagnosis_at_ba(subid)
+        fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
     
@@ -244,9 +246,9 @@ tabulate(SubInfo.Type)
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};
 Inputs = cell(20,1);
 if ~exclude_outliers 
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcImpSubtypes_x_ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcSubtypes_x_ExtInt2Int3Catch')};
 else
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcImpSubtypes_x_ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'HcSubtypes_x_ExtInt2Int3Catch_NoOutliers3')};
 end
 
 HealthyControl.idx = contains(SubInfo.Type, 'HealthyControl');
@@ -256,9 +258,9 @@ Inputs{2,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, Grou
 Inputs{6,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
 Inputs{10,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
 Inputs{14,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-HealthyControl.FD = repmat(SubInfo.FD(HealthyControl.idx),4,1);
-HealthyControl.Age  = repmat(SubInfo.Age(HealthyControl.idx),4,1);
-HealthyControl.Gender  = repmat(SubInfo.Gender_num(HealthyControl.idx),4,1);
+HealthyControl.FD = repmat(SubInfo.FD(HealthyControl.idx)-mean(SubInfo.FD(HealthyControl.idx)),4,1);
+HealthyControl.Age  = repmat(SubInfo.Age(HealthyControl.idx)-mean(SubInfo.Age(HealthyControl.idx)),4,1);
+HealthyControl.Gender  = repmat(SubInfo.Gender_num(HealthyControl.idx)-mean(SubInfo.Gender_num(HealthyControl.idx)),4,1);
 
 MildMotor.idx = contains(SubInfo.Type, 'Mild-Motor');
 MildMotor.Sub = SubInfo.Sub(MildMotor.idx);
@@ -267,9 +269,9 @@ Inputs{3,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFold
 Inputs{7,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
 Inputs{11,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
 Inputs{15,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-MildMotor.FD = repmat(SubInfo.FD(MildMotor.idx),4,1);
-MildMotor.Age  = repmat(SubInfo.Age(MildMotor.idx),4,1);
-MildMotor.Gender  = repmat(SubInfo.Gender_num(MildMotor.idx),4,1);
+MildMotor.FD = repmat(SubInfo.FD(MildMotor.idx)-mean(SubInfo.FD(MildMotor.idx)),4,1);
+MildMotor.Age  = repmat(SubInfo.Age(MildMotor.idx)-mean(SubInfo.Age(MildMotor.idx)),4,1);
+MildMotor.Gender  = repmat(SubInfo.Gender_num(MildMotor.idx)-mean(SubInfo.Gender_num(MildMotor.idx)),4,1);
 
 Intermediate.idx = contains(SubInfo.Type, 'Intermediate');
 Intermediate.Sub = SubInfo.Sub(Intermediate.idx);
@@ -278,9 +280,9 @@ Inputs{4,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupF
 Inputs{8,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
 Inputs{12,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
 Inputs{16,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-Intermediate.FD = repmat(SubInfo.FD(Intermediate.idx),4,1);
-Intermediate.Age  = repmat(SubInfo.Age(Intermediate.idx),4,1);
-Intermediate.Gender  = repmat(SubInfo.Gender_num(Intermediate.idx),4,1);
+Intermediate.FD = repmat(SubInfo.FD(Intermediate.idx)-mean(SubInfo.FD(Intermediate.idx)),4,1);
+Intermediate.Age  = repmat(SubInfo.Age(Intermediate.idx)-mean(SubInfo.Age(Intermediate.idx)),4,1);
+Intermediate.Gender  = repmat(SubInfo.Gender_num(Intermediate.idx)-mean(SubInfo.Gender_num(Intermediate.idx)),4,1);
 
 DiffuseMalignant.idx = contains(SubInfo.Type, 'Diffuse-Malignant');
 DiffuseMalignant.Sub = SubInfo.Sub(DiffuseMalignant.idx);
@@ -289,9 +291,9 @@ Inputs{5,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, Gr
 Inputs{9,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
 Inputs{13,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
 Inputs{17,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-DiffuseMalignant.FD = repmat(SubInfo.FD(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.Age  = repmat(SubInfo.Age(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.Gender  = repmat(SubInfo.Gender_num(DiffuseMalignant.idx),4,1);
+DiffuseMalignant.FD = repmat(SubInfo.FD(DiffuseMalignant.idx)-mean(SubInfo.FD(DiffuseMalignant.idx)),4,1);
+DiffuseMalignant.Age  = repmat(SubInfo.Age(DiffuseMalignant.idx)-mean(SubInfo.Age(DiffuseMalignant.idx)),4,1);
+DiffuseMalignant.Gender  = repmat(SubInfo.Gender_num(DiffuseMalignant.idx)-mean(SubInfo.Gender_num(DiffuseMalignant.idx)),4,1);
 
 Inputs{18,1} = [HealthyControl.FD; MildMotor.FD; Intermediate.FD; DiffuseMalignant.FD];
 Inputs{19,1} = [HealthyControl.Age; MildMotor.Age; Intermediate.Age; DiffuseMalignant.Age];
