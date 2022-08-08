@@ -29,13 +29,11 @@ spm('defaults', 'FMRI');
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-% ClinicalDataFile = '/project/3022026.01/pep/ClinVars/derivatives/database_clinical_variables_2021-08-30.csv';
-% SubtypeDataFile = '/project/3022026.01/pep/deprecated_ClinVars/derivatives/Subtypes_2021-04-12.csv';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri4.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri5.csv');
 baseid = ClinicalConfs.TimepointNr == 0;
 ClinicalConfs = ClinicalConfs(baseid,:);
-motortask = strcmp(ClinicalConfs.MriNeuroPsychTask, 'Motor');
-ClinicalConfs = ClinicalConfs(motortask,:);
+% motortask = strcmp(ClinicalConfs.MriNeuroPsychTask, 'Motor');
+% ClinicalConfs = ClinicalConfs(motortask,:);
 g1 = string(ClinicalConfs.ParticipantType) == "PD_POM";
 ClinicalConfs = ClinicalConfs(logical(g1),:);
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, GroupFolder, 'con_0001', 'ses-Visit1'), 'PD_POM.*sub-POM.*'));
@@ -45,7 +43,7 @@ fprintf('Number of subjects found: %i\n', numel(Sub))
 %% Subset data
 
 % Select variables and remove missing values
-Colnames = {'pseudonym' 'Subtype_DisDurSplit' ['Up3Of' Subscore] 'Age' 'Gender' 'MonthSinceDiag', 'non_pd_diagnosis_at_ba_or_fu'};
+Colnames = {'pseudonym' 'Subtype_DiagEx1_DisDurSplit' ['Up3Of' Subscore] 'Age' 'Gender' 'non_pd_diagnosis_at_ba'};
 cID = ismember(ClinicalConfs.Properties.VariableNames, Colnames);
 ClinicalConfs = rmmissing(ClinicalConfs(:,cID));
 
@@ -53,7 +51,7 @@ ClinicalConfs = rmmissing(ClinicalConfs(:,cID));
 if ~isempty(Subtype)
     % Select patients from the clinical data file that have the selected
     % subtype
-    sid = contains(ClinicalConfs.Subtype_DisDurSplit, Subtype);
+    sid = contains(ClinicalConfs.Subtype_DiagEx1_DisDurSplit, Subtype);
     ClinicalConfs = ClinicalConfs(sid,:);
     fprintf('Analyzing subtype: %s, n = %i \n', Subtype, height(ClinicalConfs))
 end
@@ -63,15 +61,15 @@ sid = contains(Sub, ClinicalConfs.pseudonym);
 SubInfo.Sub = Sub(sid);
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = cell(size(SubInfo.Sub));
-SubInfo.MonthSinceDiag = zeros(size(SubInfo.Sub));
+% SubInfo.MonthSinceDiag = zeros(size(SubInfo.Sub));
 SubInfo.Type = cell(size(SubInfo.Sub));
 SubInfo.Score = zeros(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     sid = find(strcmp(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     SubInfo.Age(n) = ClinicalConfs.Age(sid);
     SubInfo.Gender{n} = ClinicalConfs.Gender{sid};
-    SubInfo.MonthSinceDiag(n) = ClinicalConfs.MonthSinceDiag(sid);
-    SubInfo.Type{n} = ClinicalConfs.Subtype_DisDurSplit{sid};
+%     SubInfo.MonthSinceDiag(n) = ClinicalConfs.MonthSinceDiag(sid);
+    SubInfo.Type{n} = ClinicalConfs.Subtype_DiagEx1_DisDurSplit{sid};
     cID = ismember(ClinicalConfs.Properties.VariableNames, ['Up3Of' Subscore]);
     SubInfo.Score(n) = table2array(ClinicalConfs(sid,cID));
 end
@@ -126,6 +124,9 @@ ResMS_f_s = ResMS_f(ResMS_f.Outlier==1,:);
 % AllOutliers = sortrows([Con1_f_s; Con2_f_s; Con3_f_s; Con12_f_s; Con13_f_s; ResMS_f_s]);
 outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
 % outliers = unique([Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+outliers = [];
+outliers = cell2table({'POMU3213FF895A391B8E'; 'POMU566ED54BF23566B6'; 'POMU7A45AB468540FBD2'; 'POMU7AABE759AC531D35'; 'POMUCA6A9EC3637FBF91';...
+    'sub-POMUD03A248AEB7001CF'}, 'VariableNames',{'pseudonym'});
 if istrue(exclude_outliers)
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
@@ -142,8 +143,8 @@ for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
-        fprintf('Misdiagnosis or re-diagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
+    if ClinicalConfs.non_pd_diagnosis_at_ba(subid)
+        fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
     
@@ -153,7 +154,7 @@ SubInfo = subset_subinfo(SubInfo, Sel);
 
 %% Assemble inputs
 ConList = {'con_0012' 'con_0013' 'con_0008' 'con_0010'};
-ConNames= {'Int2>Ext' 'Int3>Ext' 'Int3>Int2'  'Mean_ExtInt'};
+ConNames= {'Int2gtExt' 'Int3gtExt' 'Int3gtInt2'  'Mean_ExtInt'};
 
 if ~istrue(BaselineOnly)
     inputs = cell(8, 1);
@@ -172,7 +173,8 @@ for c = 1:numel(ConList)
 %     elseif strcmp(ConNames{c}, 'Mean_ExtInt')
 %         Mask = {'/project/3024006.02/Analyses/Masks/WholeBrain.nii'};
 %     end
-    Mask = {'/project/3024006.02/Analyses/Masks/JuBrain_ROIs/Frontoparietal_BasalGanglia_Cerebellum_mask.nii'};
+%     Mask = {'/project/3024006.02/Analyses/Masks/JuBrain_ROIs/Frontoparietal_BasalGanglia_Cerebellum_mask.nii'};
+    Mask = {''};
     
     if ~istrue(BaselineOnly)
         inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, ['OneSampleTtest_ClinCorr-Off-Prog-' Subscore], ConNames{c})};
@@ -217,7 +219,7 @@ for c = 1:numel(ConList)
 %         inputs{7,1} = Mask;
 %     end
     if exclude_outliers
-        inputs{1,1} = insertAfter(inputs{1,1}, Subscore, '_NoOutliers');
+        inputs{1,1} = insertAfter(inputs{1,1}, Subscore, '_NoOutliers3');
     end
     if ~isempty(Subtype)
         inputs{1,1} = insertBefore(inputs{1,1}, 'OneSampleTtest', [Subtype '_']);
