@@ -2,7 +2,7 @@
 # These manipulations are intended to be independent of each other
 # so it should be possible to carry them out in any order.
 
-manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivatives/merged_2022-03-29.csv'){
+manipulate_castor_csv <- function(datafile='/project/3022026.01/pep/ClinVars4/derivatives/merged_2022-07-27.csv'){
 
         library(tidyverse)
         library(jsonlite)
@@ -13,12 +13,12 @@ manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivati
         #####
         
         ##### Replace numeric values with meaningful labels #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/relabel_categorical_vals.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/relabel_categorical_vals.R')
         df <- relabel_categorical_vals(df)
         #####
         
         ##### Repair impossible values #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/turn_negative_to_positive.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/turn_negative_to_positive.R')
         varlist <- c('MonthSinceDiag', 'WeeksSinceVisit1', 'WeeksSinceVisit2', 'Age')
         for(var in varlist){
                 turn_negative_to_positive(df, var)
@@ -26,38 +26,43 @@ manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivati
         #####
         
         ##### Determine task #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/determine_mri_task.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/determine_mri_task.R')
         df <- determine_mri_task(df, 'P:/3022026.01/pep/bids')
         #####
         
         ##### Repair BDI and reverse STAI scores #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/repair_bdiII_values.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/repair_bdiII_values.R')
         df <- repair_bdiII_values(df)
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/reverse_STAI_values.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/reverse_STAI_values.R')
         df <- reverse_STAI_values(df)
         #####
         
+        ##### Set values of UPDRS-III items that have 5 to NA, these are items that could not be assessed #####
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/repair_updrs3.R')
+        df <- repair_updrs3(df)
+        #####
+        
         ##### Extend variables #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/extend_variables.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/extend_variables.R')
         varlist <- c('Gender', 'Age', 'MonthSinceDiag', 'MostAffSide', 'WeeksSinceVisit1', 'WeeksSinceVisit2', 'MriNeuroPsychTask', 'MriRespHand') #MostAffSide
         df <- extend_variables(df, varlist)
         #####
         
         ##### Include LEDD if possible #####
-        file <- 'P:/3022026.01/pep/ClinVars/derivatives/LEDD/MedicationTable.csv'
+        file <- '/project/3022026.01/pep/ClinVars/derivatives/LEDD/MedicationTable.csv'
         meds <- read_csv(file)
         df <- left_join(df, meds, by = c('pseudonym','Timepoint'))
         df$LEDD[df$LEDD>8000] <- NA       # Remove unreasonably high values
         #####
         
         ##### Compute summary scores (Dependency: Extend variables) #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_summaryscores.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_summaryscores.R')
         df <- compute_summaryscores(df)
         #####
         
         ##### Compute progression (deltas and ROCs; Dependency: Compute summary scores) #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/elble_change.R')
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_progression.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/elble_change.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_progression.R')
         varlist <- c('AsymmetryIndexRiLe.Brady', 'AsymmetryIndexArmLeg.Brady', 'AsymmetryIndexRiLe.Rigidity', 'AsymmetryIndexArmLeg.Rigidity',
                      'AsymmetryIndexRiLe.RestTrem', 'AsymmetryIndexArmLeg.RestTrem', 'AsymmetryIndexRiLe.ActTrem',
                      'AsymmetryIndexRiLe.All', 'AsymmetryIndexArmLeg.All', 'AsymmetryIndexRiLeDelta.All', 'AsymmetryIndexArmLegDelta.All',
@@ -83,12 +88,12 @@ manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivati
         #####
         
         ##### Detect patients who participated in both PIT and POM #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/detect_xstudy_participation.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/detect_xstudy_participation.R')
         df <- detect_xstudy_participation(df)
         #####
         
         ##### Classify PD patients from POM into subtypes (Feresh et al., 2017) #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/classify_subtypes.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/classify_subtypes.R')
         # All timepoints for all subjects are classified relative to baseline z-scores
         df_noimp_relba <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'none', RelativeToBaseline = TRUE)
         df_imp_relba <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'none', RelativeToBaseline = TRUE) %>%
@@ -117,12 +122,12 @@ manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivati
                 rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_DiagEx3_',.x), starts_with('Subtype'))
         
         # All timepoints for all subjects are classified relative to session-specific z-scores
-        df_noimp_relpeers <- classify_subtypes(df, MI = FALSE, RelativeToBaseline = FALSE) %>%
+        df_noimp_relpeers_diagex1 <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'ba', RelativeToBaseline = FALSE) %>%
                 select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
-                rename_with( ~ gsub('Subtype_', 'Subtype_RelPeers_',.x), starts_with('Subtype'))
-        df_imp_relpeers <- classify_subtypes(df, MI = TRUE, RelativeToBaseline = FALSE) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx1_RelPeers_',.x), starts_with('Subtype'))
+        df_imp_relpeers_diagex1 <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'ba', RelativeToBaseline = FALSE) %>%
                 select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
-                rename_with( ~ gsub('Subtype_', 'Subtype_Imputed_RelPeers_',.x), starts_with('Subtype'))
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx1_Imputed_RelPeers_',.x), starts_with('Subtype'))
         
         
         df <- full_join(df_noimp_relba, df_imp_relba, by = c('pseudonym', 'ParticipantType','TimepointNr'))
@@ -132,12 +137,12 @@ manipulate_castor_csv <- function(datafile='P:/3022026.01/pep/ClinVars2/derivati
         df <- full_join(df, df_noimp_relba_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         df <- full_join(df, df_imp_relba_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         df <- full_join(df, df_noimp_relba_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
-        df <- full_join(df, df_noimp_relpeers, by = c('pseudonym', 'ParticipantType','TimepointNr'))
-        df <- full_join(df, df_imp_relpeers, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_noimp_relpeers_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_imp_relpeers_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         #####
         
         ##### Calculate time to follow-up (Dependency: Extend variables) #####
-        source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_weekstofollowup.R')
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_weekstofollowup.R')
         df <- compute_weekstofollowup(df)
         #####
         
