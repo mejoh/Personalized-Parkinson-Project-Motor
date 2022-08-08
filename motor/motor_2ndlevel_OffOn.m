@@ -13,7 +13,7 @@ ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri4.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri5.csv');
 baseid = ClinicalConfs.TimepointNr == 0;
 ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "PD_POM";
@@ -75,8 +75,11 @@ Con13_f_s = Con13_f(Con13_f.Outlier==1,:);
 ResMS_f = readtable(ResMS);
 ResMS_f_s = ResMS_f(ResMS_f.Outlier==1,:);
 % AllOutliers = sortrows([Con1_f_s; Con2_f_s; Con3_f_s; Con12_f_s; Con13_f_s; ResMS_f_s]);
-outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+% outliers = unique([Con1_f_s.Sub; Con2_f_s.Sub; Con3_f_s.Sub; Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
 % outliers = unique([Con12_f_s.Sub; Con13_f_s.Sub; ResMS_f_s.Sub; mriqc_outliers]);
+outliers = [];
+outliers = cell2table({'POMU3213FF895A391B8E'; 'POMU566ED54BF23566B6'; 'POMU7A45AB468540FBD2'; 'POMU7AABE759AC531D35'; 'POMUCA6A9EC3637FBF91';...
+    'sub-POMUD03A248AEB7001CF'}, 'VariableNames',{'pseudonym'});
 if istrue(exclude_outliers)
     Sel = true(size(SubInfo.Sub));
     for n = 1:numel(SubInfo.Sub)
@@ -115,8 +118,8 @@ for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
-        fprintf('Misdiagnosis or re-diagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
+    if ClinicalConfs.non_pd_diagnosis_at_ba(subid)
+        fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
 end
@@ -156,27 +159,47 @@ end
 
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = cell(size(SubInfo.Sub));
-SubInfo.UPDRSTotalBA = zeros(size(SubInfo.Sub));
+% SubInfo.UPDRSTotalBA = zeros(size(SubInfo.Sub));
+% for n = 1:numel(SubInfo.Sub)
+%     
+%     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
+%     
+%     if isempty(subid) || isnan(ClinicalConfs.Up3OfTotal(subid))
+%         SubInfo.UPDRSTotalBA(n) = mean(ClinicalConfs.Up3OfTotal, 'omitnan');
+%     else
+%         SubInfo.UPDRSTotalBA(n) = ClinicalConfs.Up3OfTotal(subid);
+%     end
+%     
+%     if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
+%         fprintf('Missing values, interpolating...\n')
+%         SubInfo.Age(n) = round(mean(ClinicalConfs.Age, 'omitnan'));
+%         SubInfo.Gender{n} = cellstr('Male');
+%     else
+%         SubInfo.Age(n) = ClinicalConfs.Age(subid);
+%         SubInfo.Gender{n} = ClinicalConfs.Gender(subid);
+%     end
+%     
+% end
+
+% Exclude subjects with missing Age and Gender
+Sel = true(size(SubInfo.Sub));
+SubInfo.Age = zeros(size(SubInfo.Sub));
+SubInfo.Gender = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if isempty(subid) || isnan(ClinicalConfs.Up3OfTotal(subid))
-        SubInfo.UPDRSTotalBA(n) = mean(ClinicalConfs.Up3OfTotal, 'omitnan');
-    else
-        SubInfo.UPDRSTotalBA(n) = ClinicalConfs.Up3OfTotal(subid);
-    end
-    
     if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
-        fprintf('Missing values, interpolating...\n')
-        SubInfo.Age(n) = round(mean(ClinicalConfs.Age, 'omitnan'));
-        SubInfo.Gender{n} = cellstr('Male');
+        fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
+        Sel(n) = false;
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender{n} = ClinicalConfs.Gender(subid);
     end
     
 end
+fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
+SubInfo = subset_subinfo(SubInfo, Sel);
 
 SubInfo.Gender_num = zeros(size(SubInfo.Gender));
 for n = 1:numel(SubInfo.Gender)
@@ -193,7 +216,7 @@ Inputs = cell(12, 1);
 if ~istrue(exclude_outliers)
     Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'OffOn_x_ExtInt2Int3Catch')};
 else
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'OffOn_x_ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'OffOn_x_ExtInt2Int3Catch_NoOutliers3')};
 end
 
 ExtPd = dir(fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses, 'PD_PIT*'));
@@ -231,13 +254,19 @@ CatchPd_files = CatchPd_files(contains({CatchPd.name}, duplicate_subs));
 Inputs{9,1} = fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses, CatchPd_files);
 
 FD_PD_PIT = SubInfo.FD(strcmp(SubInfo.Group, 'PD_PIT'))';
+FD_PD_PIT = FD_PD_PIT - mean(FD_PD_PIT);
 FD_PD_POM = SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'))';
+FD_PD_POM = FD_PD_POM - mean(FD_PD_POM);
 Age_PD_PIT = SubInfo.Age(strcmp(SubInfo.Group, 'PD_PIT'))';
+Age_PD_PIT = Age_PD_PIT - mean(Age_PD_PIT);
 Age_PD_POM = SubInfo.Age(strcmp(SubInfo.Group, 'PD_POM'))';
+Age_PD_POM = Age_PD_POM - mean(Age_PD_POM);
 Gender_PD_PIT = SubInfo.Gender_num(strcmp(SubInfo.Group, 'PD_PIT'))';
+Gender_PD_PIT = Gender_PD_PIT - mean(Gender_PD_PIT);
 Gender_PD_POM = SubInfo.Gender_num(strcmp(SubInfo.Group, 'PD_POM'))';
-MotorSymSev_PIT = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_PIT'))';
-MotorSymSev_POM = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_POM'))';
+Gender_PD_POM = Gender_PD_POM - mean(Gender_PD_POM);
+% MotorSymSev_PIT = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_PIT'))';
+% MotorSymSev_POM = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_POM'))';
 
 Inputs{10,1} = [FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM]';
 Inputs{11,1} = [Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM]';
