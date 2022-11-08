@@ -22,7 +22,7 @@ end
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
 
-session = 'ses-POMVisit1';
+session = 'ses-POMVisit3';
 prefix = ''; %'[A-Z]'; %'[0-9]';
 Root = '/project/3022026.01';
 BIDSDir  = fullfile(Root, 'pep', 'bids');
