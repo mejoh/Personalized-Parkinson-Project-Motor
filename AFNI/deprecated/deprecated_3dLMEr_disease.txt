@@ -1,0 +1,21 @@
+3dLMEr -prefix /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/3dLMEr_disease/Group_x_Time -jobs 24 \
+-model '1+Group*TimepointNr+Age_Dmean+MeanFD_Dmean+Sex+(1|Subj)' \
+-qVars 'Age_Dmean,MeanFD_Dmean' \
+-resid Residuals \
+-gltCode Time_by_Group 'TimepointNr : 1*T1 -1*T0 Group : 1*HC_PIT -1*PD_POM' \
+-gltCode Time_by_HC 'TimepointNr : 1*T1 -1*T0 Group : 1*HC_PIT' \
+-gltCode Time_by_PD 'TimepointNr : 1*T1 -1*T0 Group : 1*PD_POM' \
+-gltCode BA_by_Group 'TimepointNr : 1*T0 Group : 1*HC_PIT -1*PD_POM' \
+-gltCode FU_by_Group 'TimepointNr : 1*T1 Group : 1*HC_PIT -1*PD_POM' \
+-gltCode BA_by_HC 'TimepointNr : 1*T0 Group : 1*HC_PIT' \
+-gltCode FU_by_HC 'TimepointNr : 1*T1 Group : 1*HC_PIT' \
+-gltCode BA_by_PD 'TimepointNr : 1*T0 Group : 1*PD_POM' \
+-gltCode FU_by_PD 'TimepointNr : 1*T1 Group : 1*PD_POM' \
+-gltCode Time 'TimepointNr : 1*T1 -1*T0' \
+-gltCode BA 'TimepointNr : 1*T0' \
+-gltCode FU 'TimepointNr : 1*T1' \
+-gltCode Group 'Group : 1*HC_PIT -1*PD_POM' \
+-gltCode HC 'Group : 1*HC_PIT' \
+-gltCode PD 'Group : 1*PD_POM' \
+-dataTable \
+`cat /project/3024006.02/Analyses/testLongitudinal/afni/con_0010_disease_dataTable.txt`

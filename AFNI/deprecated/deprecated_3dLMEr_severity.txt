@@ -1,0 +1,7 @@
+3dLMEr -prefix /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/3dLMEr_severity/Time_x_Severity -jobs 24 \
+-model '1+TimepointNr*BradyRigScore_Dmean+Age_Dmean+MeanFD_Dmean+Sex+(1|Subj)' \
+-qVars 'BradyRigScore,Age_Dmean,MeanFD_Dmean' \
+-resid Residuals \
+-gltCode FU-BA 'TimepointNr : 1*T1 -1*T0'
+-dataTable \
+`cat /project/3024006.02/Analyses/testLongitudinal/afni/con_0010_severity_dataTable.txt`
