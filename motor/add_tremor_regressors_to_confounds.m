@@ -2,7 +2,7 @@
 % Adds tremor regressors to fmriprep confounds file
 function add_tremor_regressors_to_confounds()
 
-session = 'ses-POMVisit3';
+session = 'ses-POMVisit1';
 BIDSDir  = '/project/3022026.01/pep/bids';
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
 EMGDir = '/project/3024006.02/Analyses/EMG/motor';
@@ -46,10 +46,16 @@ for n = 1:numel(Sub)
         dFunc = fullfile(FMRIPrep, s, t, 'func');
         ConfoundsFile = cellstr(spm_select('FPList', dFunc, [s, '.*task-motor_acq-MB6_run-', '.*_desc-confounds_timeseries2.tsv']));
         ConfoundsFile = cellstr(ConfoundsFile{size(ConfoundsFile,1)});
-        % Automaticdir
+     
 %         if(~contains(t, 'PIT'))
 %             t = eraseBetween(Visit{v}, 'ses-','Visit');
 %         end
+        % FIX: Visit1 and Visit3 were done at different times with different
+        % structures
+        if contains(t, 'POMVisit1')
+            t = strrep(t,'POM','');
+        end
+        % Automaticdir
         AutoClassed = spm_select('FPList', Automaticdir, [s, '-', t, '-motor-selected-acc.*.jpg']);
         % Prepemg output
         TAmp = spm_select('FPList', Prepemg, [s, '-', t, '.*acc.*amplitude.mat']);
