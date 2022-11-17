@@ -10,7 +10,7 @@ elseif contains(prefix, 'swj')
 end
 
 % Specify input image structure
-dInput = '/project/3024006.02/Analyses/CAT12/processing_cDartel/mri';
+dInput = '/project/3024006.02/Analyses/CAT12/processing_cShoot/mri';
 fExclusions = '/project/3024006.02/Analyses/CAT12/Exclusions.txt';
 dOut = ['/project/3024006.02/Analyses/CAT12/stats/' measure '_shooting-custom'];
 SubInfo = [];
@@ -27,12 +27,11 @@ end
 % Specify covariates
 
 % TIV
-volumes = table2array(readtable('/project/3024006.02/Analyses/CAT12/processing_cDartel/TIV.txt', 'ReadVariableNames', false));
+volumes = table2array(readtable('/project/3024006.02/Analyses/CAT12/processing_cShoot/TIV.txt', 'ReadVariableNames', false));
 SubInfo.TIV = volumes(:,1);
 
-
 % Age, sex, subtype
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri5.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri6.csv');
 baseid = ClinicalConfs.TimepointNr == 0;
 ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "HC_PIT";
@@ -40,7 +39,7 @@ g2 = string(ClinicalConfs.ParticipantType) == "PD_POM";
 ClinicalConfs = ClinicalConfs(logical(g1 + g2),:);
 Sel = true(size(SubInfo.images));
 SubInfo.Age = zeros(size(SubInfo.images));
-SubInfo.Gender = cell(size(SubInfo.images));
+SubInfo.Gender = zeros(size(SubInfo.images));
 SubInfo.Subtype = cell(size(SubInfo.images));
 for n = 1:numel(SubInfo.images)
     s = extractBetween(SubInfo.images{n}, 'sub-', '_ses-');
@@ -49,7 +48,7 @@ for n = 1:numel(SubInfo.images)
         Sel(n) = false;
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
-        SubInfo.Gender{n} = char(ClinicalConfs.Gender(subid));
+        SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
         SubInfo.Subtype{n} = char(ClinicalConfs.Subtype_DiagEx1_DisDurSplit(subid));
     end
 end
@@ -64,16 +63,6 @@ for n = 1:numel(SubInfo.images)
     end
 end
 
-% Turn gender into numerical
-SubInfo.Gender_num = zeros(size(SubInfo.Gender));
-for n = 1:numel(SubInfo.Gender)
-    if strcmp(SubInfo.Gender{n}, 'Male')
-        SubInfo.Gender_num(n) = 0;
-    else
-        SubInfo.Gender_num(n) = 1;
-    end
-end
-
 % Exclude participants based on QC
 Exclusions = table2cell(readtable(fExclusions, 'ReadVariableNames', false));
 Exclusions = unique(Exclusions); % Remove duplicates
@@ -85,12 +74,12 @@ for n = 1:numel(SubInfo.images)
 end
 SubInfo = subset_subinfo(SubInfo, Sel);
 
-% Exclude based on non-PD diagnosis at baseline
+% Exclude based on non-PD diagnosis at baseline or follow-up
 Sel = true(size(SubInfo.images));
 for n = 1:numel(SubInfo.images)
     s = extractBetween(SubInfo.images{n}, 'sub-', '_ses-');
     subid = find(contains(ClinicalConfs.pseudonym, s));
-    if contains(SubInfo.Group{n}, 'PD') && ClinicalConfs.non_pd_diagnosis_at_ba(subid)
+    if contains(SubInfo.Group{n}, 'PD') && ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
         Sel(n) = false;
     end
 end
@@ -134,7 +123,7 @@ current=pwd;
 cd(char(inputs{1,1}))
 covars = array2table([inputs{4,1},inputs{5,1}], 'VariableNames', {'Age','TIV'});
 writetable(covars, 'Covars.csv', 'WriteMode', 'overwrite');
-% spm_jobman('run', JobFile, inputs{:});
+spm_jobman('run', JobFile, inputs{:});
 cd(current)
 
 %% Subtypes vs Subtypes
@@ -161,7 +150,7 @@ current=pwd;
 cd(char(inputs{1,1}))
 covars = array2table([inputs{5,1},inputs{6,1}], 'VariableNames', {'Age','TIV'});
 writetable(covars, 'Covars.csv', 'WriteMode', 'overwrite');
-% spm_jobman('run', JobFile, inputs{:});
+spm_jobman('run', JobFile, inputs{:});
 cd(current)
 
 %% HC vs Subtypes
@@ -191,7 +180,7 @@ current=pwd;
 cd(char(inputs{1,1}))
 covars = array2table([inputs{6,1},inputs{7,1}], 'VariableNames', {'Age','TIV'});
 writetable(covars, 'Covars.csv', 'WriteMode', 'overwrite');
-% spm_jobman('run', JobFile, inputs{:});
+spm_jobman('run', JobFile, inputs{:});
 cd(current)
 
 end
