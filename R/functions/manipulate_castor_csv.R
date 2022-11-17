@@ -27,7 +27,7 @@ manipulate_castor_csv <- function(datafile='/project/3022026.01/pep/ClinVars4/de
         
         ##### Determine task #####
         source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/determine_mri_task.R')
-        df <- determine_mri_task(df, 'P:/3022026.01/pep/bids')
+        df <- determine_mri_task(df, '/project/3022026.01/pep/bids')
         #####
         
         ##### Repair BDI and reverse STAI scores #####
@@ -63,25 +63,42 @@ manipulate_castor_csv <- function(datafile='/project/3022026.01/pep/ClinVars4/de
         ##### Compute progression (deltas and ROCs; Dependency: Compute summary scores) #####
         source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/elble_change.R')
         source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_progression.R')
-        varlist <- c('AsymmetryIndexRiLe.Brady', 'AsymmetryIndexArmLeg.Brady', 'AsymmetryIndexRiLe.Rigidity', 'AsymmetryIndexArmLeg.Rigidity',
+        # varlist <- c('Up4Dyskinesia', 'Up4Fluct', 'Up4Dystonia', 'Up4Total',
+        #              'AsymmetryIndexRiLe.Brady', 'AsymmetryIndexArmLeg.Brady', 'AsymmetryIndexRiLe.Rigidity', 'AsymmetryIndexArmLeg.Rigidity',
+        #              'AsymmetryIndexRiLe.RestTrem', 'AsymmetryIndexArmLeg.RestTrem', 'AsymmetryIndexRiLe.ActTrem',
+        #              'AsymmetryIndexRiLe.All', 'AsymmetryIndexArmLeg.All', 'AsymmetryIndexRiLeDelta.All', 'AsymmetryIndexArmLegDelta.All',
+        #              'AsymmetryIndexRiLe.WeightedBradyRig', 'AsymmetryIndexArmLeg.WeightedBradyRig',
+        #              'Up3OfBradyProportion', 'Up3OfRigidityProportion', 'Up3OfPIGDProportion', 'Up3OfRestTremProportion', 'Up3OfActTremProportion', 'Up3OfOtherProportion',
+        #              'Up3OfBradyProportion2', 'Up3OfRigidityProportion2', 'Up3OfPIGDProportion2', 'Up3OfRestTremProportion2', 'Up3OfActTremProportion2', 'Up3OfOtherProportion2',
+        #              'Up3OfTotal', 'Up3OnTotal', 'Up3OfBradySum', 'Up3OnBradySum', 'Up3OfRigiditySum', 'Up3OnRigiditySum',
+        #              'Up3OfAppendicularSum', 'Up3OnAppendicularSum', 'Up3OfPIGDSum', 'Up3OnPIGDSum', 'Up3OfPIGDSum_Up3Only', 'Up3OnPIGDSum_Up3Only', 
+        #              'Up3OfAxialSum', 'Up3OnAxialSum', 'Up3OfRestTremAmpSum', 'Up3OnRestTremAmpSum', 'Up3OfActionTremorSum', 'Up3OnActionTremorSum',
+        #              'Up3OfCompositeTremorSum', 'Up3OnCompositeTremorSum', 'Up3OfOtherSum', 'Up3OnOtherSum',
+        #              'Up3OfTotal.Norm', 'Up3OnTotal.Norm', 'Up3OfBradySum.Norm', 'Up3OnBradySum.Norm', 'Up3OfRigiditySum.Norm', 'Up3OnRigiditySum.Norm',
+        #              'Up3OfAppendicularSum.Norm', 'Up3OnAppendicularSum.Norm', 'Up3OfPIGDSum.Norm', 'Up3OnPIGDSum.Norm', 'Up3OfPIGDSum_Up3Only.Norm', 'Up3OnPIGDSum_Up3Only.Norm', 
+        #              'Up3OfAxialSum.Norm', 'Up3OfAxialSum.Norm', 'Up3OfRestTremAmpSum.Norm', 'Up3OnRestTremAmpSum.Norm', 'Up3OfActionTremorSum.Norm', 'Up3OnActionTremorSum.Norm',
+        #              'Up3OfCompositeTremorSum.Norm', 'Up3OnCompositeTremorSum.Norm', 'Up3OfOtherSum.Norm', 'Up3OnOtherSum.Norm', 'MotorComposite',
+        #              'STAIStateSum', 'STAITraitSum', 'QUIPicdSum', 'QUIPrsSum', 'AES12Sum', 'ApatSum', 'BDI2Sum', 'PDQ39_SingleIndex',
+        #              'ROMPSum', 'VIPDQ23Sum', 'VIPDQ17Sum', 'Up1Total', 'Up2Total',
+        #              'RBDSQSum', 'SCOPA_AUTSum', 'MoCASum',
+        #              'NpsMis15wRigTot', 'NpsMis15WrdDelRec', 'NpsMis15WrdRecognition',
+        #              'NpsMisBenton', 'NpsMisBrixton', 'NpsMisWaisLcln', 'NpsMisWaisRude', 'NpsMisSemFlu',
+        #              'NpsMisModa30', 'NpsMisModa60', 'NpsMisModa90', 'LEDD')
+        varlist <- c('Up4Dyskinesia', 'Up4Fluct', 'Up4Dystonia', 'Up4Total',
+                     'AsymmetryIndexRiLe.Brady', 'AsymmetryIndexArmLeg.Brady', 'AsymmetryIndexRiLe.Rigidity', 'AsymmetryIndexArmLeg.Rigidity',
                      'AsymmetryIndexRiLe.RestTrem', 'AsymmetryIndexArmLeg.RestTrem', 'AsymmetryIndexRiLe.ActTrem',
                      'AsymmetryIndexRiLe.All', 'AsymmetryIndexArmLeg.All', 'AsymmetryIndexRiLeDelta.All', 'AsymmetryIndexArmLegDelta.All',
                      'AsymmetryIndexRiLe.WeightedBradyRig', 'AsymmetryIndexArmLeg.WeightedBradyRig',
                      'Up3OfBradyProportion', 'Up3OfRigidityProportion', 'Up3OfPIGDProportion', 'Up3OfRestTremProportion', 'Up3OfActTremProportion', 'Up3OfOtherProportion',
+                     'Up3OfBradyProportion2', 'Up3OfRigidityProportion2', 'Up3OfPIGDProportion2', 'Up3OfRestTremProportion2', 'Up3OfActTremProportion2', 'Up3OfOtherProportion2',
                      'Up3OfTotal', 'Up3OnTotal', 'Up3OfBradySum', 'Up3OnBradySum', 'Up3OfRigiditySum', 'Up3OnRigiditySum',
                      'Up3OfAppendicularSum', 'Up3OnAppendicularSum', 'Up3OfPIGDSum', 'Up3OnPIGDSum', 'Up3OfPIGDSum_Up3Only', 'Up3OnPIGDSum_Up3Only', 
-                     'Up3OfAxialSum', 'Up3OfAxialSum', 'Up3OfRestTremAmpSum', 'Up3OnRestTremAmpSum', 'Up3OfActionTremorSum', 'Up3OnActionTremorSum',
-                     'Up3OfCompositeTremorSum', 'Up3OnCompositeTremorSum', 'Up3OfOtherSum', 'Up3OnOtherSum',
-                     'Up3OfTotal.Norm', 'Up3OnTotal.Norm', 'Up3OfBradySum.Norm', 'Up3OnBradySum.Norm', 'Up3OfRigiditySum.Norm', 'Up3OnRigiditySum.Norm',
-                     'Up3OfAppendicularSum.Norm', 'Up3OnAppendicularSum.Norm', 'Up3OfPIGDSum.Norm', 'Up3OnPIGDSum.Norm', 'Up3OfPIGDSum_Up3Only.Norm', 'Up3OnPIGDSum_Up3Only.Norm', 
-                     'Up3OfAxialSum.Norm', 'Up3OfAxialSum.Norm', 'Up3OfRestTremAmpSum.Norm', 'Up3OnRestTremAmpSum.Norm', 'Up3OfActionTremorSum.Norm', 'Up3OnActionTremorSum.Norm',
-                     'Up3OfCompositeTremorSum.Norm', 'Up3OnCompositeTremorSum.Norm', 'Up3OfOtherSum.Norm', 'Up3OnOtherSum.Norm', 'MotorComposite',
+                     'Up3OfAxialSum', 'Up3OnAxialSum', 'Up3OfRestTremAmpSum', 'Up3OnRestTremAmpSum', 'Up3OfRestTremAmpSum2', 'Up3OnRestTremAmpSum2',
+                     'Up3OfActionTremorSum', 'Up3OnActionTremorSum',
+                     'Up3OfCompositeTremorSum', 'Up3OnCompositeTremorSum', 'Up3OfOtherSum', 'Up3OnOtherSum', 'MotorComposite',
                      'STAIStateSum', 'STAITraitSum', 'QUIPicdSum', 'QUIPrsSum', 'AES12Sum', 'ApatSum', 'BDI2Sum', 'PDQ39_SingleIndex',
                      'ROMPSum', 'VIPDQ23Sum', 'VIPDQ17Sum', 'Up1Total', 'Up2Total',
-                     'RBDSQSum', 'SCOPA_AUTSum', 'MoCASum',
-                     'NpsMis15wRigTot', 'NpsMis15WrdDelRec', 'NpsMis15WrdRecognition',
-                     'NpsMisBenton', 'NpsMisBrixton', 'NpsMisWaisLcln', 'NpsMisWaisRude', 'NpsMisSemFlu',
-                     'NpsMisModa30', 'NpsMisModa60', 'NpsMisModa90', 'LEDD')
+                     'RBDSQSum', 'SCOPA_AUTSum', 'MoCASum', 'LEDD')
         for(var in varlist){
                 df <- compute_progression(df, var)      
         }
@@ -129,16 +146,34 @@ manipulate_castor_csv <- function(datafile='/project/3022026.01/pep/ClinVars4/de
                 select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
                 rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx1_Imputed_RelPeers_',.x), starts_with('Subtype'))
         
+        df_noimp_relpeers_diagex2 <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'fu', RelativeToBaseline = FALSE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx2_RelPeers_',.x), starts_with('Subtype'))
+        df_imp_relpeers_diagex2 <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'fu', RelativeToBaseline = FALSE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx2_Imputed_RelPeers_',.x), starts_with('Subtype'))
         
-        df <- full_join(df_noimp_relba, df_imp_relba, by = c('pseudonym', 'ParticipantType','TimepointNr'))
-        df <- full_join(df, df_imp_relba_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
-        df <- full_join(df, df_noimp_relba_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
-        df <- full_join(df, df_imp_relba_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df_noimp_relpeers_diagex3 <- classify_subtypes(df, MI = FALSE, DiagExclusions = 'both', RelativeToBaseline = FALSE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx3_RelPeers_',.x), starts_with('Subtype'))
+        df_imp_relpeers_diagex3 <- classify_subtypes(df, MI = TRUE, DiagExclusions = 'both', RelativeToBaseline = FALSE) %>%
+                select(pseudonym, ParticipantType, TimepointNr, starts_with('Subtype')) %>%
+                rename_with( ~ gsub('Subtype_', 'Subtype_DiagEx3_Imputed_RelPeers_',.x), starts_with('Subtype'))
+        
+        df <- full_join(df_noimp_relba, df_noimp_relba_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         df <- full_join(df, df_noimp_relba_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
-        df <- full_join(df, df_imp_relba_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         df <- full_join(df, df_noimp_relba_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         df <- full_join(df, df_noimp_relpeers_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
-        df <- full_join(df, df_imp_relpeers_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_noimp_relpeers_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        df <- full_join(df, df_noimp_relpeers_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        
+        # df <- full_join(df, df_imp_relba, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        # df <- full_join(df, df_imp_relba_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        # df <- full_join(df, df_imp_relba_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        # df <- full_join(df, df_imp_relba_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        # df <- full_join(df, df_imp_relpeers_diagex1, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        # df <- full_join(df, df_imp_relpeers_diagex2, by = c('pseudonym', 'ParticipantType','TimepointNr'))
+        # df <- full_join(df, df_imp_relpeers_diagex3, by = c('pseudonym', 'ParticipantType','TimepointNr'))
         #####
         
         ##### Calculate time to follow-up (Dependency: Extend variables) #####
