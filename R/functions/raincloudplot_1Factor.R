@@ -61,9 +61,9 @@ raincloudplot_1Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                                  adjust = 1.5, 
                                  trim = TRUE, 
                                  alpha = .5, 
-                                 colour = 'black', show.legend = FALSE, width = 0.4, size=1.6) +
+                                 colour = 'black', show.legend = FALSE, width = 0.4, size=1.2) +
                 geom_point(aes_string(x = paste('as.numeric(',groupvar,')-0', sep=''), y = y, fill = groupvar),
-                           size = 5,
+                           size = 2,
                            shape = 19,
                            alpha = .3, show.legend = FALSE,
                            position = position_jitterdodge(dodge.width = .6, jitter.width = .2),color='black') +
@@ -71,18 +71,18 @@ raincloudplot_1Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                              outlier.shape = NA, 
                              alpha = .7, 
                              width = .4, 
-                             size=1.6,
+                             size=1.2,
                              colour = "black", show.legend = FALSE) +
                 geom_point(data = sumrepdat, 
                            aes_string(x = paste('as.numeric(',groupvar,')+0', sep=''), y = 'mean',
                                       group = groupvar, color = groupvar),
-                           shape = 18, size=12, show.legend = FALSE,
+                           shape = 18, size=5, show.legend = FALSE,
                            position = position_dodge(width = .6), color='yellow3') +
                 scale_x_discrete(labels = xticklabs) +
-                scale_colour_viridis_d(option=color_scheme, begin = .4, end = .4, direction = -1) +
-                scale_fill_viridis_d(option=color_scheme, begin = .4, end = .4, direction = -1, alpha = .8) +
+                scale_colour_viridis_d(option=color_scheme, begin = 0, end = .6, direction = 1) +
+                scale_fill_viridis_d(option=color_scheme, begin = 0, end = .6, direction = 1, alpha = .8) +
                 ggtitle(title) + xlab(xlab) + ylab(ylab) + 
                 coord_cartesian(xlim = c(1.2, NA), clip = "off") +
-                theme_cowplot(font_size = 35, font_family = 'Calibri')
+                theme_cowplot(font_size = 16, font_family = 'Calibri')
     
 }

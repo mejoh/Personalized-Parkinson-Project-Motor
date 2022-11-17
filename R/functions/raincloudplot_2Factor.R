@@ -63,7 +63,7 @@ raincloudplot_2Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
         #         theme_cowplot(font_size = 20)
         ggplot(data, aes_string(x = g2, y = y, fill = g1)) +
                 geom_flat_violin(aes_string(fill = g1),
-                                 position = position_nudge(x = .35, y = 0), 
+                                 position = position_nudge(x = .34, y = 0), 
                                  adjust = 1.5, 
                                  trim = TRUE, 
                                  alpha = .5, 
@@ -72,7 +72,7 @@ raincloudplot_2Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                             size = 1.5,
                             shape = 19,
                             alpha = .3, show.legend = FALSE,
-                           position = position_jitterdodge(dodge.width = .6, jitter.width = .3)) +
+                           position = position_jitterdodge(dodge.width = .6, jitter.width = .1)) +
                 geom_boxplot(aes_string(x = g2, y = y, fill = g1),
                              outlier.shape = NA, 
                              alpha = .7, 
@@ -92,7 +92,7 @@ raincloudplot_2Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                 guides(fill=guide_legend(title=legend_title, reverse = FALSE,
                                          title.position = 'left', label.position = 'right')) +
                 coord_cartesian(xlim = c(1.2, NA), clip = "off") +
-                theme_cowplot(font_size = 14, font_family = 'Calibri') +
+                theme_cowplot(font_size = 16, font_family = 'Calibri') +
                 theme(legend.position = legend_position,
                       legend.key.size = unit(0.5,'cm'))
         
