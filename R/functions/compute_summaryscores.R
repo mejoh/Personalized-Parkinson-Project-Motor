@@ -23,8 +23,10 @@ compute_summaryscores <- function(df){
         list.PIGDOn_Up3Only <- str_replace(list.PIGDOff_Up3Only, 'Of', 'On')
         list.AXIALOff <- c('Up3OfSpeech', 'Up3OfArise', 'Up3OfPostur', 'Up3OfGait', 'Up3OfStaPos')    # Lau et al., 2019, Neurology
         list.AXIALOn <- str_replace(list.AXIALOff, 'Of', 'On')
-        list.RestTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfConstan')
+        list.RestTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfConstan') # Zach et al., 2020
         list.RestTremorOn <- str_replace(list.RestTremorOff, 'Of', 'On')
+        list.RestTremor2Off <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfRAmpJaw', 'Up3OfConstan')
+        list.RestTremor2On <- str_replace(list.RestTremorOff, 'Of', 'On')
         list.ActionTremorOff <- c('Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev')
         list.ActionTremorOn <- str_replace(list.RigidityOff, 'Of', 'On')
         list.CompositeTremorOff <- c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev', 'Up3OfRAmpJaw',
@@ -49,9 +51,9 @@ compute_summaryscores <- function(df){
         list.AppendicularOff_pit <- c(list.BradykinesiaOff_pit, list.RigidityOff_pit)
         list.PIGDOff_pit <- c('Up3OfGait', 'Up3OfFreez', 'Up3OfStaPos')
         list.AXIALOff_pit <- c('Up3OfSpeech', 'Up3OfArise', 'Up3OfPostur', 'Up3OfGait', 'Up3OfStaPos') 
-        list.RestTremorOff_pit <- c('Up3OfRAmpArmR', 'Up3OfRAmpArmL', 'Up3OfRAmpLegR', 'Up3OfRAmpLegL', 'Up3OfConstan')
+        list.RestTremorOff_pit <- c('Up3OfRAmpArmR', 'Up3OfRAmpArmL', 'Up3OfRAmpLegR', 'Up3OfRAmpLegL', 'Up3OfRAmpJaw', 'Up3OfConstan')
         list.ActionTremorOff_pit <- c('Up3OfPosTR', 'Up3OfPosTL', 'Up3OfKinTreR', 'Up3OfKinTreL')
-        list.CompositeTremorOff_pit <- c('Up3OfRAmpArmR', 'Up3OfRAmpArmL', 'Up3OfRAmpLegR', 'Up3OfRAmpLegL', 'Up3OfConstan',
+        list.CompositeTremorOff_pit <- c('Up3OfRAmpArmR', 'Up3OfRAmpArmL', 'Up3OfRAmpLegR', 'Up3OfRAmpLegL', 'Up3OfRAmpJaw', 'Up3OfConstan',
                                          'Up3OfPosTR', 'Up3OfPosTL', 'Up3OfKinTreR', 'Up3OfKinTreL')
         #Non-motor
         list.updrs1_1to6 <- c('Up1aAnxious', 'Up1aApathy', 'Up1aCognit', 'Up1aDepres', 'Up1aDopDysSyn', 'Up1aHalPsy')
@@ -138,6 +140,8 @@ compute_summaryscores <- function(df){
                        Up3OnAxialSum = rowSums(.[list.AXIALOn]), Up3OnAxialSum.NrItems = length(list.AXIALOn)) %>%
                 plyr::mutate(Up3OfRestTremAmpSum = rowSums(.[list.RestTremorOff]), Up3OfRestTremAmpSum.NrItems = length(list.RestTremorOff),
                        Up3OnRestTremAmpSum = rowSums(.[list.RestTremorOn]), Up3OnRestTremAmpSum.NrItems = length(list.RestTremorOn)) %>%
+                plyr::mutate(Up3OfRestTremAmpSum2 = rowSums(.[list.RestTremor2Off]), Up3OfRestTremAmpSum2.NrItems = length(list.RestTremor2Off),
+                             Up3OnRestTremAmpSum2 = rowSums(.[list.RestTremor2On]), Up3OnRestTremAmpSum2.NrItems = length(list.RestTremor2On)) %>%
                 plyr::mutate(Up3OfActionTremorSum = rowSums(.[list.ActionTremorOff]), Up3OfActionTremorSum.NrItems = length(list.ActionTremorOff),
                        Up3OnActionTremorSum = rowSums(.[list.ActionTremorOn]), Up3OnActionTremorSum.NrItems = length(list.ActionTremorOn)) %>%
                 plyr::mutate(Up3OfCompositeTremorSum = rowSums(.[list.CompositeTremorOff]), Up3OfCompositeTremorSum.NrItems = length(list.CompositeTremorOff),
@@ -160,6 +164,8 @@ compute_summaryscores <- function(df){
                              Up3OnAxialSum.Norm = Up3OnAxialSum/Up3OnAxialSum.NrItems,
                              Up3OfRestTremAmpSum.Norm = Up3OfRestTremAmpSum/Up3OfRestTremAmpSum.NrItems,
                              Up3OnRestTremAmpSum.Norm = Up3OnRestTremAmpSum/Up3OnRestTremAmpSum.NrItems,
+                             Up3OfRestTremAmpSum2.Norm = Up3OfRestTremAmpSum2/Up3OfRestTremAmpSum2.NrItems,
+                             Up3OnRestTremAmpSum2.Norm = Up3OnRestTremAmpSum2/Up3OnRestTremAmpSum2.NrItems,
                              Up3OfActionTremorSum.Norm = Up3OfActionTremorSum/Up3OfActionTremorSum.NrItems,
                              Up3OnActionTremorSum.Norm = Up3OnActionTremorSum/Up3OnActionTremorSum.NrItems,
                              Up3OfCompositeTremorSum.Norm = Up3OfCompositeTremorSum/Up3OfCompositeTremorSum.NrItems,
@@ -168,6 +174,8 @@ compute_summaryscores <- function(df){
                              Up3OnOtherSum.Norm = Up3OnOtherSum/Up3OnOtherSum.NrItems,
                              Up3OfSummedNorm = Up3OfBradySum.Norm+Up3OfRigiditySum.Norm+Up3OfPIGDSum_Up3Only.Norm+
                                      Up3OfRestTremAmpSum.Norm+Up3OfActionTremorSum.Norm+Up3OfOtherSum.Norm,
+                             Up3OfSummedNorm2 = Up3OfBradySum.Norm+Up3OfRigiditySum.Norm+Up3OfPIGDSum_Up3Only.Norm+
+                                     Up3OfRestTremAmpSum2.Norm+Up3OfActionTremorSum.Norm+Up3OfOtherSum.Norm,
                              Up3OfBradyProportion = Up3OfBradySum.Norm/Up3OfSummedNorm,
                              Up3OfRigidityProportion = Up3OfRigiditySum.Norm/Up3OfSummedNorm,
                              Up3OfPIGDProportion = Up3OfPIGDSum_Up3Only.Norm/Up3OfSummedNorm,
@@ -175,7 +183,15 @@ compute_summaryscores <- function(df){
                              Up3OfActTremProportion = Up3OfActionTremorSum.Norm/Up3OfSummedNorm,
                              Up3OfOtherProportion = Up3OfOtherSum.Norm/Up3OfSummedNorm,
                              Up3OfSummedProportion=Up3OfBradyProportion+Up3OfRigidityProportion+Up3OfPIGDProportion+
-                                     Up3OfRestTremProportion+Up3OfActTremProportion+Up3OfOtherProportion) %>%
+                                     Up3OfRestTremProportion+Up3OfActTremProportion+Up3OfOtherProportion,
+                             Up3OfBradyProportion2 = Up3OfBradySum.Norm/Up3OfSummedNorm2,
+                             Up3OfRigidityProportion2 = Up3OfRigiditySum.Norm/Up3OfSummedNorm2,
+                             Up3OfPIGDProportion2 = Up3OfPIGDSum_Up3Only.Norm/Up3OfSummedNorm2,
+                             Up3OfRestTremProportion2 = Up3OfRestTremAmpSum2.Norm/Up3OfSummedNorm2,
+                             Up3OfActTremProportion2 = Up3OfActionTremorSum.Norm/Up3OfSummedNorm2,
+                             Up3OfOtherProportion2 = Up3OfOtherSum.Norm/Up3OfSummedNorm2,
+                             Up3OfSummedProportion2=Up3OfBradyProportion2+Up3OfRigidityProportion2+Up3OfPIGDProportion2+
+                                     Up3OfRestTremProportion2+Up3OfActTremProportion2+Up3OfOtherProportion2) %>%
                 plyr::mutate(Up3OfTotal_pit = ifelse(Timepoint == 'ses-PITVisit1', rowSums(.[list.TotalOff_pit]), NA),
                        Up3OfBradySum_pit = ifelse(Timepoint == 'ses-PITVisit1', rowSums(.[list.BradykinesiaOff_pit]), NA),
                        Up3OfRigiditySum_pit = ifelse(Timepoint == 'ses-PITVisit1', rowSums(.[list.RigidityOff_pit]), NA),
@@ -190,7 +206,8 @@ compute_summaryscores <- function(df){
                        Up3RigidityOnOffDelta =  Up3OnRigiditySum- Up3OfActionTremorSum,
                        Up3AppendicularOnOffDelta = Up3OnAppendicularSum - Up3OfAppendicularSum,
                        Up3PIGDOnOffDelta = Up3OnPIGDSum - Up3OfPIGDSum,
-                       Up3RestTremAmpSumOnOffDelta = Up3OnRestTremAmpSum - Up3OfRestTremAmpSum,) %>%
+                       Up3RestTremAmpSumOnOffDelta = Up3OnRestTremAmpSum - Up3OfRestTremAmpSum,
+                       Up3RestTremAmpSum2OnOffDelta = Up3OnRestTremAmpSum2 - Up3OfRestTremAmpSum) %>%
                 plyr::mutate(Up1_1to6 = rowSums(.[list.updrs1_1to6]), Up1_1to6.NrItems = length(list.updrs1_1to6),
                        Up1_7to13 = rowSums(.[list.updrs1_7to13]), Up1_7to13.NrItems = length(list.updrs1_7to13),
                        Up1Total = rowSums(.[list.updrs1_total]), Up1Total.NrItems = length(list.updrs1_total),
@@ -325,6 +342,25 @@ compute_summaryscores <- function(df){
                                                               Up3OfRestTremSumRiLeDelta + Up3OfActTremSumRiLeDelta)/4,
                        AsymmetryIndexArmLegDelta.All = (Up3OfBradySumArmLegDelta + Up3OfRigiditySumArmLegDelta + 
                                                                 Up3OfRestTremSumArmLegDelta)/3)
+        
+        # Updrs 4 scores require a bit of manipulation and is therefore summarized spearately here
+        df1 <- df1 %>%
+                mutate(MotComDysKinTime = str_sub(MotComDysKinTime, start=1, end=1),
+                       MotComDysKinTime = as.numeric(MotComDysKinTime),
+                       MotComDysKinTime = if_else(MotComDysKinTime==5,as.numeric(NA),MotComDysKinTime),
+                       MotComDysKinImpact = if_else(MotComDysKinImpact==5,as.numeric(NA),MotComDysKinImpact),
+                       Up4Dyskinesia = MotComDysKinTime + MotComDysKinImpact,
+                       MotComOffStateTime = str_sub(MotComOffStateTime, start=1, end=1),
+                       MotComOffStateTime = as.numeric(MotComOffStateTime),
+                       MotComOffStateTime = if_else(MotComOffStateTime==5,as.numeric(NA),MotComOffStateTime),
+                       MotComFluctImpact = if_else(MotComFluctImpact==5,as.numeric(NA),MotComFluctImpact),
+                       MotComFluctComplex = if_else(MotComFluctComplex==5,as.numeric(NA),MotComFluctComplex),
+                       Up4Fluct = MotComOffStateTime + MotComFluctImpact + MotComFluctComplex,
+                       MotComPainOffDyst = str_sub(MotComPainOffDyst, start=1, end=1),
+                       MotComPainOffDyst = as.numeric(MotComPainOffDyst),
+                       MotComPainOffDyst = if_else(MotComPainOffDyst==5,as.numeric(NA),MotComPainOffDyst),
+                       Up4Dystonia = as.numeric(MotComPainOffDyst),
+                       Up4Total = Up4Dyskinesia + Up4Fluct + Up4Dystonia)
         
         # Try to define whether most affected side is Right or Left
         df1 <- df1 %>% 
