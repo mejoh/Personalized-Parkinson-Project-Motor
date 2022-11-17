@@ -47,45 +47,60 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
         #####
         
         ##### Compute cognitive composite score ####
-        #File 1
-        ANDI_scores <- read_excel('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/ANDI_stacked_1-471.xlsx')
-        colnames(ANDI_scores)[1:3] <- c('pseudonym', 'FullName', 'Variable')
-        ANDI_z_scores <- ANDI_scores %>%
-                select(pseudonym, Variable, z) %>%
-                pivot_wider(names_from = Variable,
-                            values_from = z)
-        colnames(ANDI_z_scores)[2:6] <- c('AVLT.Total_1to5','AVLT.DelayedRecall_1to5','AVLT.Recognition_1to5','SemanticFluency','Brixton')
-        #File 2
-        SDMT_Benton_WAIS_scores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/POM_dataset SDMT and Benton JULO and WAIS-IV LNS z-norms.csv')
-        SDMT_Benton_WAIS_z_scores <- SDMT_Benton_WAIS_scores %>%
-                select(pseudonym, SDMT_ORAL_90_Z_SCORE, Benton_Z_SCORE, LetterNumSeq_Z_Score_age_and_edu_adjusted)
-        colnames(SDMT_Benton_WAIS_z_scores)[2:4] <- c('SymbolDigit', 'Benton', 'LetterNumberSeq')
-        
-        Neuropsych_z_scores <- full_join(ANDI_z_scores, SDMT_Benton_WAIS_z_scores, by = 'pseudonym') %>% 
-                na.omit() %>%
-                mutate(AVLT.avg = (AVLT.Total_1to5 + AVLT.DelayedRecall_1to5 + AVLT.Recognition_1to5)/3,
-                       CognitiveComposite = (SemanticFluency + Brixton + SymbolDigit + Benton + LetterNumberSeq + AVLT.avg) / 6)
+        if(!MI){
+                # Use available normative scores
+                #File 1
+                ANDI_scores <- read_excel('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/ANDI_stacked_1-471.xlsx')
+                colnames(ANDI_scores)[1:3] <- c('pseudonym', 'FullName', 'Variable')
+                ANDI_z_scores <- ANDI_scores %>%
+                        select(pseudonym, Variable, z) %>%
+                        pivot_wider(names_from = Variable,
+                                    values_from = z)
+                colnames(ANDI_z_scores)[2:6] <- c('AVLT.Total_1to5','AVLT.DelayedRecall_1to5','AVLT.Recognition_1to5','SemanticFluency','Brixton')
+                #File 2
+                SDMT_Benton_WAIS_scores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/POM_dataset SDMT and Benton JULO and WAIS-IV LNS z-norms.csv')
+                SDMT_Benton_WAIS_z_scores <- SDMT_Benton_WAIS_scores %>%
+                        select(pseudonym, SDMT_ORAL_90_Z_SCORE, Benton_Z_SCORE, LetterNumSeq_Z_Score_age_and_edu_adjusted)
+                colnames(SDMT_Benton_WAIS_z_scores)[2:4] <- c('SymbolDigit', 'Benton', 'LetterNumberSeq')
+                
+                Neuropsych_z_scores <- full_join(ANDI_z_scores, SDMT_Benton_WAIS_z_scores, by = 'pseudonym') %>% 
+                        na.omit() %>%
+                        mutate(AVLT.avg = (AVLT.Total_1to5 + AVLT.DelayedRecall_1to5 + AVLT.Recognition_1to5)/3,
+                               CognitiveComposite = (SemanticFluency + Brixton + SymbolDigit + Benton + LetterNumberSeq + AVLT.avg) / 6)  
+        }else{
+                # Use available and imputed normative scores
+                #File 3
+                NormativeScores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/NormativeScores.csv')
+                
+                Neuropsych_z_scores <- NormativeScores %>%
+                        select(pseudonym, AVLT.Total_1to5.imp, AVLT.DelayedRecall_1to5.imp, AVLT.Recognition_1to5.imp,
+                               SemanticFluency.imp, Brixton.imp, SymbolDigit.imp, Benton.imp, LetterNumberSeq.imp) %>%
+                        na.omit() %>%
+                        mutate(AVLT.avg.imp = (AVLT.Total_1to5.imp + AVLT.DelayedRecall_1to5.imp + AVLT.Recognition_1to5.imp)/3,
+                               CognitiveComposite = (SemanticFluency.imp + Brixton.imp + SymbolDigit.imp + 
+                                                             Benton.imp + LetterNumberSeq.imp + AVLT.avg.imp) / 6)   
+        }
         
         # Merge datasets
         df1 <- left_join(df1, Neuropsych_z_scores, by = 'pseudonym')
-        df1 <- df1 %>%
-                select(pseudonym, TimepointNr, MonthSinceDiag, Updrs2Sum, Updrs3Sum, PIGDavg,
-                       RBDSQSum, SCOPA_AUTSum, CognitiveComposite, MoCASum, DiagParkCertain, DiagParkPersist)
+        # df1 <- df1 %>%
+        #         select(pseudonym, TimepointNr, MonthSinceDiag, Updrs2Sum, Updrs3Sum, PIGDavg,
+        #                RBDSQSum, SCOPA_AUTSum, CognitiveComposite, MoCASum, DiagParkCertain, DiagParkPersist)
         #####
         
-        ##### Imputation of missing values through stochastic linear regression #####
-        if(MI){
-                md.pattern(df1)
-                # Carry out imputation
-                df1 <- df1 %>%
-                        mutate(TimepointNr = as.factor(TimepointNr))
-                imp <- mice(df1, method = 'pmm', m = 1, maxit = 50, seed=157)
-                df1 <- complete(imp) %>% 
-                        as_tibble %>%
-                        mutate(TimepointNr = as.numeric(TimepointNr)-1)
-                #md.pattern(df1)
-        }
-        #####
+        # ##### DEPRECATED!!!! Imputation of missing values through predictive mean matching #####
+        # if(MI){
+        #         md.pattern(df1)
+        #         # Carry out imputation
+        #         df1 <- df1 %>%
+        #                 mutate(TimepointNr = as.factor(TimepointNr))
+        #         imp <- mice(df1, method = 'pmm', m = 1, maxit = 50, seed=157)
+        #         df1 <- complete(imp) %>% 
+        #                 as_tibble %>%
+        #                 mutate(TimepointNr = as.numeric(TimepointNr)-1)
+        #         #md.pattern(df1)
+        # }
+        # #####
         
         ##### Define variables that depended on imputation #####
         df1 <- df1 %>% mutate(MOCA_MCI = if_else(MoCASum >= 26, 0, 1),
