@@ -1,5 +1,5 @@
 % Images to summarize
-ImageList = {'con_0001' 'con_0002' 'con_0003' 'con_0012' 'con_0013' 'ResMS'};
+ImageList = {'con_0001' 'con_0002' 'con_0003' 'con_0010' 'con_0012' 'con_0013' 'ResMS'};
 % ImageList = {'con_0001'};
 
 % Generate a histogram of image intensities for each subject
@@ -9,7 +9,7 @@ for i = 1:numel(ImageList)
     
     img = ImageList{i};
     ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-    OutputDir = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC', img, '/');
+    OutputDir = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC_Visit1and2', img, '/');
     % Start with clean directory
     if ~exist(OutputDir, 'dir')
         mkdir(OutputDir);
@@ -27,7 +27,7 @@ for i = 1:numel(ImageList)
     Counter = 1;
     % Generate histogram of image intensities
     for n = 1:numel(Sub)
-        Visit = cellstr(spm_select('List', fullfile(ANALYSESDir, Sub{n}), 'dir', 'ses-.*Visit1.*'));
+        Visit = cellstr(spm_select('List', fullfile(ANALYSESDir, Sub{n}), 'dir', 'ses-.*Visit.*'));
         for v = 1:numel(Visit)
             ContrastImage = spm_select('FPList', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), [img '.nii']);
             if exist(ContrastImage, 'file')

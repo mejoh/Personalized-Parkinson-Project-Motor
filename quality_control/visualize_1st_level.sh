@@ -9,9 +9,10 @@
 FMRIPREPdir=/project/3022026.01/pep/bids/derivatives/fmriprep		# Specify directories
 SPMdir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem
 FSLdir=/opt/fsl/6.0.0/etc/luts/renderhot.lut
+QCdir=${SPMdir}/QC_Visit1and2/1st_level
 
 cd ${SPMdir}
-mkdir -p ${SPMdir}/QC
+mkdir -p ${QCdir}
 input_list=`ls -d sub-*`					# Create input list with all participants in SPMdir
 #input_list=sub-POMU8067BDE54D1B1B4A
 subs_analyzed=( $input_list )					# Print how many, and which, subjects are listed
@@ -23,8 +24,8 @@ for sub in ${input_list[@]}; do
 	Sessions=`find $FMRIPREPdir/${sub} -name 'ses*'`
 	for s in ${Sessions[@]}; do
 		Visit=`basename $s`
-		OUTPUTname=spmT_0001_slices		
-		BGimg=${FMRIPREPdir}/${sub}/$Visit/func/*_task-motor_acq-MB6_run-1_space-MNI152NLin6Asym_boldref.nii.gz
+		OUTPUTname=spmT_0010_slices		
+		BGimg=${FMRIPREPdir}/${sub}/$Visit/func/*_task-motor_acq-MB6_run-*_space-MNI152NLin6Asym_boldref.nii.gz
 		OrigSTATSimg=${SPMdir}/${sub}/$Visit/1st_level/spmT_0001.nii		# <<<< Make sure this is the contrast for 'External'!
 
 		if [ -f "${OrigSTATSimg}" ]; then
@@ -41,7 +42,7 @@ for sub in ${input_list[@]}; do
 			# Clean up output		
 			rm ${OUTPUTdir}/5*.png ${OUTPUTdir}/6*.png ${OUTPUTdir}/7*.png ${OUTPUTdir}/overlay_img.nii.gz
 			# Move to QC folder
-			mv ${OUTPUTdir}/${sub}_${Visit}_${OUTPUTname}.png ${SPMdir}/QC/${sub}_${Visit}_${OUTPUTname}.png
+			mv ${OUTPUTdir}/${sub}_${Visit}_${OUTPUTname}.png ${QCdir}/${sub}_${Visit}_${OUTPUTname}.png
 
 		else
 
@@ -52,5 +53,5 @@ for sub in ${input_list[@]}; do
 done
 
 # Merge all images into a single file
-mkdir -p ${SPMdir}/QC
-convert `ls ${SPMdir}/QC/sub*_slices.png` -append ${SPMdir}/QC/1st_level_QC.png
+mkdir -p $QCdir
+convert `ls $QCdir/sub*_slices.png` -append $QCdir/1st_level_QC.png
