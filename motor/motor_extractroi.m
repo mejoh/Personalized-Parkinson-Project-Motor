@@ -9,7 +9,7 @@
 % 3. ROI definition > Get SPM clusters > Threshold at FWEc extent and write
 % all clusters
 % 4. Design > Set design from file > Select SPM.mat
-% 5. Data > Extract ROI data (default) > Save data to file > Store data in
+% 5. Data > Extract ROI data (default) > Select all available rois > Save data to file > Store data in
 % marsbar directory
 
 % AnalysisDirectory = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_x_ExtInt2Int3Catch_NoOutliers';
@@ -50,15 +50,15 @@ for v = 1:numel(fROIdat.regions)
         elseif contains(Dat.scans{i}, 'con_0004')
             Dat.Cond{i} = 'Catch';
         elseif contains(Dat.scans{i}, 'con_0007')
-            Dat.Cond{i} = 'Int>Ext';
+            Dat.Cond{i} = 'IntgtExt';
         elseif contains(Dat.scans{i}, 'con_0010')
             Dat.Cond{i} = 'Mean_ExtInt';
         elseif contains(Dat.scans{i}, 'con_0012')
-            Dat.Cond{i} = 'Int2>Ext';
+            Dat.Cond{i} = 'Int2gtExt';
         elseif contains(Dat.scans{i}, 'con_0013')
-            Dat.Cond{i} = 'Int3>Ext';
+            Dat.Cond{i} = 'Int3gtExt';
         elseif contains(Dat.scans{i}, 'con_0008')
-            Dat.Cond{i} = 'Int3>Int2';
+            Dat.Cond{i} = 'Int3gtInt2';
         else
             error('Error: Contrast files do not match any available conditions')
         end
