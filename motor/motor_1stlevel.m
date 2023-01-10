@@ -52,6 +52,7 @@ for n = 1:numel(Sub)
         EventsTsv = cellstr(EventsTsv{size(EventsTsv,1)});
         % Preexisting 1st level results
         FirstLevelCon = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^con.*15\.nii$');
+        Res4d = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^Res4d\.nii\.gz$');
         
         % Exclude participants
         TaskID = extractBetween(EventsTsv{1}, '_task-', '_acq');
@@ -90,7 +91,7 @@ for n = 1:numel(Sub)
                 end
             end
             % 6: Already processed
-            if ~isempty(FirstLevelCon) && ~istrue(Force)        % Participants who have already been processed
+            if ~isempty(FirstLevelCon) && ~isempty(Res4d) && ~istrue(Force)        % Participants who have already been processed
                 fprintf('Excluding %s %s: has preexisting 1st level data \n', Sub{n}, Visit{v})
                 Sel(n) = false;
             end
