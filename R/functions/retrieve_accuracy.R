@@ -1,4 +1,4 @@
-retrieve_accuracy <- function(Subj, Visit, dAna='P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem', threshold=0.33){
+retrieve_accuracy <- function(Subj, Visit, dAna='P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem'){
   
   library(R.matlab)
   
