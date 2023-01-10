@@ -1,17 +1,17 @@
 #!/bin/bash
 
-#qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLMEr_disease_13 -l 'nodes=1:ppn=12,walltime=10:00:00,mem=20gb' /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/3dLMEr_disease/3dLMEr_disease.sh
+#qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLMEr_disease_13 -l 'nodes=1:ppn=12,walltime=10:00:00,mem=20gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLMEr_disease.sh
 
 module unload afni; module load afni/2022
 
 con=con_0013
-dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/3dLMEr_disease
-dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/${con}_disease_dataTable.txt
+dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/3dLMEr_disease
+dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease_dataTable.txt
 cd $dOutput
 
 /opt/afni/2022/3dLMEr -prefix $dOutput/${con}_Group_x_Time -jobs 12 \
--model '1+Group*TimepointNr+Age_Dmean+MeanFD_Dmean+Sex+(1|Subj)' \
--qVars 'Age_Dmean,MeanFD_Dmean' \
+-model '1+Group*TimepointNr+Age.gmc+MeanFD.gmc+Sex+(1|Subj)' \
+-qVars 'Age.gmc,MeanFD.gmc' \
 -resid ${con}_Residuals \
 -gltCode Time_by_Group 'TimepointNr : 1*T1 -1*T0 Group : 1*HC_PIT -1*PD_POM' \
 -gltCode Time_by_HC 'TimepointNr : 1*T1 -1*T0 Group : 1*HC_PIT' \
