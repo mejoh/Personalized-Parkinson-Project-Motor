@@ -27,10 +27,10 @@ gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Ba
 gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/OneSampleTtest_ClinCorr-Off-BABradySum_NoOutliers/Int3gtExt/x_Neg_3gt1.nii')
 
 # Set overlay display parameters; 1 indicates 1st overlay
-gl.colorname(1,"8redyell")
+gl.colorname(1,"1red")
 gl.minmax(1, 3.1, 4.5)
 gl.opacity(1, 100)
-gl.colorname(2,"5winter")
+gl.colorname(2,"3blue")
 gl.minmax(2, 3.1, 4.5)
 gl.opacity(2, 100)
 
