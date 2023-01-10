@@ -17,18 +17,33 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Load libraries
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r libraries, echo=FALSE, warning=FALSE, message=FALSE}
+library(MASS)
+library(ggpubr)
+library(readr)
 library(tidyverse)
+options(dplyr.summarise.inform = FALSE)
 library(lme4)
 library(lmerTest)
-library(effectsize)
 library(emmeans)
+emm_options(lmerTest.df = 'satterthwaite')  # Calculates DFs in the same way as lmerTest
+emm_options(lmerTest.limit = 50000)
+emm_options(disable.pbkrtest=TRUE)
+library(effectsize)
+library(car)
+library(lattice)
 library(viridis)
-library(cowplot)
-library(ggpubr)
-library(kableExtra)
 library(extrafont)
+library(kableExtra)
+library(finalfit)
+library(caret)
+library(sjPlot)
+library(cowplot)
 loadfonts(device='win',quiet = TRUE)
+
+sigsize=10
+lsize=0.8
+legend_position <- c(0.8,1.1)
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
@@ -36,474 +51,1641 @@ source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplo
 
 # Load data
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-
+```{r behav-prac, echo=FALSE, warning=FALSE, message=FALSE}
 # Practice data
-
+# Load
 fTaskPrac <- 'P:/3022026.01/pep/bids/derivatives/manipulated_merged_motor_task_practice_2022-04-22.csv'
-dfTaskPrac <- read_csv(fTaskPrac)
+dfTaskPrac <- read_csv(fTaskPrac, show_col_types = FALSE)
 dfTaskPrac <- dfTaskPrac %>%
-  select(pseudonym, Timepoint, trial_type, response_time, trial_number,
-         event_type, correct_response, RespondingHand, Group) %>%
-  rename(ParticipantType = Group) %>%
-  mutate(TimepointNr = if_else(str_detect(Timepoint, 'Visit1'), 0, 2)) %>%
-  relocate(pseudonym, TimepointNr, ParticipantType) %>%
-  select(-Timepoint)
+        select(pseudonym, Timepoint, trial_type, response_time, trial_number,
+               event_type, correct_response, RespondingHand) %>%
+        mutate(TimepointNr = if_else(str_detect(Timepoint, 'Visit1'), '0', '1'),
+               TimepointNr = factor(TimepointNr),
+               RespondingHand=factor(RespondingHand),
+               error = if_else(correct_response=='Incorrect',1,0)) %>%
+        relocate(pseudonym, TimepointNr) %>%
+        select(-Timepoint)
+# Clean
+dfTaskPrac.rt <- dfTaskPrac %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        select(pseudonym, TimepointNr, trial_type, RespondingHand, response_time) %>%
+        mutate(trial_type=factor(trial_type))
+dfTaskPrac.err <- dfTaskPrac %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        select(pseudonym, TimepointNr, trial_type, RespondingHand, error) %>%
+        mutate(trial_type=factor(trial_type))
+# Aggregate
+dfTaskPrac.rt <- dfTaskPrac.rt %>%
+        group_by(pseudonym, TimepointNr, trial_type) %>%
+        summarise(RespondingHand = first(RespondingHand),
+                  response_time = median(response_time,na.rm=TRUE)) %>%
+        ungroup()
+dfTaskPrac.err <- dfTaskPrac.err %>%
+        group_by(pseudonym, TimepointNr, trial_type) %>%
+        summarise(RespondingHand = first(RespondingHand),
+                  n_trials=n(),
+                  error_rate = sum(error)/n_trials) %>%
+        ungroup()
+dfTaskPrac <- full_join(dfTaskPrac.rt,dfTaskPrac.err)
+```
 
+```{r behav-fmri, echo=FALSE, warning=FALSE, message=FALSE}
 # fMRI data
-
+# Load
 fTask <- 'P:/3022026.01/pep/bids/derivatives/manipulated_merged_motor_task_mri_2022-04-22.csv'
-dfTask <- read_csv(fTask)
+dfTask <- read_csv(fTask, show_col_types = FALSE)
 dfTask <- dfTask %>%
-  select(pseudonym, Timepoint, trial_type, response_time, trial_number,
-         event_type, correct_response, block, RespondingHand, Group, Percentage.Correct,
-         Percentage.Correct.BelowCutoff, Button.Press.SwitchRatio, Button.Press.CoV,
-         Button.Press.RepetitionRatio, Button.Press.AdjacentRatio) %>%
-  rename(ParticipantType = Group) %>%
-  mutate(TimepointNr = if_else(str_detect(Timepoint, 'Visit1'), 0, 2)) %>%
-  relocate(pseudonym, TimepointNr, ParticipantType) %>%
-  select(-Timepoint)
+        select(pseudonym, Timepoint, trial_type, response_time, trial_number,
+               event_type, correct_response, block, RespondingHand, Group, Percentage.Correct,
+               Percentage.Correct.BelowCutoff, Button.Press.SwitchRatio, Button.Press.CoV,
+               Button.Press.RepetitionRatio, Button.Press.AdjacentRatio) %>%
+        mutate(TimepointNr = if_else(str_detect(Timepoint, 'Visit1'), '0', '1'),
+               TimepointNr = factor(TimepointNr),
+               trial_type=factor(trial_type),
+               block=factor(block),
+               RespondingHand=factor(RespondingHand),
+               error = if_else(correct_response=='Incorrect',1,0)) %>%
+        relocate(pseudonym, TimepointNr) %>%
+        select(-Timepoint)
+# Clean
+dfTask.rt <- dfTask %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        filter(correct_response=='Hit') %>%
+        select(pseudonym, TimepointNr, trial_type, block, RespondingHand, Percentage.Correct, response_time, Button.Press.CoV, Button.Press.SwitchRatio) %>%
+        mutate(trial_type=factor(trial_type))
+dfTask.err <- dfTask %>%
+        filter(event_type == 'response') %>%
+        filter(trial_type != 'Catch') %>%
+        filter(response_time > 0.3) %>%
+        select(pseudonym, TimepointNr, trial_type, block, RespondingHand, Percentage.Correct, error, Button.Press.CoV, Button.Press.SwitchRatio) %>%
+        mutate(trial_type=factor(trial_type))
+# Aggregate
+dfTask.rt <- dfTask.rt %>%
+        group_by(pseudonym, TimepointNr, trial_type, block) %>%
+        summarise(RespondingHand = first(RespondingHand),
+                  Button.Press.CoV = first(Button.Press.CoV),
+                  Button.Press.SwitchRatio=first(Button.Press.SwitchRatio),
+                  Percentage.Correct = first(Percentage.Correct),
+                  response_time = median(response_time,na.rm=TRUE)) %>%
+        ungroup()
+dfTask.err <- dfTask.err %>%
+        group_by(pseudonym, TimepointNr, trial_type, block) %>%
+        summarise(RespondingHand = first(RespondingHand),
+                  Button.Press.CoV = first(Button.Press.CoV),
+                  Button.Press.SwitchRatio=first(Button.Press.SwitchRatio),
+                  Percentage.Correct = first(Percentage.Correct),
+                  n_trials=n(),
+                  error_rate = (sum(error)/n_trials)) %>%
+        ungroup()
+dfTask <- full_join(dfTask.rt,dfTask.err)
+```
 
-fClin <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-05-25.csv'
-clinvars <- c('pseudonym', 'TimepointNr', 'ParticipantType', 'CrossStudyParticipation', 'Subtype_DiagEx1_DisDurSplit',
-              'Age', 'Gender','DiagParkCertain', 'DiagParkPersist',
-              'Up3OfTotal', 'Up3OfTotal.2YearDelta', 'Up3OfAppendicularSum', 'Up3OfAppendicularSum.2YearDelta')
-dfClin <- read_csv(fClin)
+```{r clinvars, echo=FALSE, warning=FALSE, message=FALSE}
+# Clinical data
+fClin <- 'P:/3022026.01/pep/ClinVars4/derivatives/merged_manipulated_2022-09-28.csv'
+clinvars <- c('pseudonym', 'TimepointNr', 'WeeksToFollowUp', 'ParticipantType', 'Subtype_DiagEx3_DisDurSplit','MriNeuroPsychTask',
+              'Age', 'Gender', 'NpsEducYears', 'PrefHand', 'MonthSinceDiag', 'ParkinMedUser', 'LEDD', 'Up3OfHoeYah', 'MostAffSide',
+              'Up3OfTotal', 'Up3OfAppendicularSum', 'Up3OfBradySum', 'Up3OfRigiditySum', 
+              'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum',
+              'MotorComposite','CognitiveComposite','SCOPA_AUTSum', 'RBDSQSum',
+              'DiagParkCertain', 'DiagParkPersist', 'DiagParkReplace')
+dfClin <- read_csv(fClin, show_col_types = FALSE)
 dfClin <- dfClin %>%
-  filter(MriNeuroPsychTask == 'Motor') %>%
-  filter(!is.na(ParticipantType)) %>%
-  select(all_of(clinvars)) %>%
-  rename(Subtype = Subtype_DiagEx1_DisDurSplit) %>%
-  mutate(Subtype = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype),
-         Subtype = factor(Subtype))
-dfClin$Subtype[is.na(dfClin$Subtype)] <- '4_Undefined'
+        mutate(TimepointNr=if_else(ParticipantType=='HC_PIT' & TimepointNr==1, 2, TimepointNr)) %>%
+        filter(ParticipantType=='HC_PIT' | ParticipantType=='PD_POM',
+               TimepointNr==0 | TimepointNr==2,
+               MriNeuroPsychTask=='Motor') %>%
+        select(all_of(clinvars)) %>%
+        rename(Subtype = Subtype_DiagEx3_DisDurSplit) %>%
+        mutate(TimepointNr = factor(TimepointNr, levels = c(0,2), labels = c('0','1')),
+               ParticipantType = factor(ParticipantType),
+               Gender = factor(Gender),
+               Subtype = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype),
+               Subtype = if_else(is.na(Subtype),'4_Undefined',Subtype),
+               Subtype = factor(Subtype),
+               YearsToFollowUp=WeeksToFollowUp/4/12,
+               YearsToFollowUp=if_else(is.na(YearsToFollowUp),2.33,YearsToFollowUp),
+               YearsSinceDiag = MonthSinceDiag/12)
 
-baseline_covars <- dfClin %>%
-  filter(TimepointNr == 0) %>%
-  select('pseudonym', 'ParticipantType', 'CrossStudyParticipation', 'Subtype', 'Age', 'Gender')
-longitudinal_covars <- dfClin %>%
-  select('pseudonym', 'ParticipantType', 'TimepointNr', 'DiagParkCertain', 'DiagParkPersist', 
-         'Up3OfTotal', 'Up3OfTotal.2YearDelta', 'Up3OfAppendicularSum', 'Up3OfAppendicularSum.2YearDelta')
+# Define misdiagnoses
+diagnosis <- dfClin %>% select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist, DiagParkReplace)
+baseline_exclusion <- diagnosis %>%
+        filter(TimepointNr=='0', (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
+        select(pseudonym)
+visit2_exclusion <- diagnosis %>%
+        filter(TimepointNr=='1', (DiagParkPersist == 2)) %>% 
+        select(pseudonym)
+diag_exclusions <- full_join(baseline_exclusion, visit2_exclusion, by='pseudonym') %>% 
+        unique()
+dfClin <- dfClin %>%
+        mutate(Misdiagnosis = if_else(pseudonym %in% diag_exclusions$pseudonym,1,0))
+```
 
-# Merge clinical and task data. Demean covariates
-df <- full_join(dfTask, baseline_covars, by = c('pseudonym', 'ParticipantType')) %>%
-  full_join(., longitudinal_covars, by = c('pseudonym', 'ParticipantType', 'TimepointNr'))
-df <- df %>%
-  filter(TimepointNr==0 | TimepointNr==2) %>%
-  mutate(TimepointNr = factor(TimepointNr),
-         trial_type = factor(trial_type),
-         block = factor(block),
-         ParticipantType = factor(ParticipantType),
-         Gender = factor(Gender)) %>%
-  group_by(ParticipantType) %>%
-  mutate(Age_Dmean = Age - mean(Age, na.rm=TRUE)) %>%
-  ungroup()
+```{r data-assembly, echo=FALSE, warning=FALSE, message=FALSE}
+# Extract confounders
+vars.conf <- c('pseudonym', 'ParticipantType', 'Age', 'Gender', 'Misdiagnosis', 'YearsSinceDiag')
+dfClin.conf <- dfClin %>%
+        filter(TimepointNr==0) %>%
+        select(all_of(vars.conf))
+
+# Extract progression
+vars.prog <- c('pseudonym', 'TimepointNr', 'ParticipantType', 'Up3OfBradySum')
+dfClin.prog <- dfClin %>%
+        filter(ParticipantType=='PD_POM') %>%
+  select(all_of(vars.prog))
+## Pivot wider
+dfClin.prog <- dfClin.prog %>%
+  pivot_wider(id_cols = c('pseudonym','ParticipantType'),
+              names_from = TimepointNr,
+              names_prefix = 'T',
+              values_from = Up3OfBradySum)
+## Calculate raw change score
+dfClin.prog <- dfClin.prog %>%
+        mutate(Up3OfBradySum.RawChange = T1-T0) %>%
+        rename(Up3OfBradySum.ba=T0) %>%
+        na.omit() %>%
+        select(pseudonym, ParticipantType, Up3OfBradySum.ba, Up3OfBradySum.RawChange)
+
+# Extract time to follow-up
+vars.time <- c('pseudonym', 'TimepointNr', 'YearsToFollowUp')
+dfClin.time <- dfClin %>%
+  select(all_of(vars.time))
+
+# Merge clinical and task data
+dfFMRI <- left_join(dfTask, dfClin.conf, by = c('pseudonym')) %>%
+        left_join(., dfClin.prog, by = c('pseudonym','ParticipantType')) %>%
+        left_join(., dfClin.time, by = c('pseudonym','TimepointNr'))
 
 # Do the same for practice data
-dfPrac <- full_join(dfClin, dfTaskPrac, by = c('pseudonym', 'ParticipantType', 'TimepointNr'))
-dfPrac <- dfPrac %>%
-  filter(TimepointNr==0 | TimepointNr==2) %>%
-  mutate(TimepointNr = factor(TimepointNr),
-         trial_type = factor(trial_type),
-         ParticipantType = factor(ParticipantType),
-         Gender = factor(Gender)) %>%
-  group_by(ParticipantType) %>%
-  mutate(Age_Dmean = Age - mean(Age, na.rm=TRUE)) %>%
-  ungroup()
-
-# Something is wrong with the ParticipantType label of V2!!!
-# Apparently, some HCs have received the PD_PIT label.
-df <- df %>% mutate(ParticipantType = as.character(ParticipantType),
-              ParticipantType = if_else((ParticipantType=='PD_PIT' & TimepointNr==2), 'HC_PIT', ParticipantType),
-              ParticipantType = factor(ParticipantType))
+dfPrac <- left_join(dfTaskPrac, dfClin.conf, by = c('pseudonym')) %>%
+        left_join(., dfClin.prog, by = c('pseudonym', 'ParticipantType')) %>%
+        left_join(., dfClin.time, by = c('pseudonym','TimepointNr'))
 
 ```
 
-# Check of numbers prior to exclusions
+```{r data-mutation, echo=FALSE, warning=FALSE, message=FALSE}
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Prepare age as a continuous measure of time. Center it at mean age at baseline
+# Prepare a time-varying measure of symptom severity. Center it at mean severity at baseline
 
-# How many have succesfully done the task at both time points?
+dfFMRI <- dfFMRI %>%
+        mutate(Age=if_else(TimepointNr=='1',Age+YearsToFollowUp,Age),
+               Age_Dmean = Age - mean(dfFMRI$Age[dfFMRI$TimepointNr==0],na.rm=TRUE),
+               Age.ba = if_else(TimepointNr=='1',Age-YearsToFollowUp,Age),
+               YearsSinceDiag=if_else(TimepointNr=='1',YearsSinceDiag+YearsToFollowUp,YearsSinceDiag),
+               YearsSinceDiag_Dmean = YearsSinceDiag - mean(dfFMRI$YearsSinceDiag[dfFMRI$TimepointNr==0],na.rm=TRUE),
+               Up3OfBradySum = Up3OfBradySum.ba,
+               Up3OfBradySum = if_else(TimepointNr==1, Up3OfBradySum+Up3OfBradySum.RawChange, Up3OfBradySum))
+dfFMRI <- dfFMRI %>%
+        mutate(Up3OfBradySum_Dmean = Up3OfBradySum - mean(dfFMRI$Up3OfBradySum[dfFMRI$TimepointNr==0],na.rm=TRUE))
+dfPrac <- dfPrac %>%
+        mutate(Age=if_else(TimepointNr=='1',Age+YearsToFollowUp,Age),
+               Age_Dmean = Age - mean(dfPrac$Age[dfPrac$TimepointNr==0],na.rm=TRUE),
+               Age.ba = if_else(TimepointNr=='1',Age-YearsToFollowUp,Age),
+               Up3OfBradySum = Up3OfBradySum.ba,
+               Up3OfBradySum = if_else(TimepointNr==1, Up3OfBradySum+Up3OfBradySum.RawChange, Up3OfBradySum))
+dfPrac <- dfPrac %>%
+        mutate(Up3OfBradySum_Dmean = Up3OfBradySum - mean(dfPrac$Up3OfBradySum[dfPrac$TimepointNr==0],na.rm=TRUE))
 
-tmp <- df %>%
-        filter(event_type=='response') %>%
-        select(pseudonym,ParticipantType,TimepointNr,trial_type, response_time, Percentage.Correct,
-               Up3OfTotal, Up3OfAppendicularSum, Up3OfTotal.2YearDelta, Up3OfAppendicularSum.2YearDelta)
-
-performance <- tmp %>%
-        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
-        summarise(across(c(response_time, Percentage.Correct), ~ median(.x, na.rm=TRUE))) %>%
+# Add polynomials
+tmp <- dfFMRI %>%
+        select(pseudonym,TimepointNr, Age_Dmean) %>%
+        group_by(pseudonym,TimepointNr) %>%
+        summarise(across(everything(), ~first(.x))) %>%
         ungroup() %>%
         na.omit()
+Age.poly <- poly(tmp$Age_Dmean, degree=3)
+colnames(Age.poly) <- c('Age_Dmean.poly1', 'Age_Dmean.poly2', 'Age_Dmean.poly3')
+tmp <- bind_cols(tmp, Age.poly) %>%
+        select(-Age_Dmean)
+dfFMRI <- dfFMRI %>%
+        left_join(., tmp, by=c('pseudonym','TimepointNr'))
 
-performance %>% group_by(ParticipantType, TimepointNr, trial_type) %>% summarise(N=n(),
-                                                             RT.avg = mean(response_time,na.rm=TRUE),
-                                                             RT.sd = sd(response_time,na.rm=TRUE),
-                                                             ACC.avg = mean(Percentage.Correct,na.rm=TRUE),
-                                                             ACC.sd = sd(Percentage.Correct,na.rm=TRUE))
-
-g_plot <- ggplot(performance, aes(y=response_time, x = ParticipantType, fill = TimepointNr)) + 
-        geom_boxplot(size = 1.5, outlier.size = 3) +
-        facet_grid(~trial_type, 
-                   labeller = labeller(trial_type = c(`1choice` = 'One choice',
-                                                      `2choice` = 'Two choices',
-                                                      `3choice` = 'Three choices'))) +
-        scale_fill_viridis_d(option = 'viridis', begin = 0.3, end = 0.5, direction = -1,
-                             name = 'Timepoint',
-                             label = c('Baseline','Follow-up')) +
-        scale_x_discrete(labels=c('Healthy control','Patient')) +
-        theme_cowplot(font_size = 25) +
-        xlab('Group') + ylab('Response time (s)') +
-        ggtitle('2-year progression of task performance')
-print(g_plot)
-
-# How many have full progression data?
-
-progression <- tmp %>%
-        filter(ParticipantType == 'PD_POM') %>%
-        group_by(pseudonym, TimepointNr) %>%
-        summarise(across(c(Up3OfTotal, Up3OfAppendicularSum,
-                           Up3OfTotal.2YearDelta, Up3OfAppendicularSum.2YearDelta), ~ mean(.x, na.rm=TRUE))) %>%
-        ungroup()
-
-progression %>% 
-        group_by(TimepointNr) %>% 
-        summarise(N=n(),
-                  Total.avg = mean(Up3OfTotal,na.rm=TRUE),
-                  Total.sd = sd(Up3OfTotal,na.rm=TRUE),
-                  App.avg = mean(Up3OfAppendicularSum,na.rm=TRUE),
-                  App.sd = sd(Up3OfAppendicularSum,na.rm=TRUE),
-                  Prog.avg = mean(Up3OfTotal.2YearDelta,na.rm=TRUE),
-                  Prog.sd = sd(Up3OfTotal.2YearDelta,na.rm=TRUE))
-
-lines <- ggplot(progression, aes(y = Up3OfTotal, x = TimepointNr, group = pseudonym)) +
-        geom_line(aes(color=Up3OfTotal.2YearDelta), alpha = 0.3, lwd=1.5) +
-        geom_jitter(alpha = 0.2, width = 0.01, size=4) + 
-        scale_color_viridis_c(option = 'inferno', name = '2-year \nprogression') +
-        scale_x_discrete(labels=c('Baseline','Follow-up')) +
-        theme_cowplot(font_size = 25) +
-        xlab('Timepoint') + ylab('MDS-UPDRS III total score')
-
-boxes <- ggplot(progression, aes(y = Up3OfTotal, x = TimepointNr, fill = TimepointNr)) +
-        geom_boxplot(size = 1.5, outlier.size = 3) +
-        scale_fill_viridis_d(option = 'viridis', begin = 0.3, end = 0.5, direction = -1) +
-        scale_x_discrete(labels=c('Baseline','Follow-up')) +
-        theme_cowplot(font_size = 25) +
-        xlab('Timepoint') + ylab('MDS-UPDRS III total score') +
-        theme(legend.position = 'none')
-
-plot <- ggarrange(boxes, lines)
-plot <- annotate_figure(plot, top = text_grob('2-year progression of motor symptoms', size=30, face = 'bold'))
-print(plot)
-        
-# plot <- raincloudplot_1Factor(progression, 'Up3OfTotal', c('TimepointNr'), title = '2-year progression of motor symptoms',
-#                                       xlab='Time', ylab='MDS-UPDRS III total score', xticklabs = c('Baseline','Follow-up'),
-#                                       color_scheme = 'viridis') %>% print()
+tmp <- dfPrac %>%
+        select(pseudonym,TimepointNr, Age_Dmean) %>%
+        group_by(pseudonym,TimepointNr) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        ungroup() %>%
+        na.omit()
+Age.poly <- poly(tmp$Age_Dmean, degree=3)
+colnames(Age.poly) <- c('Age_Dmean.poly1', 'Age_Dmean.poly2', 'Age_Dmean.poly3')
+tmp <- bind_cols(tmp, Age.poly) %>%
+        select(-Age_Dmean)
+dfPrac <- dfPrac %>%
+        left_join(., tmp, by=c('pseudonym','TimepointNr'))
 
 
 ```
 
 # Exclusions
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r exclusions, echo=FALSE, warning=FALSE, message=FALSE}
 
-diagnosis <- dfClin %>% filter(ParticipantType=='PD_POM') %>% select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist)
+# Exclude patients with confirmed non-PD diagnosis
+N <- dfClin %>% filter(ParticipantType=='PD_POM',TimepointNr==0,MriNeuroPsychTask=='Motor') %>% select(DiagParkCertain) %>% nrow()
+cat('Excluding patients with confirmed non-PD diagnosis at baseline and patients who received a non-PD diagnosis at 2-year follow-up\n')
+diagnosis <- dfClin %>% 
+        filter(ParticipantType=='PD_POM',MriNeuroPsychTask=='Motor') %>% 
+        select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist, DiagParkReplace)
+diagnosis %>% filter(TimepointNr=='0') %>% select(DiagParkCertain) %>% table() %>% kable(., 'pipe', digits = 3) %>% print()
+diagnosis %>% filter(TimepointNr=='1') %>% select(DiagParkPersist) %>% table() %>% kable(., 'pipe', digits = 3) %>% print()
+diagnosis %>% filter(TimepointNr=='1') %>% select(DiagParkReplace) %>% table() %>% kable(., 'pipe', digits = 3) %>% print()
 
-# Diagnosis at baseline
-exclusion.diag_baseline <- diagnosis %>% 
-  filter(TimepointNr==0) %>% 
-  select(pseudonym, DiagParkCertain) %>% 
-  filter(DiagParkCertain != 'PD' & DiagParkCertain != 'DoubtAboutPD')
-df <- df %>%
-  filter(!(pseudonym %in% exclusion.diag_baseline$pseudonym))
+# Define a list of subjects to exclude
+baseline_exclusion <- diagnosis %>%
+        filter(TimepointNr=='0', (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
+        select(pseudonym)
+visit2_exclusion <- diagnosis %>%
+        filter(TimepointNr=='1', (DiagParkPersist == 2)) %>% 
+        select(pseudonym)
+diag_exclusions <- full_join(baseline_exclusion, visit2_exclusion, by='pseudonym') %>% unique()
+cat('Excluded based on misdiagnosis:\n')
+diag_exclusions %>% kable(., 'pipe', digits = 3)
 
-# Diagnosis at follow-up
-exclusion.diag_persistance <- diagnosis %>% 
-  filter(TimepointNr==2) %>% 
-  select(pseudonym, DiagParkPersist) %>%
-  filter(DiagParkPersist == 2)
-df <- df %>%
-  filter(!(pseudonym %in% exclusion.diag_persistance$pseudonym))
+# Checks 
+cat('Check the 2-year follow-up diagnosis for patients with uncertain PD diagnoses\n')
+doubt_at_ba <- diagnosis %>%
+        filter(DiagParkCertain == 'DoubtAboutPD') %>%
+        select(pseudonym)
+diagnosis %>% filter(TimepointNr=='1', pseudonym %in% doubt_at_ba$pseudonym) %>% select(DiagParkPersist) %>% table() %>% kable(., 'pipe', digits = 3) %>% print()
+parkinsonism_at_ba <- diagnosis %>%
+        filter(DiagParkCertain == 'Parkinsonism') %>%
+        select(pseudonym)
+diagnosis %>% filter(TimepointNr=='1', pseudonym %in% parkinsonism_at_ba$pseudonym) %>% select(DiagParkPersist) %>% table() %>% kable(., 'pipe', digits = 3) %>% print()
+neither_at_ba <- diagnosis %>%
+        filter(DiagParkCertain == 'NeitherDisease') %>%
+        select(pseudonym)
+diagnosis %>% filter(TimepointNr=='1', pseudonym %in% neither_at_ba$pseudonym) %>% select(DiagParkPersist) %>% table() %>% kable(., 'pipe', digits = 3) %>% print()
+doubt2_at_ba <- diagnosis %>%
+        filter(DiagParkCertain == 'DoubtAboutParkinsonism') %>%
+        select(pseudonym)
+diagnosis %>% filter(TimepointNr=='1', pseudonym %in% doubt2_at_ba$pseudonym) %>% select(DiagParkPersist) %>% table() %>% kable(., 'pipe', digits = 3) %>% print()
+
+# Exclude subjects with non-PD diagnosis
+dfFMRI <- dfFMRI %>%
+        filter(!(pseudonym %in% diag_exclusions$pseudonym))
+dfPrac <- dfPrac %>%
+        filter(!(pseudonym %in% diag_exclusions$pseudonym))
 
 # Performance
-df <- df %>%
-  filter(Percentage.Correct.BelowCutoff == FALSE)
+# I've tried to balance the exclusion of subjects due to poor accuracy
+# Some perform the task perfectly, just opposite of what is intended
+# The subjects do not represent a problem, and excluding them would not 
+# be appropriate. A decent balance is when considering average error rates across
+# blocks, and by excluding sessions rather than entire subjects
+# Current rule:
+# If a timepoint has % correct <= 25 & trial_type == '1choice' THEN exclude that session
+cat('Excluding sessions where the across-block error rate in 1choice trials is <=25%\n')
+poor_performance <- dfFMRI %>%
+        filter(trial_type=='1choice') %>%
+        group_by(ParticipantType, pseudonym, TimepointNr, trial_type, block) %>%
+        summarise(across(everything(), ~first(.x))) %>% 
+        ungroup() %>%
+        select(pseudonym, ParticipantType, TimepointNr, trial_type, block, Percentage.Correct) %>%
+        pivot_wider(id_cols = c('pseudonym','ParticipantType','TimepointNr', 'trial_type'),
+                    values_from = Percentage.Correct,
+                    names_from = block,
+                    names_prefix = 'block_') %>%
+        mutate(success_rate.avg = ((block_1+block_2+block_3)/3),
+               poor_performance = if_else(success_rate.avg<=0.25,1,0)) %>% 
+        filter(poor_performance==1) %>%
+        select(pseudonym, ParticipantType, TimepointNr, trial_type, block_1, block_2, block_3)
+cat('Excluded sessions based on error rate:',nrow(poor_performance),'\n')
+poor_performance %>% kable(., 'pipe', digits = 3)
+
+for(n in 1:nrow(poor_performance)){
+        row <- poor_performance[n,]
+        idx <- which(dfFMRI$pseudonym==row$pseudonym & dfFMRI$TimepointNr==row$TimepointNr)
+        dfFMRI <- dfFMRI[-idx,]
+}
+
+# Exclude below defined age-range
+# BelowAge <- dfFMRI %>%
+#   filter(Age < 38) %>%
+#   select(pseudonym) %>%
+#   unique()
+# dfFMRI <- dfFMRI %>%
+#   filter(!(pseudonym %in% BelowAge$pseudonym))
+# cat('Excluding participants from fMRI with Age < 38:', nrow(BelowAge), '\n')
+# 
+# BelowAge <- dfPrac %>%
+#   filter(Age < 38) %>%
+#   select(pseudonym) %>%
+#   unique()
+# dfPrac <- dfPrac %>%
+#   filter(!(pseudonym %in% BelowAge$pseudonym))
+# cat('Excluding participants from Practice with Age < 38:', nrow(BelowAge), '\n')
 
 ```
 
 # Demographics
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r demographics, echo=FALSE, warning=FALSE, message=FALSE}
 
-```
+# Binarize the MostAffSide variable to Right and Left or NA
+dfClin$MostAffSide[dfClin$MostAffSide=='BiL>R'] <- 'Left'
+dfClin$MostAffSide[dfClin$MostAffSide=='LeftOnly'] <- 'Left'
+dfClin$MostAffSide[dfClin$MostAffSide=='BiR>L'] <- 'Right'
+dfClin$MostAffSide[dfClin$MostAffSide=='Right'] <- 'Right'
+dfClin$MostAffSide[dfClin$MostAffSide=='BiR=L'] <- 'Bilateral'
+dfClin$MostAffSide[dfClin$MostAffSide=='None'] <- 'Bilateral'
 
-# Descriptives
+# Compare demographics between patients and controls
+cat('Demographics: controls v patients \n')
+dependent <- c('ParticipantType')
+exploratory <- c('Age', 'Gender', 'NpsEducYears', 'PrefHand', 'MoCASum',
+                 'BDI2Sum','STAITraitSum', 'STAIStateSum', 'QUIPicdSum')
+split <- c('TimepointNr')
+dfClin %>% 
+        summary_factorlist_stratified(dependent, 
+                           exploratory,
+                           split = split,
+                           add_dependent_label=TRUE,
+                           p = TRUE, 
+                           p_cont_para = 't.test',
+                           p_cat = 'chisq',
+                           na_include = TRUE,
+                           colname_sep = ':Time') %>%
+        kable(., 'pipe', digits = 3) %>% 
+        print()
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Compare time to follow-up between patients and controls
+exploratory_time <- c('YearsToFollowUp')
+dfClin %>%
+        filter(TimepointNr==1) %>%
+        summary_factorlist(dependent, 
+                           exploratory_time,
+                           add_dependent_label=TRUE,
+                           p = TRUE, 
+                           p_cont_para = 't.test',
+                           p_cat = 'chisq',
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>% 
+        print()
 
-y <- df %>%
-  select(pseudonym, TimepointNr, response_time, Percentage.Correct, Button.Press.SwitchRatio, Button.Press.CoV) %>%
-  group_by(pseudonym, TimepointNr) %>%
-  summarise(across(where(is.numeric), ~mean(.x,na.rm=TRUE)))
-
-gvars <- df %>%
-  filter(TimepointNr==0) %>%
-  group_by(pseudonym) %>%
-  select(pseudonym, ParticipantType, Age, Gender) %>%
-  summarise(across(everything(), ~first(.x)))
-
-y <- left_join(y, gvars, by='pseudonym')
-
-ggplot(y, aes(y=response_time, fill=ParticipantType)) + 
-  geom_boxplot() +
-  facet_grid(~TimepointNr) +
-  ggtitle('Average response times') %>%
-  print()
-
-ggplot(y, aes(y=Percentage.Correct, fill=ParticipantType)) + 
-  geom_boxplot() +
-  facet_grid(~TimepointNr) +
-  ggtitle('Average accuracy') %>%
-  print()
+# Descriptives for patients
+cat('Demographics: patients only \n')
+exploratory_pd <- c('Subtype','MonthSinceDiag','ParkinMedUser','LEDD',
+                    'Up3OfHoeYah','MostAffSide','Up3OfTotal', 'Up3OfAppendicularSum',
+                    'Up3OfBradySum', 'Up3OfRigiditySum','MotorComposite', 'Misdiagnosis',
+                    'DiagParkCertain', 'DiagParkPersist')
+dfClin %>% 
+        mutate(Up3OfHoeYah=factor(Up3OfHoeYah)) %>%
+        summary_factorlist('TimepointNr', 
+                           exploratory_pd,
+                           add_dependent_label=TRUE,
+                           p = FALSE,
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>% 
+        print()
 
 ```
 
 # Response times
 
-## PD-On vs HC
-
-### fMRI
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r func-compare_rts, echo=FALSE, warning=FALSE, message=FALSE}
 compare_rts <- function(f, tmp, tmp.collapsed){
-        
-  # Fit mixed-effects model
+  
+  if(str_detect(f,'block')){
+    g <- ggplot(tmp, aes(x=YearsToFollowUp,y=response_time,color=ParticipantType)) + 
+      geom_point() + 
+      geom_line(aes(group=pseudonym)) + 
+      facet_wrap(~trial_type+ParticipantType+block, nrow = 3,ncol = 6) + 
+      geom_smooth(color='black', method='lm')
+    print(g)
+  }else{
+    g <- ggplot(tmp, aes(x=YearsToFollowUp,y=response_time,color=ParticipantType)) + 
+      geom_point() + 
+      geom_line(aes(group=pseudonym)) + 
+      facet_wrap(~trial_type+ParticipantType, nrow = 1,ncol = 6) + 
+      geom_smooth(color='black', method='lm')
+    print(g)
+  }
+  
+  # Fit model
   print(paste('Fitting the following model:', f, sep=' '))
   fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
-  s <- summary(fit)
-  print(s, corr = FALSE, digits = 3)
-  anova <- anova(fit)
-  print(anova)
-  effectsize(anova) %>% print()
-  
-  # Fit linear model
-  fit_lm <- lm(log(response_time) ~ ParticipantType*TimepointNr*trial_type, data = tmp.collapsed, na.action = na.omit)
-  s <- summary(fit_lm)
-  print(s, corr = FALSE, digits = 3)
-  anova <- anova(fit_lm)
-  print(anova)
-  effectsize(anova) %>% print()
-  
-  # Post hoc
-  em <- emmeans(fit, ~ trial_type*TimepointNr*ParticipantType, type='response')
-  contrast(em, interaction = c('revpairwise','revpairwise', 'revpairwise'), adjust='mvt', type='response') %>% print()
-  em <- emmeans(fit, ~ trial_type*TimepointNr, type='response')
-  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% print()
-  em <- emmeans(fit, ~ trial_type*ParticipantType, type='response')
-  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% print()
-  
-  # Visualize
-  g_plot <- ggplot(tmp.collapsed, aes(y=response_time, x = ParticipantType, fill = factor(TimepointNr))) + 
-    geom_boxplot() +
-    facet_grid(~trial_type)
-  print(g_plot)
-  
-  tmp.collapsed2 <- tmp.collapsed %>%
-    pivot_wider(id_cols = c('pseudonym','ParticipantType','TimepointNr'),
-                values_from = response_time,
-                names_from = trial_type) %>%
-    mutate(TwoVsOne = `2choice`-`1choice`,
-           ThreeVsOne = `3choice`-`1choice`) %>%
-    pivot_longer(cols = c('TwoVsOne','ThreeVsOne'),
-                 names_to = 'Diff', values_to = 'response_time')
-  
-  g_plot2 <- ggplot(tmp.collapsed2, aes(y = response_time, x = ParticipantType, fill = factor(TimepointNr))) + 
-    geom_boxplot() +
-    facet_grid(~Diff)
-  print(g_plot2)
-  
-  tplot <- emmip(fit, trial_type~TimepointNr|ParticipantType, CIs = TRUE,
-                 type='response') + 
-    scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-                           direction = -1,labels=c('One','Two','Three')) +
-    ggtitle('') + ylab('Predicted response times (s)') +
-    xlab('Time') + 
-    guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
-    theme_cowplot(font_size = 20)
-  print(tplot)
-  
   # Diagnostics
   plot(fit) %>% print()
   qqmath(fit) %>% print()
-  qqmath(ranef(fit))
-        
+  qqmath(ranef(fit)) %>% print()
+  # outliers <- outlierTest(fit)[[1]] %>% names() %>% as.numeric()
+  # fit <- lmer(f, data=tmp[-c(outliers), ], control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+  tab_model(fit, title='Response times')
+  # print(s, corr = FALSE, digits = 3)
+  anova <- Anova(fit,type=3)
+  print(anova)
+  eta_squared(fit, alternative = 'two.sided') %>% print()
+  
+  # Post hoc test
+  em <- emtrends(fit, ~ ParticipantType*trial_type, 'YearsToFollowUp')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust = 'mvt') %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- ggplot(tmp.collapsed, aes(x=YearsToFollowUp,y=response_time,color=ParticipantType)) + 
+    geom_point(alpha=0.75,shape=1) + 
+    geom_line(aes(group=pseudonym),alpha=0.75) + 
+    facet_wrap(~trial_type+ParticipantType, nrow = 1,ncol = 6) + 
+    geom_smooth(color='black', method='lm')
+  print(g)
+  
+  em <- emtrends(fit, ~ ParticipantType, 'YearsToFollowUp')
+  contrast(em, interaction = c('revpairwise'), adjust = 'mvt') %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, ParticipantType, YearsToFollowUp) %>%
+    summarise(response_time=mean(response_time)) %>%
+    ggplot(., aes(x=YearsToFollowUp,y=response_time,color=ParticipantType)) + 
+    geom_point(alpha=0.75,shape=1) + 
+    geom_line(aes(group=pseudonym),alpha=0.75) + 
+    facet_wrap(~ParticipantType, nrow = 1,ncol = 2) + 
+    geom_smooth(color='black', method='lm')
+  print(g)
+  
+  em <- emtrends(fit, ~ trial_type, 'YearsToFollowUp')
+  contrast(em, interaction = c('revpairwise'), adjust = 'mvt') %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, trial_type, YearsToFollowUp) %>%
+    summarise(response_time=mean(response_time)) %>%
+    ggplot(., aes(x=YearsToFollowUp,y=response_time,color=trial_type)) + 
+    geom_point(alpha=0.75,shape=1) + 
+    geom_line(aes(group=pseudonym),alpha=0.75) + 
+    facet_wrap(~trial_type, nrow = 1,ncol = 3) + 
+    geom_smooth(color='black', method='lm')
+  print(g)
+  
+  em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, ParticipantType, trial_type) %>%
+    summarise(response_time=mean(response_time)) %>%
+    ggplot(., aes(x=trial_type,y=response_time,color=ParticipantType)) + 
+    geom_boxplot()
+  print(g)
+  
+  # em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print()
+  # 
+  # em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print()
+  # emmip(fit, ParticipantType ~ TimepointNr, type='response', CIs=TRUE) %>% print()
+  
+  # em <- emmeans(fit, ~ trial_type|TimepointNr, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print()
+  # 
+  # em <- emmeans(fit, ~ trial_type|TimepointNr, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print()
+  # emmip(fit, trial_type ~ TimepointNr, type='response', CIs=TRUE) %>% print()
+  
+  em <- emmeans(fit, revpairwise ~ ParticipantType, type='response', adjust='mvt')
+  kable(em$emmeans,'pipe', digits = 3) %>% print()
+  kable(em$contrasts,'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, ParticipantType) %>%
+    summarise(response_time=mean(response_time)) %>%
+    ggplot(., aes(x=ParticipantType,y=response_time,color=ParticipantType)) + 
+    geom_boxplot()
+  print(g)
+  
+  # em <- emmeans(fit, revpairwise ~ TimepointNr, type='response', adjust='mvt')
+  # kable(em$emmeans,'pipe', digits = 3) %>% print()
+  # kable(em$contrasts,'pipe', digits = 3) %>% print()
+  # emmip(fit, ~ TimepointNr, type='response', CIs=TRUE) %>% print()
+  
+  em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+  kable(em$emmeans,'pipe', digits = 3) %>% print()
+  kable(em$contrasts,'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, trial_type) %>%
+    summarise(response_time=mean(response_time)) %>%
+    ggplot(., aes(x=trial_type,y=response_time,color=trial_type)) + 
+    geom_boxplot()
+  print(g)
+  
+  # Visualization
+  source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
+  source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
+  
+  # Summary stats
+  # emmip with plotit=FALSE gives a table of summarystats that is very handy
+  # Some adjustments make it usable for the raincloudplot function below
+  # emm.summary <- emmip(fit, ParticipantType ~ TimepointNr | trial_type, plotit = FALSE, type = 'response') %>%
+  #         tibble() %>%
+  #         rename(mean = yvar,
+  #                se = SE) %>%
+  #         select(-c(df, tvar, xvar)) %>%
+  #         mutate(ci = se*1.96)
+  # kable(emm.summary,'pipe', digits = 3) %>% print()
+  
+  # Plots
+  N <- tmp  %>% 
+    group_by(pseudonym, ParticipantType, TimepointNr) %>%
+    summarise(across(everything(), ~first(.x))) %>%
+    ungroup() %>%
+    select(ParticipantType, TimepointNr) %>%
+    table()
+  # g <- raincloudplot_2Factor(data=tmp, y='response_time',
+  #                       groupvar=c('trial_type','TimepointNr'),
+  #                       title='Influence of Parkinson\'s disease \non response times',
+  #                       xlab='Timepoint', ylab='Response time (s)',
+  #                       xticklabs=c('Baseline',
+  #                                   'Two years'),
+  #                       legend_title = '',
+  #                       legend_labels = c('One','Two','Three'),
+  #                       legend_position = legend_position,
+  #                       provided_summary = 'None') +
+  #         ylim(0.3,2) +
+  #         facet_wrap(~ParticipantType+block, nrow = 2, ncol = 3)
+  # print(g)
+  
+  g <- ggplot(tmp.collapsed, aes(x=ParticipantType, y = response_time, color=trial_type)) +
+          geom_point(alpha=0.5) +
+          geom_boxplot(outlier.shape = NULL) + 
+          facet_grid(~TimepointNr+trial_type) + 
+          theme_bw() + 
+          scale_x_discrete(labels=c('HC','PD')) +
+          scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                                direction = -1) + 
+          ggtitle('Group comparison of response times') +
+          ylab('Response time (s)')
+  
+  print(g)
+  if(str_detect(f,'block')){
+          save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/RT_fmri-lmer.png',
+                    g, dpi=300, device='png', base_width = 5)
+  }else{
+          save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/RT_prac-lmer.png',
+                    g, dpi=300, device='png', base_width = 5)
+  }
+  
+  # y <- 1.75
+  # d = 0.12
+  # segmap <- data.frame(
+  #         x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  0.80,  1.80,  1.80),
+  #         xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  1.00,  1.20,  2.00,  2.20),
+  #         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3),
+  #         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3)
+  # )
+  # sigmap <- data.frame(
+  #         x =     c(1.50,  0.90,  1.00,  1.90,  2.00),
+  #         y =     c(y,     y-d*2, y-d*3, y-d*2, y-d*3),
+  #         label = c('***', '***', '***', '***', '***')
+  # )
+  # plot <- plot + 
+  #         geom_segment(data=segmap,
+  #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
+  #                      inherit.aes = FALSE,
+  #                      size = lsize) +
+  #         geom_text(data=sigmap, 
+  #                   mapping = aes(x=x,y=y,label=label),
+  #                   inherit.aes = FALSE,
+  #                   size = sigsize)
+  # print(plot)
+  # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_HCvsON.tiff',
+  #   plot, dpi=300, device='tiff', base_width = 5)
+  
+  # tplot <- emmip(fit, ParticipantType~trial_type|TimepointNr, CIs = TRUE,
+  #                type='response') +
+  #         scale_x_discrete(labels=c('One','Two','Three')) + 
+  #         scale_colour_viridis_d(option='mako', begin = .1, end = .6,
+  #                                direction = -1,labels=c('Control','PD-On')) +
+  #         ggtitle('') + ylab('Predicted response times (s)') +
+  #         xlab('Group') + 
+  #         guides(color=guide_legend(title='Group', reverse = FALSE)) +
+  #         theme_cowplot(font_size = 20)
+  # print(tplot)
+  
 }
+```
 
-f <- 'log(response_time) ~ 1 + ParticipantType*TimepointNr*trial_type*block + (1+TimepointNr+trial_type|pseudonym)'
-# removed due to non-significance
+## fMRI
+
+```{r rts-fMRI, echo=FALSE, warning=FALSE, message=FALSE}
+
+f <- 'log(response_time) ~ 1 + ParticipantType*YearsToFollowUp*trial_type + scale(Age.ba) + Gender + (1+YearsToFollowUp|pseudonym) + (1|block)'
 
 groups <- c('PD_POM','HC_PIT')
-tmp <- df %>%
-        filter(event_type == 'response') %>%
-        filter(trial_type != 'Catch') %>%
-        filter(response_time > 0.3) %>%
-        filter(correct_response=='Hit') %>%
-        filter(ParticipantType %in% groups) %>%
-        mutate(ParticipantType = droplevels(ParticipantType),
-               trial_type = droplevels(trial_type))
-tmp.collapsed <- tmp %>% 
+tmp <- dfFMRI %>%
+        select(pseudonym, TimepointNr, YearsToFollowUp, Age, Age_Dmean, Age.ba, ParticipantType, trial_type, Gender, block, response_time) %>%
+        na.omit()
+tmp.collapsed <- dfFMRI %>% 
         group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
-        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
-  ungroup()
+        summarise(across(c(response_time,Age,YearsToFollowUp), ~ mean(.x, na.rm=TRUE))) %>%
+        ungroup() %>%
+        na.omit()
+tmp.n <- tmp.collapsed %>%
+        group_by(pseudonym, ParticipantType,TimepointNr) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        ungroup() %>%
+        select(ParticipantType,TimepointNr)
+tmp.n %>% select(ParticipantType,TimepointNr) %>% table()
 compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 
 ```
 
-### Practice
+## Practice
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-f <- 'log(response_time) ~ 1 + ParticipantType*TimepointNr*trial_type + (1|pseudonym)'
-# removed due to non-significance
+```{r rts-Practice, echo=FALSE, warning=FALSE, message=FALSE}
+
+f <- 'log(response_time) ~ 1 + ParticipantType*YearsToFollowUp*trial_type + scale(Age.ba) + Gender + (1+YearsToFollowUp|pseudonym)'
 
 groups <- c('PD_POM','HC_PIT')
 tmp <- dfPrac %>%
-        filter(event_type == 'response') %>%
-        filter(trial_type != 'Catch') %>%
-        filter(response_time > 0.3) %>%
-        filter(correct_response=='Hit') %>%
-        filter(ParticipantType %in% groups) %>%
-        mutate(ParticipantType = droplevels(ParticipantType),
-               trial_type = droplevels(trial_type))
-tmp.collapsed <- tmp %>% 
+        select(pseudonym, TimepointNr, YearsToFollowUp, Age, Age_Dmean, Age.ba, ParticipantType, trial_type, Gender, response_time) %>%
+        na.omit()
+tmp.collapsed <- dfPrac %>% 
         group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
-        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
-  ungroup()
-compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
-
-```
-
-## HC only
-
-### fMRI
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-compare_rts <- function(f, tmp, tmp.collapsed){
-        
-  # Fit mixed-effects model
-  print(paste('Fitting the following model:', f, sep=' '))
-  fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
-  s <- summary(fit)
-  print(s, corr = FALSE, digits = 3)
-  anova <- anova(fit)
-  print(anova)
-  effectsize(anova) %>% print()
-  
-  # Fit linear model
-  fit_lm <- lm(log(response_time) ~ TimepointNr*trial_type, data = tmp.collapsed, na.action = na.omit)
-  s <- summary(fit_lm)
-  print(s, corr = FALSE, digits = 3)
-  anova <- anova(fit_lm)
-  print(anova)
-  effectsize(anova) %>% print()
-  
-  # Visualize
-  g_plot <- ggplot(tmp.collapsed, aes(y=response_time, x = factor(TimepointNr), fill = trial_type)) + 
-    geom_boxplot()
-  print(g_plot)
-  
-  tmp.collapsed2 <- tmp.collapsed %>%
-    pivot_wider(id_cols = c('pseudonym','ParticipantType','TimepointNr'),
-                values_from = response_time,
-                names_from = trial_type) %>%
-    mutate(TwoVsOne = `2choice`-`1choice`,
-           ThreeVsOne = `3choice`-`1choice`) %>%
-    pivot_longer(cols = c('TwoVsOne','ThreeVsOne'),
-                 names_to = 'Diff', values_to = 'response_time')
-  
-  g_plot2 <- ggplot(tmp.collapsed2, aes(y = response_time, x = factor(TimepointNr), fill = Diff)) + 
-    geom_boxplot()
-  print(g_plot2)
-  
-  tplot <- emmip(fit, trial_type~TimepointNr|block, CIs = TRUE,
-                 type='response') + 
-    scale_colour_viridis_d(option='mako', begin = .1, end = .6,
-                           direction = -1,labels=c('One','Two','Three')) +
-    ggtitle('') + ylab('Predicted response times (s)') +
-    xlab('Time') + 
-    guides(color=guide_legend(title='No. of choices', reverse = FALSE)) +
-    theme_cowplot(font_size = 20)
-  print(tplot)
-  
-  # Diagnostics
-  plot(fit) %>% print()
-  qqmath(fit) %>% print()
-  qqmath(ranef(fit))
-        
-}
-
-f <- 'log(response_time) ~ 1 + TimepointNr*trial_type*block + (1+TimepointNr+trial_type|pseudonym)'
-# removed due to non-significance
-
-groups <- c('HC_PIT')
-tmp <- df %>%
-        filter(event_type == 'response') %>%
-        filter(trial_type != 'Catch') %>%
-        filter(response_time > 0.3) %>%
-        filter(correct_response=='Hit') %>%
-        filter(ParticipantType %in% groups) %>%
-        mutate(ParticipantType = droplevels(ParticipantType),
-               trial_type = droplevels(trial_type))
-tmp.collapsed <- tmp %>% 
-        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
-        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
-  ungroup()
-compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
-
-```
-
-### Practice
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-f <- 'log(response_time) ~ 1 + TimepointNr*trial_type + (1|pseudonym)'
-# removed due to non-significance
-
-groups <- c('HC_PIT')
-tmp <- dfPrac %>%
-        filter(event_type == 'response') %>%
-        filter(trial_type != 'Catch') %>%
-        filter(response_time > 0.3) %>%
-        filter(correct_response=='Hit') %>%
-        filter(ParticipantType %in% groups) %>%
-        mutate(ParticipantType = droplevels(ParticipantType),
-               trial_type = droplevels(trial_type))
-tmp.collapsed <- tmp %>% 
-        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
-        summarise(across(c(response_time), ~ mean(.x, na.rm=TRUE))) %>%
-  ungroup()
+        summarise(across(c(response_time,Age,YearsToFollowUp), ~ mean(.x, na.rm=TRUE))) %>%
+        ungroup() %>%
+        na.omit()
 compare_rts(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 
 ```
 
 # Button selection variability
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r CoV, echo=FALSE, warning=FALSE, message=FALSE}
+
+tmp <- dfFMRI %>%
+        group_by(pseudonym,YearsToFollowUp) %>%
+        summarise(ParticipantType=first(ParticipantType),
+                  Button.Press.CoV=first(Button.Press.CoV),
+                  Age.ba=first(Age.ba),
+                  Gender=first(Gender)) %>%
+        ungroup() %>%
+  na.omit()
+
+g <- ggplot(tmp, aes(x=YearsToFollowUp,y=Button.Press.CoV,color=ParticipantType)) +
+        geom_point(alpha=0.5, size=0.6) +
+        geom_line(aes(group=pseudonym),alpha=0.5, lwd=0.5) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                                direction = -1) +
+        geom_smooth(color='darkred',method='lm') + 
+        facet_grid(~ParticipantType) +
+        theme_bw() +
+        labs(color='Group') +
+        ggtitle('Group comparison of button press variability')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/CoV_lmer.png',
+                    g, dpi=300, device='png', base_width = 5)
+
+m.lmer <- lmer(Button.Press.CoV ~ ParticipantType*YearsToFollowUp + scale(Age.ba) + Gender + (1|pseudonym), data=tmp)
+tab_model(m.lmer, title='Coefficient of variation')
 
 ```
 
 # Switch ratio
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r switch-repeat, echo=FALSE, warning=FALSE, message=FALSE}
+
+tmp <- dfFMRI %>%
+        group_by(pseudonym,YearsToFollowUp) %>%
+        summarise(ParticipantType=first(ParticipantType),
+                  Button.Press.SwitchRatio=first(Button.Press.SwitchRatio),
+                  Age.ba=first(Age.ba),
+                  Gender=first(Gender)) %>%
+        ungroup() %>%
+  na.omit()
+
+g <- ggplot(tmp, aes(x=YearsToFollowUp,y=Button.Press.SwitchRatio,color=ParticipantType)) +
+        geom_point(alpha=0.5, size=0.6) +
+        geom_line(aes(group=pseudonym),alpha=0.5, lwd=0.5) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                                direction = -1) +
+        geom_smooth(color='darkred',method='lm') + 
+        facet_grid(~ParticipantType) +
+        theme_bw() +
+        labs(color='Group') +
+        ggtitle('Group comparison of button press variability')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/SwitchRatio_lmer.png',
+                    g, dpi=300, device='png', base_width = 5)
+
+m.lmer <- lmer(Button.Press.SwitchRatio ~ ParticipantType*YearsToFollowUp + scale(Age.ba) + Gender + (1|pseudonym), data=tmp)
+tab_model(m.lmer, title='Switch-repeat ratio')
 
 ```
 
 # Accuracy
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r func-compare_err, echo=FALSE, warning=FALSE, message=FALSE}
+compare_correct <- function(f, tmp, tmp.collapsed){
+  
+  # Fit model
+  print(paste('Fitting the following model:', f, sep=' '))
+  fit <- glmer(f, data=tmp, family = binomial, weights = n_trials,
+               control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
+  tab_model(fit, title='Error rates')
+  # print(s, corr = FALSE)
+  anova <- Anova(fit, type = 'III')
+  print(anova)
+  se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/
+  tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se)
+  exp(tab) %>% kable(., 'pipe', digits = 3) %>% print()
+  
+  # Post hoc test
+  em <- emtrends(fit, ~ ParticipantType*trial_type, 'YearsToFollowUp')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust = 'mvt') %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- ggplot(tmp.collapsed, aes(x=YearsToFollowUp,y=error_rate,color=ParticipantType)) + 
+    geom_point(alpha=0.75,shape=1) + 
+    geom_line(aes(group=pseudonym),alpha=0.75) + 
+    facet_wrap(~trial_type+ParticipantType, nrow = 1, ncol=6) + 
+    geom_smooth(color='black', method='lm')
+  print(g)
+  
+  em <- emtrends(fit, ~ ParticipantType, 'YearsToFollowUp')
+  contrast(em, interaction = c('revpairwise'), adjust = 'mvt') %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, ParticipantType, YearsToFollowUp) %>%
+    summarise(error_rate=mean(error_rate)) %>%
+    ggplot(., aes(x=YearsToFollowUp,y=error_rate,color=ParticipantType)) + 
+    geom_point(alpha=0.75,shape=1) + 
+    geom_line(aes(group=pseudonym),alpha=0.75) + 
+    facet_wrap(~ParticipantType, nrow = 1,ncol = 2) + 
+    geom_smooth(color='black', method='lm')
+  print(g)
+  
+  em <- emtrends(fit, ~ trial_type, 'YearsToFollowUp')
+  contrast(em, interaction = c('revpairwise'), adjust = 'mvt') %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, trial_type, YearsToFollowUp) %>%
+    summarise(error_rate=mean(error_rate)) %>%
+    ggplot(., aes(x=YearsToFollowUp,y=error_rate,color=trial_type)) + 
+    geom_point(alpha=0.75,shape=1) + 
+    geom_line(aes(group=pseudonym),alpha=0.75) + 
+    facet_wrap(~trial_type, nrow = 1,ncol = 3) + 
+    geom_smooth(color='black', method='lm')
+  print(g)
+  
+  em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, ParticipantType, trial_type) %>%
+    summarise(error_rate=mean(error_rate)) %>%
+    ggplot(., aes(x=trial_type,y=error_rate,color=ParticipantType)) + 
+    geom_boxplot()
+  print(g)
+  
+  em <- emmeans(fit, revpairwise ~ ParticipantType, type='response', adjust='mvt')
+  kable(em$emmeans,'pipe', digits = 3) %>% print()
+  kable(em$contrasts,'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, ParticipantType) %>%
+    summarise(error_rate=mean(error_rate)) %>%
+    ggplot(., aes(x=ParticipantType,y=error_rate,color=ParticipantType)) + 
+    geom_boxplot()
+  print(g)
+  
+  em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+  kable(em$emmeans,'pipe', digits = 3) %>% print()
+  kable(em$contrasts,'pipe', digits = 3) %>% print()
+  g <- tmp.collapsed %>%
+    group_by(pseudonym, trial_type) %>%
+    summarise(error_rate=mean(error_rate)) %>%
+    ggplot(., aes(x=trial_type,y=error_rate,color=trial_type)) + 
+    geom_boxplot()
+  print(g)
+  
+  
+  g <- ggplot(tmp.collapsed, aes(x=ParticipantType, y = error_rate, color=trial_type)) +
+        geom_point(alpha=0.5) +
+        geom_boxplot(outlier.shape = NULL) + 
+        facet_grid(~TimepointNr+trial_type) + 
+        theme_bw() + 
+        scale_x_discrete(labels=c('HC','PD')) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                              direction = -1) + 
+        ggtitle('Group comparison of error rates') +
+        ylab('Error rate (s)')
+          
+  print(g)
+  if(str_detect(f,'block')){
+          save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/Err_fmri-lmer.png',
+          g, dpi=300, device='png', base_width = 5)
+  }else{
+          save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/Err_prac-lmer.png',
+          g, dpi=300, device='png', base_width = 5)
+  }
+        
+  # em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print()
+  # 
+  # em <- emmeans(fit, ~ trial_type|ParticipantType, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print()
+  # emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print()
+  # 
+  # em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print()
+  # 
+  # em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print()
+  # emmip(fit, ParticipantType ~ TimepointNr, type='response', CIs=TRUE) %>% print()
+  # 
+  # em <- emmeans(fit, ~ trial_type|TimepointNr, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print()
+  # 
+  # em <- emmeans(fit, ~ trial_type|TimepointNr, type='response')
+  # contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print()
+  # emmip(fit, trial_type ~ TimepointNr, type='response', CIs=TRUE) %>% print()
+  # 
+  # em <- emmeans(fit, revpairwise ~ ParticipantType, type='response', adjust='mvt')
+  # kable(em$emmeans,'pipe', digits = 3) %>% print()
+  # kable(em$contrasts,'pipe', digits = 3) %>% print()
+  # emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print()
+  # 
+  # em <- emmeans(fit, revpairwise ~ TimepointNr, type='response', adjust='mvt')
+  # kable(em$emmeans,'pipe', digits = 3) %>% print()
+  # kable(em$contrasts,'pipe', digits = 3) %>% print()
+  # emmip(fit, ~ TimepointNr, type='response', CIs=TRUE) %>% print()
+  # 
+  # em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt')
+  # kable(em$emmeans,'pipe', digits = 3) %>% print()
+  # kable(em$contrasts,'pipe', digits = 3) %>% print()
+  # emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print()
+
+        # Visualization
+        # source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
+        # source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
+        # N <- tmp  %>% 
+        #         group_by(pseudonym, ParticipantType, TimepointNr) %>%
+        #         summarise(across(everything(), ~first(.x))) %>%
+        #         ungroup() %>%
+        #         select(ParticipantType, TimepointNr) %>%
+        #         table()
+        # kable(N, 'pipe') %>% print()
+        # plot <- raincloudplot_2Factor(data=tmp.collapsed, y='error_rate',
+        #                       groupvar=c('trial_type','TimepointNr'),
+        #                       title='Influence of Parkinson\'s \ndisease on error rates',
+        #                       xlab='', ylab='Errors (%)',
+        #                       xticklabs=c('Baseline','Two years'),
+        #                       legend_title = '',
+        #                       legend_labels = c('One','Two','Three'),
+        #                       legend_position = legend_position,
+        #                       provided_summary = 'None') +
+        #         ylim(0,100) + 
+        #         facet_grid(~ParticipantType)
+        # y <- 70
+        # d = 6
+        # segmap <- data.frame(
+        #         x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  1.80,  2.00),
+        #         xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  2.20,  2.20),
+        #         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*2, y-d*3),
+        #         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*3)
+        # )
+        # sigmap <- data.frame(
+        #         x =     c(1.50,  2.00,  2.10),
+        #         y =     c(y,     y-d*2, y-d*3),
+        #         label = c('**', '***', '***')
+        # )
+        # plot <- plot +
+        #         geom_segment(data=segmap,
+        #                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
+        #                      inherit.aes = FALSE,
+        #                      size = lsize) +
+        #         geom_text(data=sigmap,
+        #                   mapping = aes(x=x,y=y,label=label),
+        #                   inherit.aes = FALSE,
+        #                   size = sigsize)
+        # print(plot)
+        # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/XXXXXXXAccuracy_HCvsON.tiff',
+        #   plot, dpi=300, device='tiff', base_width = 5)
+
+}
+```
+
+## fMRI
+
+```{r err-fMRI, echo=FALSE, warning=FALSE, message=FALSE}
+
+f <- 'error_rate ~ 1 + ParticipantType*YearsToFollowUp*trial_type + scale(Age.ba) + Gender + (1+YearsToFollowUp|pseudonym) + (1|block)'
+
+groups <- c('PD_POM','HC_PIT')
+tmp <- dfFMRI %>%
+        select(pseudonym, TimepointNr, YearsToFollowUp, Age, Age_Dmean, Age.ba, ParticipantType, trial_type, Gender, block, error_rate, n_trials) %>%
+        na.omit()
+tmp.collapsed <- dfFMRI %>% 
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
+        summarise(across(c(error_rate,Age,YearsToFollowUp), ~ mean(.x, na.rm=TRUE))) %>%
+        ungroup() %>%
+        mutate(error_rate = error_rate*100) %>%
+  na.omit()
+compare_correct(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed)
+
+```
+
+## Practice
+
+```{r err-Prac, echo=FALSE, warning=FALSE, message=FALSE}
+
+f <- 'error_rate ~ 1 + ParticipantType*YearsToFollowUp*trial_type + scale(Age.ba) + Gender + (1+YearsToFollowUp|pseudonym)'
+
+groups <- c('PD_POM','HC_PIT')
+tmp <- dfPrac %>%
+        select(pseudonym, TimepointNr, YearsToFollowUp, Age, Age_Dmean, Age.ba, ParticipantType, trial_type, Gender, error_rate, n_trials) %>%
+        na.omit()
+# Collapse across blocks for visualization purposes
+tmp.collapsed <- dfPrac %>% 
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
+        summarise(across(c(error_rate,Age,YearsToFollowUp), ~ mean(.x, na.rm=TRUE))) %>%
+        ungroup() %>%
+        mutate(error_rate = error_rate*100) %>%
+  na.omit()
+compare_correct(f=f, tmp=tmp, tmp.collapsed = tmp.collapsed)
 
 ```
 
 # Disease progression
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r clin-prog, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Mixed-effects modelling
+tmp <- dfFMRI %>%
+        filter(ParticipantType=='PD_POM') %>%
+        group_by(pseudonym,TimepointNr) %>%
+        summarise(Up3OfBradySum.ba=first(Up3OfBradySum.ba), 
+                  Up3OfBradySum.RawChange=first(Up3OfBradySum.RawChange),
+                  Up3OfBradySum=first(Up3OfBradySum),
+                  YearsToFollowUp=first(YearsToFollowUp),
+                  Age.ba=first(Age),
+                  Gender=first(Gender),
+                  YearsSinceDiag=first(YearsSinceDiag)-YearsToFollowUp) %>%
+        ungroup()
+
+tmp %>% group_by(TimepointNr) %>% summarise(n=n(),
+                                            missing=sum(is.na(Up3OfBradySum))) %>%
+        print()
+
+g <- ggplot(tmp, aes(x=YearsToFollowUp,y=Up3OfBradySum)) +
+        geom_point(alpha=0.25, size=0.6) +
+        geom_line(aes(group=pseudonym,color=Up3OfBradySum.RawChange),alpha=0.5,lwd=0.5) +
+        scale_color_viridis_c(option = 'mako',begin=0,end=1,direction=-1) + 
+        geom_smooth(color='darkred',method='lm') + 
+        theme_bw() +
+        labs(color='Progression') +
+        ggtitle('Clinical progression')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/ClinicalProgression.png',
+          g, dpi=300, device='png', base_width = 5)
+
+m.lmer <- lmer(Up3OfBradySum ~ scale(YearsToFollowUp) + scale(Age.ba) + Gender + (1|pseudonym), data=tmp)
+tab_model(m.lmer, title='Clinical progression')
+
+# Raw change analysis
+tmp.collapsed <- tmp %>% 
+        na.omit() %>%
+        filter(TimepointNr==0)
+g <- ggplot(tmp.collapsed, aes(y=Up3OfBradySum.RawChange)) +
+        geom_boxplot()
+print(g)
+g <- ggplot(tmp.collapsed, aes(x=Up3OfBradySum.ba,y=Up3OfBradySum.RawChange)) +
+  geom_jitter(width = 0.02, alpha=0.75) + 
+  geom_smooth(color='black',method='lm')
+print(g)
+
+m <- lm(Up3OfBradySum.RawChange ~  scale(Up3OfBradySum.ba) + scale(Age.ba) + Gender, data=tmp.collapsed)
+tab_model(m, title='Clinical progression')
 
 ```
+
+# Brain activity
+
+## Group comparison
+
+```{r pd-vs-hc, echo=FALSE, warning=FALSE, message=FALSE}
+
+dat <- read_csv('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/3dLME_disease/stats/dataTable_09-Jan-2023.txt')
+
+dat.n <- dat %>%
+        group_by(Subj, Group,TimepointNr) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        ungroup() %>%
+        select(Subj, Group, TimepointNr)
+dat.n %>% select(Group,TimepointNr) %>% table()
+
+dat.int <- dat %>%
+        select(Subj, Group, TimepointNr, YearsToFollowUp, trial_type, Z_Group_cid1, Z_Type3gt1_cid1)
+
+g <- ggplot(dat.int, aes(y=Z_Group_cid1,x=Group,color=trial_type)) + 
+        geom_point(alpha=0.5) +
+        geom_boxplot(outlier.shape = NULL) +
+        facet_grid(~TimepointNr+trial_type)+
+        theme_bw() +
+        scale_x_discrete(labels=c('HC','PD')) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                              direction = -1) + 
+        ggtitle('Group effect') + ylab('Beta')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/3dLMER_disease_group.png',
+          g, dpi=300, device='png', base_width = 5)
+
+g <- ggplot(dat.int, aes(y=Z_Type3gt1_cid1,x=Group,color=trial_type)) + 
+        geom_point(alpha=0.5) +
+        geom_boxplot(outlier.shape = NULL) +
+        facet_grid(~TimepointNr+trial_type)+
+        theme_bw() +
+        scale_x_discrete(labels=c('HC','PD')) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                              direction = -1) +
+        ggtitle('Condition effect') + ylab('Beta')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/3dLMER_disease_cond.png',
+          g, dpi=300, device='png', base_width = 5)
+
+```
+
+## Brain-clinical associations
+
+```{r brain-clin, echo=FALSE, warning=FALSE, message=FALSE}
+
+dat <- read_csv('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/3dLME_severity/stats/dataTable_09-Jan-2023.txt')
+dat.n <- dat %>%
+        group_by(Subj,TimepointNr) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        ungroup() %>%
+        select(Subj, TimepointNr)
+
+dat.n %>% select(TimepointNr) %>% table() %>% print()
+
+dat %>% summary_factorlist("TimepointNr",
+                                colnames(dat)[4:6],
+                                p=TRUE,
+                                na_include = TRUE) %>%
+         kable(., 'pipe') %>% 
+        print()
+
+dat.int <- dat %>%
+        select(Subj, TimepointNr, trial_type, ClinScore, Z_SeverityType2gt1_cid1, Z_SeverityType3gt1_cid1)
+
+dat.int.collapsed <- dat.int %>% 
+        pivot_wider(id_cols = c('Subj', 'TimepointNr', 'ClinScore'),
+                    names_from = trial_type,
+                    values_from = c(Z_SeverityType2gt1_cid1, Z_SeverityType3gt1_cid1)) %>%
+        mutate(Z_SeverityType2gt1_cid1_2gt1 = Z_SeverityType2gt1_cid1_2c-Z_SeverityType2gt1_cid1_1c,
+               Z_SeverityType3gt1_cid1_3gt1 = Z_SeverityType3gt1_cid1_3c-Z_SeverityType3gt1_cid1_1c)
+progression <- dat.int.collapsed %>% pivot_wider(id_cols = 'Subj',
+                                                 names_from = TimepointNr,
+                                                 values_from = ClinScore) %>%
+        mutate(Progression=T1-T0) %>%
+        select(Subj,Progression)
+dat.int.collapsed <- left_join(dat.int.collapsed,progression,by='Subj')
+
+# SPL
+g <- ggplot(dat.int, aes(y=Z_SeverityType2gt1_cid1,x=ClinScore)) + 
+        geom_point(alpha=0.25,size=0.6) +
+        geom_line(aes(group=Subj),alpha=0.5,lwd=0.5) +
+        geom_smooth(color='darkred',method='lm') +
+        facet_grid(~trial_type)+
+        theme_bw() + 
+        ylab('Beta (two - one)') +
+        ggtitle('Change in selection-related activity predicts progression')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/3dLMER_severity_Sev-x-2gt1.png',
+          g, dpi=300, device='png', base_width = 5)
+g <- ggplot(dat.int.collapsed, aes(y=Z_SeverityType2gt1_cid1_2gt1,x=ClinScore)) + 
+        geom_point(alpha=0.25,size=0.6) +
+        geom_line(aes(group=Subj,color=Progression),alpha=0.5,lwd=0.5) +
+        scale_color_viridis_c(option = 'mako',begin=0,end=1,direction=-1) + 
+        geom_smooth(color='darkred',method='lm') +
+        theme_bw() +
+        labs(color='Progression') + ylab('Beta (two - one)') +
+        ggtitle('Change in selection-related activity predicts progression')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/3dLMER_severity_Sev-x-2gt1-collapsed.png',
+          g, dpi=300, device='png', base_width = 5)
+# SPL
+g <- ggplot(dat.int, aes(y=Z_SeverityType3gt1_cid1,x=ClinScore)) + 
+        geom_point(alpha=0.25,size=0.6) +
+        geom_line(aes(group=Subj),alpha=0.5, lwd=0.5) +
+        geom_smooth(color='darkred',method='lm') +
+        facet_grid(~trial_type)+
+        theme_bw() + 
+        ylab('Beta (three - one)') +
+        ggtitle('Change in selection-related activity predicts progression')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/3dLMER_severity_Sev-x-3gt1.png',
+          g, dpi=300, device='png', base_width = 5)
+g <- ggplot(dat.int.collapsed, aes(y=Z_SeverityType3gt1_cid1_3gt1,x=ClinScore)) + 
+        geom_point(alpha=0.25,size=0.6) +
+        geom_line(aes(group=Subj,color=Progression),alpha=0.5,lwd=0.5) +
+        scale_color_viridis_c(option = 'mako',begin=0,end=1,direction=-1) + 
+        geom_smooth(color='darkred',method='lm') +
+        theme_bw() +
+        labs(color='Progression') + ylab('Beta (three - one)') +
+        ggtitle('Change in selection-related activity predicts progression')
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/3dLMER_severity_Sev-x-3gt1-collapsed.png',
+          g, dpi=300, device='png', base_width = 5)
+
+
+# m <- lmer(Z_SeverityType3gt1_cid1 ~ ClinScore*trial_type + Age + Sex + (1+ClinScore|Subj), 
+#           data=dat.sev,
+#           control = lmerControl(optimizer = 'bobyqa'))
+# summary(m)
+# qqmath(m)
+# plot(m)
+# yhat <- predict(m)
+# qqnorm(yhat)
+# qqline(yhat)
+# qqnorm(resid(m))
+# qqline(resid(m))
+# dat.sev <- bind_cols(dat.sev, yhat=yhat)
+
+# m <- lme(F_Severity_cid2 ~ ClinScore_gmc*trial_type + Age_gmc + MeanFD_gmc + Sex, random = ~1+MeanFD_gmc+ClinScore_gmc|Subj, data=dat.sev)
+# #https://hpc.dccn.nl/docs/cluster_howto/exercise_da/bash.html
+# attach(dat.sev)
+# #obtaining individual estimates of the intercept and slope using fixed and random effects estimates and storing this information into objects
+# b_1i_hat <- ranef(m)[,1] + fixef(m)[1]
+# b_2i_hat <- ranef(m)[,2] + fixef(m)[2]
+# b_3i_hat <- ranef(m)[,3] + fixef(m)[3]
+# 
+# #creating list of ids from row names of the nlme linear model object
+# id <- rownames(ranef(m))
+# 
+# #creating new data set that contains information on each child's id, intercept estimate, and slope estimate
+# estimates <- tibble(Subj=id, b_1i_hat, b_2i_hat, b_3i_hat)
+# 
+# #creating new data set by merging original data set with the estimates data set we just created
+# estimates1 = left_join(dat.sev, estimates, by='Subj')
+# 
+# #creating new variables that calculate the predicted and residual mathematics achievement scores for each child
+# estimates1$pred = estimates1$b_1i_hat + estimates1$b_3i_hat * (estimates1$ClinScore_gmc) 
+# estimates1$resid = estimates1$F_Severity_cid2 - estimates1$pred 
+# 
+# #creating a plot of predicted values and assigning it to an object
+# plot_pred <- ggplot(data=estimates1, 
+#                     aes(x = ClinScore_gmc, y = pred, group = Subj)) + 
+#                     geom_line() + 
+#                     theme_bw() + 
+#         geom_smooth(inherit.aes = FALSE, aes(x=ClinScore_gmc,y=pred),method='lm') + 
+#         facet_grid(~trial_type)
+# 
+# #printing the object (plot)
+# print(plot_pred)
+# 
+# plot_resid <- ggplot(data=estimates1, 
+#                      aes(x = ClinScore_gmc, y = resid, group = Subj)) + 
+#                      geom_line() + 
+#                      theme_bw() + 
+#         facet_grid(~trial_type)
+# 
+# #printing the object (plot)
+# print(plot_resid)
+
+```
+
+
+<!-- # Check of numbers prior to exclusions -->
+
+<!-- ```{r echo=FALSE, warning=FALSE, message=FALSE} -->
+
+<!-- # How many have succesfully done the task at both time points? -->
+
+<!-- tmp <- df %>% -->
+<!--         filter(event_type=='response') %>% -->
+<!--         select(pseudonym,ParticipantType,TimepointNr,trial_type, response_time, Percentage.Correct, -->
+<!--                Up3OfTotal, Up3OfAppendicularSum, Up3OfTotal.2YearDelta, Up3OfAppendicularSum.2YearDelta) -->
+
+<!-- performance <- tmp %>% -->
+<!--         group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>% -->
+<!--         summarise(across(c(response_time, Percentage.Correct), ~ median(.x, na.rm=TRUE))) %>% -->
+<!--         ungroup() %>% -->
+<!--         na.omit() -->
+
+<!-- performance %>% group_by(ParticipantType, TimepointNr, trial_type) %>% summarise(N=n(), -->
+<!--                                                              RT.avg = mean(response_time,na.rm=TRUE), -->
+<!--                                                              RT.sd = sd(response_time,na.rm=TRUE), -->
+<!--                                                              ACC.avg = mean(Percentage.Correct,na.rm=TRUE), -->
+<!--                                                              ACC.sd = sd(Percentage.Correct,na.rm=TRUE)) -->
+
+<!-- g_plot <- ggplot(performance, aes(y=response_time, x = ParticipantType, fill = TimepointNr)) +  -->
+<!--         geom_boxplot(size = 1.5, outlier.size = 3) + -->
+<!--         facet_grid(~trial_type,  -->
+<!--                    labeller = labeller(trial_type = c(`1choice` = 'One choice', -->
+<!--                                                       `2choice` = 'Two choices', -->
+<!--                                                       `3choice` = 'Three choices'))) + -->
+<!--         scale_fill_viridis_d(option = 'viridis', begin = 0.3, end = 0.5, direction = -1, -->
+<!--                              name = 'Timepoint', -->
+<!--                              label = c('Baseline','Follow-up')) + -->
+<!--         scale_x_discrete(labels=c('Healthy control','Patient')) + -->
+<!--         theme_cowplot(font_size = 25) + -->
+<!--         xlab('Group') + ylab('Response time (s)') + -->
+<!--         ggtitle('2-year progression of task performance') -->
+<!-- print(g_plot) -->
+
+<!-- # How many have full progression data? -->
+
+<!-- progression <- tmp %>% -->
+<!--         filter(ParticipantType == 'PD_POM') %>% -->
+<!--         group_by(pseudonym, TimepointNr) %>% -->
+<!--         summarise(across(c(Up3OfTotal, Up3OfAppendicularSum, -->
+<!--                            Up3OfTotal.2YearDelta, Up3OfAppendicularSum.2YearDelta), ~ mean(.x, na.rm=TRUE))) %>% -->
+<!--         ungroup() -->
+
+<!-- progression %>%  -->
+<!--         group_by(TimepointNr) %>%  -->
+<!--         summarise(N=n(), -->
+<!--                   Total.avg = mean(Up3OfTotal,na.rm=TRUE), -->
+<!--                   Total.sd = sd(Up3OfTotal,na.rm=TRUE), -->
+<!--                   App.avg = mean(Up3OfAppendicularSum,na.rm=TRUE), -->
+<!--                   App.sd = sd(Up3OfAppendicularSum,na.rm=TRUE), -->
+<!--                   Prog.avg = mean(Up3OfTotal.2YearDelta,na.rm=TRUE), -->
+<!--                   Prog.sd = sd(Up3OfTotal.2YearDelta,na.rm=TRUE)) -->
+
+<!-- lines <- ggplot(progression, aes(y = Up3OfTotal, x = TimepointNr, group = pseudonym)) + -->
+<!--         geom_line(aes(color=Up3OfTotal.2YearDelta), alpha = 0.3, lwd=1.5) + -->
+<!--         geom_jitter(alpha = 0.2, width = 0.01, size=4) +  -->
+<!--         scale_color_viridis_c(option = 'inferno', name = '2-year \nprogression') + -->
+<!--         scale_x_discrete(labels=c('Baseline','Follow-up')) + -->
+<!--         theme_cowplot(font_size = 25) + -->
+<!--         xlab('Timepoint') + ylab('MDS-UPDRS III total score') -->
+
+<!-- boxes <- ggplot(progression, aes(y = Up3OfTotal, x = TimepointNr, fill = TimepointNr)) + -->
+<!--         geom_boxplot(size = 1.5, outlier.size = 3) + -->
+<!--         scale_fill_viridis_d(option = 'viridis', begin = 0.3, end = 0.5, direction = -1) + -->
+<!--         scale_x_discrete(labels=c('Baseline','Follow-up')) + -->
+<!--         theme_cowplot(font_size = 25) + -->
+<!--         xlab('Timepoint') + ylab('MDS-UPDRS III total score') + -->
+<!--         theme(legend.position = 'none') -->
+
+<!-- plot <- ggarrange(boxes, lines) -->
+<!-- plot <- annotate_figure(plot, top = text_grob('2-year progression of motor symptoms', size=30, face = 'bold')) -->
+<!-- print(plot) -->
+
+<!-- # plot <- raincloudplot_1Factor(progression, 'Up3OfTotal', c('TimepointNr'), title = '2-year progression of motor symptoms', -->
+<!-- #                                       xlab='Time', ylab='MDS-UPDRS III total score', xticklabs = c('Baseline','Follow-up'), -->
+<!-- #                                       color_scheme = 'viridis') %>% print() -->
+
+
+<!-- ``` -->
+
+
+<!-- # Descriptives -->
+
+<!-- ```{r echo=FALSE, warning=FALSE, message=FALSE} -->
+
+<!-- y <- df %>% -->
+<!--   select(pseudonym, TimepointNr, response_time, Percentage.Correct, Button.Press.SwitchRatio, Button.Press.CoV) %>% -->
+<!--   group_by(pseudonym, TimepointNr) %>% -->
+<!--   summarise(across(where(is.numeric), ~mean(.x,na.rm=TRUE))) -->
+
+<!-- gvars <- df %>% -->
+<!--   filter(TimepointNr==0) %>% -->
+<!--   group_by(pseudonym) %>% -->
+<!--   select(pseudonym, ParticipantType, Age, Gender) %>% -->
+<!--   summarise(across(everything(), ~first(.x))) -->
+
+<!-- y <- left_join(y, gvars, by='pseudonym') -->
+
+<!-- ggplot(y, aes(y=response_time, fill=ParticipantType)) +  -->
+<!--   geom_boxplot() + -->
+<!--   facet_grid(~TimepointNr) + -->
+<!--   ggtitle('Average response times') %>% -->
+<!--   print() -->
+
+<!-- ggplot(y, aes(y=Percentage.Correct, fill=ParticipantType)) +  -->
+<!--   geom_boxplot() + -->
+<!--   facet_grid(~TimepointNr) + -->
+<!--   ggtitle('Average accuracy') %>% -->
+<!--   print() -->
+
+<!-- ``` -->
+
+
+
+<!-- em <- emtrends(fit, ~ degree*ParticipantType*trial_type | Age_Dmean, 'Age_Dmean', max.degree = 3, at = list(Age_Dmean=c(0,2.3))) -->
+<!--         contrast(em, interaction = c('identity','revpairwise','revpairwise'), adjust = 'mvt') -->
+<!--         g <- ggplot(tmp, aes(x=Age,y=response_time,color=ParticipantType)) +  -->
+<!--                 geom_point() +  -->
+<!--                 geom_line(aes(group=pseudonym)) +  -->
+<!--                 facet_wrap(~trial_type+ParticipantType, nrow = 3,ncol = 6) +  -->
+<!--                 geom_smooth(color='black') -->
+<!--         print(g) -->
+
+
+<!-- # compare_rts <- function(f, tmp, tmp.collapsed){ -->
+<!-- #    -->
+<!-- #         # Fit model -->
+<!-- #         print(paste('Fitting the following model:', f, sep=' ')) -->
+<!-- #         fit <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+<!-- #         # outliers <- outlierTest(fit)[[1]] %>% names() %>% as.numeric() -->
+<!-- #         # fit <- lmer(f, data=tmp[-c(outliers), ], control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+<!-- #         s <- summary(fit) -->
+<!-- #         # print(s, corr = FALSE, digits = 3) -->
+<!-- #         anova <- Anova(fit,type=3) -->
+<!-- #         print(anova) -->
+<!-- #         eta_squared(fit, alternative = 'two.sided') %>% print() -->
+<!-- #          -->
+<!-- #         # Post hoc test -->
+<!-- #         em <- emmeans(fit, ~ trial_type|ParticipantType, type='response') -->
+<!-- #         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, ~ trial_type|ParticipantType, type='response') -->
+<!-- #         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!-- #         emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response') -->
+<!-- #         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response') -->
+<!-- #         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!-- #         emmip(fit, ParticipantType ~ TimepointNr, type='response', CIs=TRUE) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, ~ trial_type|TimepointNr, type='response') -->
+<!-- #         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, ~ trial_type|TimepointNr, type='response') -->
+<!-- #         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!-- #         emmip(fit, trial_type ~ TimepointNr, type='response', CIs=TRUE) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, revpairwise ~ ParticipantType, type='response', adjust='mvt') -->
+<!-- #         kable(em$emmeans,'pipe', digits = 3) %>% print() -->
+<!-- #         kable(em$contrasts,'pipe', digits = 3) %>% print() -->
+<!-- #         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, revpairwise ~ TimepointNr, type='response', adjust='mvt') -->
+<!-- #         kable(em$emmeans,'pipe', digits = 3) %>% print() -->
+<!-- #         kable(em$contrasts,'pipe', digits = 3) %>% print() -->
+<!-- #         emmip(fit, ~ TimepointNr, type='response', CIs=TRUE) %>% print() -->
+<!-- #          -->
+<!-- #         em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt') -->
+<!-- #         kable(em$emmeans,'pipe', digits = 3) %>% print() -->
+<!-- #         kable(em$contrasts,'pipe', digits = 3) %>% print() -->
+<!-- #         emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print() -->
+<!-- #          -->
+<!-- #         # Visualization -->
+<!-- #         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+<!-- #         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R') -->
+<!-- #          -->
+<!-- #         # Summary stats -->
+<!-- #                 # emmip with plotit=FALSE gives a table of summarystats that is very handy -->
+<!-- #                 # Some adjustments make it usable for the raincloudplot function below -->
+<!-- #         emm.summary <- emmip(fit, ParticipantType ~ TimepointNr | trial_type, plotit = FALSE, type = 'response') %>% -->
+<!-- #                 tibble() %>% -->
+<!-- #                 rename(mean = yvar, -->
+<!-- #                        se = SE) %>% -->
+<!-- #                 select(-c(df, tvar, xvar)) %>% -->
+<!-- #                 mutate(ci = se*1.96) -->
+<!-- #         kable(emm.summary,'pipe', digits = 3) %>% print() -->
+<!-- #          -->
+<!-- #         # Plots -->
+<!-- #         N <- tmp  %>%  -->
+<!-- #                 group_by(pseudonym, ParticipantType, TimepointNr) %>% -->
+<!-- #                 summarise(across(everything(), ~first(.x))) %>% -->
+<!-- #                 ungroup() %>% -->
+<!-- #                 select(ParticipantType, TimepointNr) %>% -->
+<!-- #                 table() -->
+<!-- #         kable(N, 'pipe') %>% print() -->
+<!-- #         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='response_time', -->
+<!-- #                               groupvar=c('trial_type','TimepointNr'), -->
+<!-- #                               title='Influence of Parkinson\'s disease \non response times', -->
+<!-- #                               xlab='Timepoint', ylab='Response time (s)', -->
+<!-- #                               xticklabs=c('Baseline', -->
+<!-- #                                           'Two years'), -->
+<!-- #                               legend_title = '', -->
+<!-- #                               legend_labels = c('One','Two','Three'), -->
+<!-- #                               legend_position = legend_position, -->
+<!-- #                               provided_summary = 'None') + -->
+<!-- #                 ylim(0.3,2) +  -->
+<!-- #                 facet_grid(~ParticipantType) -->
+<!-- #         # y <- 1.75 -->
+<!-- #         # d = 0.12 -->
+<!-- #         # segmap <- data.frame( -->
+<!-- #         #         x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  0.80,  1.80,  1.80), -->
+<!-- #         #         xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  1.00,  1.20,  2.00,  2.20), -->
+<!-- #         #         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3), -->
+<!-- #         #         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3) -->
+<!-- #         # ) -->
+<!-- #         # sigmap <- data.frame( -->
+<!-- #         #         x =     c(1.50,  0.90,  1.00,  1.90,  2.00), -->
+<!-- #         #         y =     c(y,     y-d*2, y-d*3, y-d*2, y-d*3), -->
+<!-- #         #         label = c('***', '***', '***', '***', '***') -->
+<!-- #         # ) -->
+<!-- #         # plot <- plot +  -->
+<!-- #         #         geom_segment(data=segmap, -->
+<!-- #         #                      mapping = aes(x=x,xend=xend,y=y,yend=yend), -->
+<!-- #         #                      inherit.aes = FALSE, -->
+<!-- #         #                      size = lsize) + -->
+<!-- #         #         geom_text(data=sigmap,  -->
+<!-- #         #                   mapping = aes(x=x,y=y,label=label), -->
+<!-- #         #                   inherit.aes = FALSE, -->
+<!-- #         #                   size = sigsize) -->
+<!-- #         print(plot) -->
+<!-- #         # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_HCvsON.tiff', -->
+<!-- #         #   plot, dpi=300, device='tiff', base_width = 5) -->
+<!-- #          -->
+<!-- #         tplot <- emmip(fit, ParticipantType~trial_type|TimepointNr, CIs = TRUE, -->
+<!-- #                        type='response') + -->
+<!-- #                 scale_x_discrete(labels=c('One','Two','Three')) +  -->
+<!-- #                 scale_colour_viridis_d(option='mako', begin = .1, end = .6, -->
+<!-- #                                        direction = -1,labels=c('Control','PD-On')) + -->
+<!-- #                 ggtitle('') + ylab('Predicted response times (s)') + -->
+<!-- #                 xlab('Group') +  -->
+<!-- #                 guides(color=guide_legend(title='Group', reverse = FALSE)) + -->
+<!-- #                 theme_cowplot(font_size = 20) -->
+<!-- #         print(tplot) -->
+<!-- #          -->
+<!-- #         # Diagnostics -->
+<!-- #         plot(fit) %>% print() -->
+<!-- #         # qqmath(fit) %>% print() -->
+<!-- #         qqmath(ranef(fit)) %>% print() -->
+<!-- #          -->
+<!-- # } -->
+
+<!-- compare_correct <- function(f, tmp, tmp.collapsed){ -->
+
+<!--         # Fit model -->
+<!--         print(paste('Fitting the following model:', f, sep=' ')) -->
+<!--         fit <- glmer(f, data=tmp, family = binomial, weights = n_trials, -->
+<!--                      control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+<!--         s <- summary(fit) -->
+<!--         # print(s, corr = FALSE) -->
+<!--         anova <- Anova(fit, type = 'III') -->
+<!--         print(anova) -->
+<!--         se <- sqrt(diag(vcov(fit)))     #https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/ -->
+<!--         tab <- cbind(OR = fixef(fit), CIlwr = fixef(fit)-1.96*se, CIupr = fixef(fit)+1.96*se) -->
+<!--         exp(tab) %>% kable(., 'pipe', digits = 3) %>% print() -->
+
+<!--         # Post hoc test -->
+<!--         em <- emmeans(fit, ~ trial_type|ParticipantType, type='response') -->
+<!--         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print() -->
+
+<!--         em <- emmeans(fit, ~ trial_type|ParticipantType, type='response') -->
+<!--         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!--         emmip(fit, ParticipantType ~ trial_type, type='response', CIs=TRUE) %>% print() -->
+
+<!--         em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response') -->
+<!--         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print() -->
+
+<!--         em <- emmeans(fit, ~ TimepointNr|ParticipantType, type='response') -->
+<!--         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!--         emmip(fit, ParticipantType ~ TimepointNr, type='response', CIs=TRUE) %>% print() -->
+
+<!--         em <- emmeans(fit, ~ trial_type|TimepointNr, type='response') -->
+<!--         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response', by=NULL) %>% kable(., 'pipe', digits = 3) %>% print() -->
+
+<!--         em <- emmeans(fit, ~ trial_type|TimepointNr, type='response') -->
+<!--         contrast(em, interaction = c('revpairwise','revpairwise'), adjust='mvt', type='response') %>% kable(., 'pipe', digits = 3) %>% print() -->
+<!--         emmip(fit, trial_type ~ TimepointNr, type='response', CIs=TRUE) %>% print() -->
+
+<!--         em <- emmeans(fit, revpairwise ~ ParticipantType, type='response', adjust='mvt') -->
+<!--         kable(em$emmeans,'pipe', digits = 3) %>% print() -->
+<!--         kable(em$contrasts,'pipe', digits = 3) %>% print() -->
+<!--         emmip(fit, ~ ParticipantType, type='response', CIs=TRUE) %>% print() -->
+
+<!--         em <- emmeans(fit, revpairwise ~ TimepointNr, type='response', adjust='mvt') -->
+<!--         kable(em$emmeans,'pipe', digits = 3) %>% print() -->
+<!--         kable(em$contrasts,'pipe', digits = 3) %>% print() -->
+<!--         emmip(fit, ~ TimepointNr, type='response', CIs=TRUE) %>% print() -->
+
+<!--         em <- emmeans(fit, revpairwise ~ trial_type, type='response', adjust='mvt') -->
+<!--         kable(em$emmeans,'pipe', digits = 3) %>% print() -->
+<!--         kable(em$contrasts,'pipe', digits = 3) %>% print() -->
+<!--         emmip(fit, ~ trial_type, type='response', CIs=TRUE) %>% print() -->
+
+<!--         # Visualization -->
+<!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R') -->
+<!--         source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R') -->
+<!--         N <- tmp  %>%  -->
+<!--                 group_by(pseudonym, ParticipantType, TimepointNr) %>% -->
+<!--                 summarise(across(everything(), ~first(.x))) %>% -->
+<!--                 ungroup() %>% -->
+<!--                 select(ParticipantType, TimepointNr) %>% -->
+<!--                 table() -->
+<!--         kable(N, 'pipe') %>% print() -->
+<!--         plot <- raincloudplot_2Factor(data=tmp.collapsed, y='error_rate', -->
+<!--                               groupvar=c('trial_type','TimepointNr'), -->
+<!--                               title='Influence of Parkinson\'s \ndisease on error rates', -->
+<!--                               xlab='', ylab='Errors (%)', -->
+<!--                               xticklabs=c('Baseline','Two years'), -->
+<!--                               legend_title = '', -->
+<!--                               legend_labels = c('One','Two','Three'), -->
+<!--                               legend_position = legend_position, -->
+<!--                               provided_summary = 'None') + -->
+<!--                 ylim(0,100) +  -->
+<!--                 facet_grid(~ParticipantType) -->
+<!--         # y <- 70 -->
+<!--         # d = 6 -->
+<!--         # segmap <- data.frame( -->
+<!--         #         x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  1.80,  2.00), -->
+<!--         #         xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  2.20,  2.20), -->
+<!--         #         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*2, y-d*3), -->
+<!--         #         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*3) -->
+<!--         # ) -->
+<!--         # sigmap <- data.frame( -->
+<!--         #         x =     c(1.50,  2.00,  2.10), -->
+<!--         #         y =     c(y,     y-d*2, y-d*3), -->
+<!--         #         label = c('**', '***', '***') -->
+<!--         # ) -->
+<!--         # plot <- plot + -->
+<!--         #         geom_segment(data=segmap, -->
+<!--         #                      mapping = aes(x=x,xend=xend,y=y,yend=yend), -->
+<!--         #                      inherit.aes = FALSE, -->
+<!--         #                      size = lsize) + -->
+<!--         #         geom_text(data=sigmap, -->
+<!--         #                   mapping = aes(x=x,y=y,label=label), -->
+<!--         #                   inherit.aes = FALSE, -->
+<!--         #                   size = sigsize) -->
+<!--         print(plot) -->
+<!--         # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/XXXXXXXAccuracy_HCvsON.tiff', -->
+<!--         #   plot, dpi=300, device='tiff', base_width = 5) -->
+
+<!-- } -->
+
+
+
+<!-- ## ON, Bradykinesia-rigidity ~ RTs -->
+
+<!-- ```{r echo = FALSE, warning = TRUE} -->
+
+<!-- # Fit model -->
+<!-- tmp.clincorr <- df %>% -->
+<!--         filter(ParticipantType=='PD_POM') %>% -->
+<!--         filter(event_type == 'response') %>% -->
+<!--         filter(trial_type != 'Catch') %>% -->
+<!--         filter(response_time > 0.3) %>% -->
+<!--         filter(correct_response=='Hit') %>% -->
+<!--         filter(!(pseudonym %in% poor_performance$pseudonym)) %>% -->
+<!--         mutate(ParticipantType = droplevels(ParticipantType), -->
+<!--                trial_type = droplevels(trial_type), -->
+<!--                Up3OfBradySum = if_else(TimepointNr=='0',Up3OfBradySym.ba,Up3OfBradySym.ba+Up3OfBradySym.RawChange)) %>% -->
+<!--         select(pseudonym, ParticipantType, TimepointNr, Up3OfBradySym.ba, Up3OfBradySym.RawChange, Up3OfBradySum, trial_type, block,  -->
+<!--                Age, Gender, response_time) -->
+<!-- tmp.clincorr <- tmp.clincorr %>% -->
+<!--         group_by(pseudonym, TimepointNr, trial_type, block) %>% -->
+<!--         summarise(ParticipantType = first(ParticipantType), -->
+<!--                   response_time = median(response_time,na.rm=TRUE), -->
+<!--                   Up3OfBradySum = first(Up3OfBradySum), -->
+<!--                   Up3OfBradySym.ba = first(Up3OfBradySym.ba), -->
+<!--                   Up3OfBradySym.RawChange = first(Up3OfBradySym.RawChange), -->
+<!--                   Age = first(Age), -->
+<!--                   Gender = first(Gender)) %>% -->
+<!--         ungroup() -->
+
+<!-- f.clincorr <- 'log(response_time) ~ 1 + Up3OfBradySum*trial_type + Age + Gender + (1|pseudonym) + (1|block)' -->
+<!-- fit.clincorr <- lmer(f.clincorr, tmp.clincorr, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+<!-- # outliers <- outlierTest(fit.clincorr)[[1]] %>% names() %>% as.numeric() -->
+<!-- # fit.clincorr <- lmer(f.clincorr, data=tmp.clincorr[-c(outliers), ], control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5))) -->
+<!-- s <- summary(fit.clincorr) -->
+<!-- # print(s, corr=FALSE, digits = 3) -->
+<!-- anova <- Anova(fit.clincorr,type=3) -->
+<!-- print(anova) -->
+<!-- eta_squared(fit.clincorr, alternative = 'two.sided') %>% print() -->
+
+<!-- # Post hoc test -->
+<!-- emt <- emtrends(fit.clincorr, ~trial_type, var='Up3OfBradySum', type = 'response') -->
+<!-- contrast(emt, 'revpairwise', adjust = 'mvt') %>% kable(., 'pipe', digits = 4) %>% print() -->
+<!-- emtc <- summary(emt)$Up3OfBradySum.trend %>% mean() -->
+
+<!-- em <- emmeans(fit.clincorr, revpairwise ~ trial_type, type='response', adjust='mvt') -->
+<!-- kable(em$emmeans,'pipe', digits = 3) %>% print() -->
+<!-- kable(em$contrasts,'pipe', digits = 3) %>% print() -->
+<!-- emmip(fit.clincorr, ~ trial_type, type='response', CIs=TRUE) %>% print() -->
+
+<!-- # Visualize -->
+<!-- plotdat <- tmp.clincorr %>% -->
+<!--         group_by(pseudonym, trial_type) %>% -->
+<!--         summarise(across(c(response_time, Up3OfBradySum), ~ mean(.x, na.rm=TRUE))) %>% -->
+<!--         ungroup() -->
+<!-- c <- plotdat %>% -->
+<!--         group_by(pseudonym, trial_type) %>% -->
+<!--         summarise(across(c(response_time, Up3OfBradySum), ~ mean(., na.rm=TRUE))) %>% -->
+<!--         select(pseudonym, response_time, Up3OfBradySum) -->
+<!-- c <- cor.test(c$response_time, c$Up3OfBradySum) -->
+<!-- N <- tmp.clincorr  %>%  -->
+<!--         group_by(pseudonym, ParticipantType) %>% -->
+<!--         summarise(across(everything(), ~first(.x))) %>% -->
+<!--         na.omit() %>% -->
+<!--         ungroup() %>% -->
+<!--         select(ParticipantType) %>% -->
+<!--         table() -->
+<!-- plot <- ggplot(plotdat, aes(y=response_time, x=Up3OfBradySum, color=trial_type)) + -->
+<!--         geom_point(alpha = .3, shape = 19, size = 1.5) + -->
+<!--         geom_smooth(method='lm', se = TRUE, lwd = 2) + -->
+<!--         scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8, -->
+<!--                               direction = -1, labels = c('One','Two','Three')) + -->
+<!--         ggtitle('Association between response \ntimes and bradykinesia') +  -->
+<!--         xlab('Bradykinesia severity') + -->
+<!--         ylab('Response time (s)') + -->
+<!--         theme_cowplot(font_size = 16, font_family = 'Calibri') + -->
+<!--         guides(color=guide_legend(title='', reverse = FALSE, -->
+<!--                                  title.position = 'left', label.position = 'right')) + -->
+<!--         theme(legend.position = c(0.8,1.10), -->
+<!--               legend.key.size = unit(0.5,'cm')) + -->
+<!--         geom_text(x=19,y=1.55, label = paste('N = ', N,  -->
+<!--                                              ', β = ', round(s$coefficients[2,1],digits=3), -->
+<!--                                              ', SE = ', round(s$coefficients[2,2],digits=3), -->
+<!--                                              ', P < 0.001', sep=''), -->
+<!--                   size=4, inherit.aes = FALSE) + -->
+<!--         xlim(0,42) + -->
+<!--         scale_y_continuous(limits = c(0.5,1.75), breaks = seq(0.5,1.5, by=0.5)) -->
+<!-- print(plot) -->
+<!-- # save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/XXXXXXXRT_Corr_ON_Severity.tiff', -->
+<!-- #           plot, dpi=300, device='tiff', base_width = 5) -->
+
+<!-- ``` -->
