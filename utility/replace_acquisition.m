@@ -9,11 +9,14 @@
 
 function replace_acquisition()
 
-bids_old = '/project/3022026.01/bids';
-bids_new = '/project/3022026.01/bids_qsm';
+bids_old = '/project/3024006.01/bids';
+bids_new = '/project/3024006.01/bids_qsm';
 acquisition = '.*acq-GRE.*run-1_T2star.*';
 
-sub_new = cellstr(spm_select('List', bids_new, 'dir', '^sub-POM3FM.*'));
+% substr = 'POM1FM';
+substr = 'PIT2MR';
+
+sub_new = cellstr(spm_select('List', bids_new, 'dir', ['^sub-' substr '.*']));
 
 for n = 1:numel(sub_new)
     
@@ -27,6 +30,12 @@ for n = 1:numel(sub_new)
     elseif (contains(sub_new{n},'POM3FM'))
         anat_old = fullfile(bids_old, sub_new{n}, 'ses-POMVisit3', 'anat');
         anat_new = fullfile(bids_new, sub_new{n}, 'ses-POMVisit3', 'anat');
+    elseif(contains(sub_new{n},'PIT1MR'))
+        anat_old = fullfile(bids_old, sub_new{n}, 'ses-PITVisit1', 'anat');
+        anat_new = fullfile(bids_new, sub_new{n}, 'ses-PITVisit1', 'anat');
+    elseif(contains(sub_new{n},'PIT2MR'))
+        anat_old = fullfile(bids_old, sub_new{n}, 'ses-PITVisit2', 'anat');
+        anat_new = fullfile(bids_new, sub_new{n}, 'ses-PITVisit2', 'anat');
     end
     % Does both directories exist?
     c1 = exist(anat_old,'dir');
