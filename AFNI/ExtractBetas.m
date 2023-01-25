@@ -6,22 +6,28 @@
 % spm_summarise extracts the average beta within each cluster
 % Averages are appended to the datatable that was used as input in 3dLME
 
-function ExtractBetas(dir)
+function ExtractBetas(dir,con)
 
 if nargin<1
-    dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/3dLME_severity';
+%     dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/3dLME_severity';
+    dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/3dttest++_severity';
+    con = 'con_0010';
 end
 
 dStats =  fullfile(dir, 'stats');
-fname_dataTable = spm_select('FPList', dir, '.*dataTable.txt');
+fname_dataTable = spm_select('FPList', dir, [con '.*covars.txt']);
 if(size(fname_dataTable,1)>1)
     msg = strcat('Error: More than one dataTable found in ', dir);
     error(msg)
 end
-dataTable = readtable(fname_dataTable);     % 3dLME input table
+dataTable = readtable(fname_dataTable);     % input table
+if(contains(dir,'3dttest++'))
+    dataTable.InputFile = strrep(dataTable.voxelwiseBA,'Visit1','Diff');
+    dataTable.InputFile = strrep(dataTable.InputFile,'POMDiff','POMVisitDiff');
+end
 spm_file_merge(dataTable.InputFile, fullfile(dStats, '4d_Cons'))    % Concatenate 1st-level contrasts
 ConcatImg = spm_select('FPList', dStats, '4d_Cons.nii');
-Masks = cellstr(spm_select('FPList',dStats, '.*idxmask.nii'));  % Find cluster index masks
+Masks = cellstr(spm_select('FPList',dStats, [con '.*idxmask.nii']));  % Find cluster index masks
 
 for m = 1:numel(Masks)
     % For each value in each cluster index mask, extract the average beta
@@ -34,7 +40,7 @@ for m = 1:numel(Masks)
         dataTable = [dataTable,d];
     end
 end
-outputname = fullfile(dStats, ['dataTable_' date '.txt']);
+outputname = fullfile(dStats, [con '_dataTable_' date '.txt']);
 writetable(dataTable, outputname)
 
 % Binary mask of all contrast images
