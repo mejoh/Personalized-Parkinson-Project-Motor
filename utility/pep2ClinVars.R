@@ -4,8 +4,8 @@ library(tidyverse)
 # dPEP_HomeQuest <- 'P:/3022026.01/pep/download2/'
 # dPEP_Visit <- 'P:/3022026.01/pep/download2/'
 # dPEP_COVID <- 'P:/3022026.01/pep/download2/'
-dPEP <- '/project/3022026.01/pep/download3/'
-dClinVars <- '/project/3022026.01/pep/ClinVars4'
+dPEP <- '/project/3022026.01/pep/download_19-01-2023/'
+dClinVars <- '/project/3022026.01/pep/ClinVars'
 
 # Clean out output directory
 force = FALSE
@@ -63,7 +63,7 @@ for(Sub in Subjects){
         
         # Collect all files that need to be copied to ClinVars
         download_files  <- list.files(paste(dPEP, Sub, sep = ''), full.names = TRUE)
-        download_files <- download_files[str_detect(download_files, 'Castor.')]
+        download_files <- download_files[str_detect(download_files, 'Castor.') | str_detect(download_files, 'DD_InflammationMarkers')]
         all_files <- unique(download_files)
         
         for(f in all_files){
