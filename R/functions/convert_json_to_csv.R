@@ -32,8 +32,23 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
   Data <- tibble(pseudonym = basename(dSub))
   
   # Parse subsetted json files and bind to data frame
+  # 'DD_InflammationMarkers' variables need specific processing because their files only contain a single number/date
   for(i in 1:length(fSubsetFiles)){
-    json <- jsonlite::read_json(fSubsetFiles[i])
+          if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers')){
+                  if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers_Blood_Olink96.Visit[0-9].json')){
+                          json <- read_delim(fSubsetFiles[i], show_col_types = FALSE)
+                          colnames(json) <- paste('DD_InflammationMarkers_Olink96_',colnames(json),sep='')
+                  }else if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers_CSF_RewardTask.json')){
+                          json <- read_delim(fSubsetFiles[i], show_col_types = FALSE)
+                          colnames(json) <- paste('DD_InflammationMarkers_CSF-RewardTask_',colnames(json),sep='')
+                  }else{
+                          json <- read_csv(fSubsetFiles[i], col_names = FALSE, show_col_types = FALSE)
+                          varname <- unlist(str_extract_all(fSubsetFiles[i],"(?<=POMVisit[0-9]/).+(?=.Visit)"))
+                          colnames(json) <- varname
+                  }
+          }else{
+                  json <- jsonlite::read_json(fSubsetFiles[i])
+          }
     # FIX: Rename vars where Of and On labels have been accidentally reversed
     if(str_detect(fSubsetFiles[i], 'Motorische_taken_ON') && str_detect(names(json$crf), 'Up3Of')){
       print(dSub)
@@ -46,7 +61,11 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
       print(msg)
       names(json$crf) <- str_replace_all(names(json$crf), 'Up3Of', 'Up3On')
     }
-    crf <- unlist(json$crf) %>% as_tibble_row # 'Unpacks' lists and turns each list value into its own column
+    if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers')){
+            crf <- json
+    }else{
+            crf <- unlist(json$crf) %>% as_tibble_row # 'Unpacks' lists and turns each list value into its own column     
+    }
     Data <- bind_cols(Data[1,], crf)
     #DEPRECATED: Data <- bind_cols(Data[1,], as_tibble(json$crf)[1,])    # < Indexing to remove rows, gets rid of list answers!!!
   }
@@ -75,5 +94,7 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
   Data$TimepointNr[str_detect(Data$Timepoint,'Visit3')] <- 2
   
   # Return subject's data frame
+  msg <- paste('Writing', Data$pseudonym, Data$Timepoint, '\n')
+  cat(msg)
   write_csv(Data, outputname)
 }
