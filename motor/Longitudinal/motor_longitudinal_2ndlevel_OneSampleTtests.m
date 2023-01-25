@@ -1,7 +1,13 @@
-function motor_longitudinal_2ndlevel_OneSampleTtests(Contrast)
+%QSUB
+% motor_longitudinal_2ndlevel_OneSampleTtests('con_0010',true);motor_longitudinal_2ndlevel_OneSampleTtests('con_0010',false);
+% motor_longitudinal_2ndlevel_OneSampleTtests('con_0012',true);motor_longitudinal_2ndlevel_OneSampleTtests('con_0012',false);
+% motor_longitudinal_2ndlevel_OneSampleTtests('con_0013',true);motor_longitudinal_2ndlevel_OneSampleTtests('con_0013',false)
+
+function motor_longitudinal_2ndlevel_OneSampleTtests(Contrast, roi)
 
 if nargin < 1
     Contrast = 'con_0010';
+    roi=true;
 end
 
 %% Paths
@@ -16,7 +22,7 @@ defaults.stats.maxmem = 2^33; %2^33=8.5899e+09=8.59bg
 
 dCon = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group', Contrast, 'ses-Diff');
 dOutput = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/SPM',Contrast);
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/Longitudinal_ClinVars_2022-12-06.csv');
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-clin_ses-diff_groups-pd_2023-01-10.csv');
 
 Sub = cellstr(spm_select('List', dCon, 'PD_POM_sub-POM.*'));
 Sub = extractBetween(Sub, 1, 31);
@@ -58,7 +64,8 @@ SubInfo.Sub = extractBetween(Sub, 8, 31);
 Sel = true(size(SubInfo.Sub));
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = zeros(size(SubInfo.Sub));
-SubInfo.RawChangeScore_ClinProg = zeros(size(SubInfo.Sub));
+SubInfo.ClinScore_RawChange = zeros(size(SubInfo.Sub));
+SubInfo.ClinScore_BA = zeros(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
@@ -66,13 +73,14 @@ for n = 1:numel(SubInfo.Sub)
         subid=subid(1);
     end
     
-    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.RawChangeScore_ClinProg(subid))
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.ClinScore_RawChange(subid)) || isnan(ClinicalConfs.ClinScore_BA(subid))
         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
-        SubInfo.RawChangeScore_ClinProg(n) = ClinicalConfs.RawChangeScore_ClinProg(subid);
+        SubInfo.ClinScore_RawChange(n) = ClinicalConfs.ClinScore_RawChange(subid);
+        SubInfo.ClinScore_BA(n) = ClinicalConfs.ClinScore_BA(subid);
     end
     
 end
@@ -80,15 +88,19 @@ fprintf('%i subjects have missing Age/Gender/Clinical score, excluding...\n', le
 SubInfo = subset_subinfo(SubInfo, Sel);
 
 %% Demean covars
-SubInfo.RawChangeScore_ClinProg = SubInfo.RawChangeScore_ClinProg - mean(SubInfo.RawChangeScore_ClinProg);
 SubInfo.Age = SubInfo.Age - mean(SubInfo.Age);
 SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
-% SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
+SubInfo.ClinScore_RawChange = SubInfo.ClinScore_RawChange - mean(SubInfo.ClinScore_RawChange);
+SubInfo.ClinScore_BA = SubInfo.ClinScore_BA - mean(SubInfo.ClinScore_BA);
 
 %% Assemble inputs
-Inputs = cell(5,1);
+Inputs = cell(7,1);
 
-Inputs{1,1} = {fullfile(dOutput,'OneSampleTTest')};
+if (roi)
+    Inputs{1,1} = {fullfile(dOutput,'OneSampleTTest-roi')};
+else
+    Inputs{1,1} = {fullfile(dOutput,'OneSampleTTest-whole')};
+end
 if ~exist(char(Inputs{1,1}),'dir')
     mkdir(char(Inputs{1,1}))
 end
@@ -98,9 +110,16 @@ PD_files = {PD.name}';
 PD_files = PD_files(contains({PD.name}, SubInfo.Sub));
 Inputs{2,1} = fullfile(dCon, PD_files);
 
-Inputs{3,1} = [SubInfo.RawChangeScore_ClinProg];
-Inputs{4,1} = [SubInfo.Age];
-Inputs{5,1} = [SubInfo.Gender];
+Inputs{3,1} = [SubInfo.ClinScore_BA];
+Inputs{4,1} = [SubInfo.ClinScore_RawChange];
+Inputs{5,1} = [SubInfo.Age];
+Inputs{6,1} = [SubInfo.Gender];
+
+if (roi)
+    Inputs{7,1} = {'/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/BG-dysfunc_and_pareital-comp_and_striatum_dil.nii'};
+else
+    Inputs{7,1} = {'/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin-ero.nii'};
+end
 
 %% Run
 
@@ -108,7 +127,7 @@ JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
 
 delete(fullfile(char(Inputs{1}), '*.*'))
 % spm_jobman('run', JobFile, Inputs{:});
-qsubfeval('spm_jobman','run', JobFile, Inputs{:},'memreq',8*1024^3,'timreq',10*60*60);
+qsubfeval('spm_jobman','run', JobFile, Inputs{:},'memreq',9*1024^3,'timreq',10*60*60);
 
 filename = char(fullfile(Inputs{1,1}, 'Inputs.mat'));
 save(filename, 'Inputs')

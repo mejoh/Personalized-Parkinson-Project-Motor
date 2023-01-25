@@ -20,7 +20,8 @@ matlabbatch{1}.spm.stats.factorial_design.cov(2).iCC = 1;
 matlabbatch{1}.spm.stats.factorial_design.multi_cov = struct('files', {}, 'iCFI', {}, 'iCC', {});
 matlabbatch{1}.spm.stats.factorial_design.masking.tm.tm_none = 1;
 matlabbatch{1}.spm.stats.factorial_design.masking.im = 0;
-matlabbatch{1}.spm.stats.factorial_design.masking.em = {'/home/common/matlab/spm12_r7487_20181114/tpm/mask_ICV.nii'};
+
+matlabbatch{1}.spm.stats.factorial_design.masking.em = '<UNDEFINED>';
 matlabbatch{1}.spm.stats.factorial_design.globalc.g_omit = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.gmsca.gmsca_no = 1;
 matlabbatch{1}.spm.stats.factorial_design.globalm.glonorm = 1;

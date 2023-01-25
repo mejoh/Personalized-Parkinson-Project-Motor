@@ -1,7 +1,13 @@
-function motor_longitudinal_2ndlevel_TwoSampleTtests(Contrast)
+%QSUB
+% motor_longitudinal_2ndlevel_TwoSampleTtests('con_0010',true);motor_longitudinal_2ndlevel_TwoSampleTtests('con_0010',false);
+% motor_longitudinal_2ndlevel_TwoSampleTtests('con_0012',true);motor_longitudinal_2ndlevel_TwoSampleTtests('con_0012',false);
+% motor_longitudinal_2ndlevel_TwoSampleTtests('con_0013',true);motor_longitudinal_2ndlevel_TwoSampleTtests('con_0013',false)
+
+function motor_longitudinal_2ndlevel_TwoSampleTtests(Contrast, roi)
 
 if nargin < 1
     Contrast = 'con_0010';
+    roi = true;
 end
 
 %% Paths
@@ -16,8 +22,8 @@ defaults.stats.maxmem = 2^33; %2^33=8.5899e+09=8.59bg
 
 dCon = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group', Contrast, 'ses-Diff');
 dOutput = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/SPM',Contrast);
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri6.csv');
-baseid = ClinicalConfs.TimepointNr == 0;
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-clin_ses-baseline_groups-all_2023-01-10.csv');
+baseid = strcmp(ClinicalConfs.TimepointNr,'T0');
 ClinicalConfs = ClinicalConfs(baseid,:);
 baseid = or(contains(ClinicalConfs.ParticipantType,'HC_PIT'),contains(ClinicalConfs.ParticipantType,'PD_POM'));
 ClinicalConfs = ClinicalConfs(baseid,:);
@@ -88,9 +94,13 @@ SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
 % SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
 
 %% Assemble inputs
-Inputs = cell(5,1);
+Inputs = cell(6,1);
 
-Inputs{1,1} = {fullfile(dOutput,'TwoSampleTTest')};
+if (roi)
+    Inputs{1,1} = {fullfile(dOutput,'TwoSampleTTest-roi')};
+else
+    Inputs{1,1} = {fullfile(dOutput,'TwoSampleTTest-whole')};
+end
 if ~exist(char(Inputs{1,1}),'dir')
     mkdir(char(Inputs{1,1}))
 end
@@ -115,13 +125,19 @@ Gender_pd = SubInfo.Gender(strcmp(SubInfo.Group, 'PD_POM'));
 Inputs{4,1} = [Age_hc; Age_pd];
 Inputs{5,1} = [Gender_hc; Gender_pd];
 
+if (roi)
+    Inputs{6,1} = {'/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/BG-dysfunc_and_pareital-comp_and_striatum_dil.nii'};
+else
+    Inputs{6,1} = {'/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin-ero.nii'};
+end
+
 %% Run
 
 JobFile = {spm_file(mfilename('fullpath'), 'suffix','_job', 'ext','.m')};
 
 delete(fullfile(char(Inputs{1}), '*.*'))
 % spm_jobman('run', JobFile, Inputs{:});
-qsubfeval('spm_jobman','run', JobFile, Inputs{:},'memreq',8*1024^3,'timreq',10*60*60);
+qsubfeval('spm_jobman','run', JobFile, Inputs{:},'memreq',9*1024^3,'timreq',10*60*60);
 
 filename = char(fullfile(Inputs{1,1}, 'Inputs.mat'));
 save(filename, 'Inputs')
