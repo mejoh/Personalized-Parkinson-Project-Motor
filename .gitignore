@@ -64,3 +64,5 @@ R/neuropointillist/neuropointillist/R/npointWriteSGEsubmitscript.R
 R/neuropointillist/neuropointillist/R/npointWriteSlurmsubmitscript.R
 R/neuropointillist/npoint
 R/neuropointillist/npointmerge
+.sync_journal.db
+Desktop.ini
