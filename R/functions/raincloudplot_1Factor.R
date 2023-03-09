@@ -61,7 +61,7 @@ raincloudplot_1Factor <- function(data, y, groupvar, title='', xlab='', ylab='',
                                  adjust = 1.5, 
                                  trim = TRUE, 
                                  alpha = .5, 
-                                 colour = 'black', show.legend = FALSE, width = 0.4, size=1.2) +
+                                 colour = 'black', show.legend = FALSE, width = 0.4, linewidth=1.2) +
                 geom_point(aes_string(x = paste('as.numeric(',groupvar,')-0', sep=''), y = y, fill = groupvar),
                            size = 2,
                            shape = 19,

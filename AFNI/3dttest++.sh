@@ -4,7 +4,7 @@
 # creation date: Thu Jan 12 09:55:18 2023
 
 #QSUB
-#CON=(con_0010 con_0012 con_0013); ROI=(0 1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++.sh; done; done
+#CON=(con_0010 con_0012 con_0013 con_0008); ROI=(0 1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++.sh; done; done
 
 # R=1
 # C=con_0010
@@ -56,9 +56,12 @@ rm ${con}_PDvsHC*
 		  # -ETAC 32																		\
 		  # -ETAC_opt NN=2:sid=2:pthr=0.01/0.001/10:name:TestA							\
 
-3dttest++ -prefix ${con}_PDvsHC -BminusA                                          \
+3dttest++ -prefix ${con}_Group2 -BminusA                                          \
+		  -resid ${con}_Group2_resid.nii												\
 		  -covariates ${covars}															\
 		  -Clustsim	32																	\
+		  -ETAC 32																		\
+		  -ETAC_opt NN=2:sid=2:pthr=0.01/0.001/10:name:TestA							\
           -mask $mask_dset                                                                \
           -setA HC                                                                        \
              002A9E62F2779ACD_ses-PITVisitDiff_${con}L2Rswap                            \

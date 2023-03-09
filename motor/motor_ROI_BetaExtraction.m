@@ -2,11 +2,12 @@
 % Extract average betas and principal components from ROIs.
 % The ROIs are defined by index masks.
 
-function motor_ROI_BetaExtraction(COI, AOI)
+function motor_ROI_BetaExtraction(COI, AOI, DoPCA)
 
 if nargin < 1
     COI = 'con_combined'; % 'con_0010' or 'con_0012' or 'con_0013' or 'con_combined'
-    AOI = 'severity-poly1'; % 'severity-poly1' or 'disease-poly1'
+    AOI = 'severity'; % 'severity-poly1' or 'disease-poly1'
+    DoPCA = false;
 end
 
 dInput = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI';
@@ -20,14 +21,14 @@ opts.DataLines = [2 Inf];
 opts.Delimiter = {'\t'};
 tab = readtable(ftab, opts);
 tab = rmmissing(tab,2);
-if(contains(AOI,'poly1'))
-    tab = removevars(tab,{'MeanFD'});
-else
-    tab = removevars(tab,{'voxelwiseBA' 'MeanFD'});
-end
+% if(contains(AOI,'poly1'))
+%     tab = removevars(tab,{'MeanFD'});
+% else
+%     tab = removevars(tab,{'voxelwiseBA' 'MeanFD'});
+% end
 spm_file_merge(tab.InputFile, fullfile(dOutput, [COI '_' AOI '_4d_Cons']))    % Concatenate 1st-level output found in table
 img = spm_select('FPList', dOutput, [COI '_' AOI '_4d_Cons.nii']);
-mask = cellstr(spm_select('FPList', dMask, '^x_.*Mask.nii$'));
+mask = cellstr(spm_select('FPList', dMask, '^x_.*.nii$'));
 
 f = spm_vol(img);
 for m = 1:numel(mask)
@@ -46,12 +47,18 @@ for m = 1:numel(mask)
         [x,y,z] = ind2sub(size(Y),idx);             % Determine coordinates of voxels
         XYZ = [x y z]';
         est_full = spm_get_data(f,XYZ);             % Extract betas (Subject by voxel array)
-        [PCA.coeff,PCA.score,PCA.latent,PCA.t2,PCA.explained] = pca(est_full);  % Dimension reduction through PCA. Scores represent components that explain variability in betas in an ROI
-        PCA.explained = round(PCA.explained);
-        est_mean = mean(est_full,2,'omitnan');      % Take the mean for each subject
-        d = array2table([PCA.score(:,1:3),est_mean]);           % Generate tab containing 3 comps that explain most variance in ROI and the average
-        tname = {[erase(IdxMask.info.name,{'x_' 'Mask_'}) '_cid' num2str(IdxMask.labels(i).index)]};
-        parts = {['_PCA1-' num2str(PCA.explained(1))] ['_PCA2-' num2str(PCA.explained(2))] ['_PCA3-' num2str(PCA.explained(3))] '_Mean'};
+        est_mean = mean(est_full,2,'omitnan');      % Take the mean for each subject. This will basically be the same as the first PCA component.
+        if istrue(DoPCA)
+            [PCA.coeff,PCA.score,PCA.latent,PCA.t2,PCA.explained] = pca(est_full, 'Algorithm', 'als');  % Dimension reduction through PCA. Scores represent components that explain variability in betas in an ROI. 'als' algorithm deals with missing values.
+            PCA.explained = round(PCA.explained);
+            d = array2table([PCA.score(:,1:3),est_mean]);           % Generate tab containing 3 comps that explain most variance in ROI and the average
+            tname = {[erase(IdxMask.info.name,{'x_' '_Mask'}) '_cid' num2str(IdxMask.labels(i).index)]};
+            parts = {['_PCA1_exp' num2str(PCA.explained(1))] ['_PCA2_exp' num2str(PCA.explained(2))] ['_PCA3_exp' num2str(PCA.explained(3))] '_Mean'};
+        else
+            d = array2table(est_mean);           % Generate tab containing 3 comps that explain most variance in ROI and the average
+            tname = {[erase(IdxMask.info.name,{'x_' '_Mask'}) '_cid' num2str(IdxMask.labels(i).index)]};
+            parts = {'_Mean'};
+        end
         d.Properties.VariableNames = strcat(tname, parts);
         
         tab = [tab,d];

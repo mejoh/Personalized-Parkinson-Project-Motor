@@ -38,6 +38,7 @@ options(dplyr.summarise.inform = FALSE)
 library(lme4)
 library(lmerTest)
 library(effectsize)
+library(finalfit)
 library(car)
 library(lattice)
 library(viridis)
@@ -58,8 +59,8 @@ Data from motor task and clinical measurements are loaded, prepared, and merged.
 fTask <- 'P:/3022026.01/pep/bids/derivatives/manipulated_merged_motor_task_mri_2022-04-22.csv'
 dfTask <- read_csv(fTask, show_col_types = FALSE)
 dfTask <- dfTask %>%
-        select(pseudonym, Timepoint, trial_type, response_time, trial_number,
-               event_type, correct_response, block, RespondingHand, Group, Percentage.Correct,
+        select(pseudonym, Timepoint, trial_type, response_time, trial_number, event_type,
+               button_pressed, correct_response, block, RespondingHand, Group, Percentage.Correct,
                Percentage.Correct.BelowCutoff, Button.Press.SwitchRatio, Button.Press.CoV,
                Button.Press.RepetitionRatio, Button.Press.AdjacentRatio) %>%
         rename(ParticipantType = Group) %>%
@@ -71,15 +72,18 @@ dfTask <- dfTask %>%
 # fClin <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-05-25.csv'
 # fClin <- 'P:/3022026.01/pep/ClinVars3/derivatives/merged_manipulated_2022-06-16.csv'
 fClin <- 'P:/3022026.01/pep/ClinVars4/derivatives/merged_manipulated_2022-09-28.csv'
-clinvars <- c('pseudonym', 'TimepointNr', 'ParticipantType', 'CrossStudyParticipation', 'Subtype_DiagEx3_DisDurSplit', 'Subtype_Imputed_DiagEx3_DisDurSplit',
-         'Age', 'Gender', 'NpsEducYears', 'PrefHand', 'MonthSinceDiag', 'ParkinMedUser', 'LEDD', 'Up3OfHoeYah', 'MostAffSide',
-         'Up3OfTotal', 'Up3OfAppendicularSum', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum', 
-         'Up3OfTotal_pit', 'Up3OfAppendicularSum_pit', 'Up3OfBradySum_pit', 'Up3OfRigiditySum_pit',
-         'Up3OfPIGDSum_pit', 'Up3OfCompositeTremorSum_pit', 
-         'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum',
-         'DiagParkCertain', 'DiagParkPersist', 'DiagParkReplace',
-         'MotorComposite','CognitiveComposite','SCOPA_AUTSum', 'RBDSQSum')
 dfClin <- read_csv(fClin, show_col_types = FALSE)
+clinvars <- c('pseudonym', 'TimepointNr', 'ParticipantType', 'CrossStudyParticipation', 'Subtype_DiagEx3_DisDurSplit',
+              'Subtype_Imputed_DiagEx3_DisDurSplit',
+              'Age', 'Gender', 'NpsEducYears', 'PrefHand', 'MonthSinceDiag', 'ParkinMedUser', 'LEDD', 'Up3OfHoeYah', 'MostAffSide',
+              'Up3OfTotal', 'Up3OfAppendicularSum', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfPIGDSum_Up3Only', 'Up3OfCompositeTremorSum', 
+              'Up3OnTotal', 'Up3OnAppendicularSum', 'Up3OnBradySum', 'Up3OnRigiditySum', 'Up3OnPIGDSum', 'Up3OnPIGDSum_Up3Only', 'Up3OnCompositeTremorSum', 
+              'Up3TotalOnOffDelta', 'Up3AppendicularOnOffDelta', 'Up3BradySumOnOffDelta', 'Up3RigidityOnOffDelta',
+              'Up3OfTotal_pit', 'Up3OfAppendicularSum_pit', 'Up3OfBradySum_pit',
+              'Up3OfPIGDSum_pit', 'Up3OfCompositeTremorSum_pit', 'Up2Total',
+              'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum',
+              'MotorComposite','CognitiveComposite','SCOPA_AUTSum', 'RBDSQSum',
+              'DiagParkCertain', 'DiagParkPersist', 'DiagParkReplace')
 dfClin <- dfClin %>%
         filter(MriNeuroPsychTask == 'Motor') %>%
         filter(!is.na(ParticipantType)) %>%
@@ -110,10 +114,15 @@ dfClin <- dfClin %>%
                Up3OfAppendicularSum = as.numeric(Up3OfAppendicularSum),
                Up3OfBradySum = as.numeric(Up3OfBradySum),
                Up3OfPIGDSum = as.numeric(Up3OfPIGDSum),
-               Up3OfCompositeTremorSum = as.numeric(Up3OfCompositeTremorSum))
+               Up3OfCompositeTremorSum = as.numeric(Up3OfCompositeTremorSum),
+               Up3OnTotal = as.numeric(Up3OnTotal),
+               Up3OnAppendicularSum = as.numeric(Up3OnAppendicularSum),
+               Up3OnBradySum = as.numeric(Up3OnBradySum),
+               Up3OnPIGDSum = as.numeric(Up3OnPIGDSum),
+               Up3OnCompositeTremorSum = as.numeric(Up3OnCompositeTremorSum))
 
 # Merge behavioral and clinical data
-df <- full_join(dfClin, dfTask, by = c('pseudonym', 'ParticipantType', 'TimepointNr'))
+df <- full_join(dfClin, dfTask, by = c('pseudonym', 'ParticipantType', 'TimepointNr'), multiple='all')
 
 # Prepare variables
 df <- df %>%
@@ -123,7 +132,12 @@ df <- df %>%
          ParticipantType = factor(ParticipantType),
          Gender = factor(Gender),
          RespHandIsDominant = if_else(RespondingHand == PrefHand | RespondingHand == 'NoPref', 1, 0),
-         RespHandIsDominant = factor(RespHandIsDominant)) %>%
+         RespHandIsDominant = factor(RespHandIsDominant),
+         CrossStudyParticipation=factor(CrossStudyParticipation),
+         PrefHand=factor(PrefHand),
+         ParkinMedUser=factor(ParkinMedUser),
+         Up3OfHoeYah=factor(Up3OfHoeYah),
+         DiagParkCertain=factor(DiagParkCertain)) %>%
   group_by(ParticipantType) %>%
   mutate(Age_Dmean = scale(Age, center=TRUE, scale=FALSE),
          MonthSinceDiag_Dmean = scale(MonthSinceDiag, center=TRUE, scale=FALSE),
@@ -284,8 +298,9 @@ demographics_table <- function(dat){
                 table <- cbind(table, t2)
                 table
         }
-        vars1 <- c('Age', 'NpsEducYears', 'MonthSinceDiag', 'LEDD', 'Up3OfHoeYah', 'Up3OfTotal', 
-                   'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum', 
+        vars1 <- c('Age', 'NpsEducYears', 'MonthSinceDiag', 'LEDD', 'Up3OfHoeYah', 
+                   'Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum', 
+                   'Up3OnTotal', 'Up3OnBradySum', 'Up3OnRigiditySum', 'Up3OnPIGDSum', 'Up3OnCompositeTremorSum', 
                    'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum')
         for(v in vars1){
                 tab_demo <- format_cell1(tab_demo, v)
@@ -396,61 +411,190 @@ compare_demographics.subs <- function(dat,numvars,catvars){
 ## ON vs HC
 
 ```{r echo=FALSE, warning=FALSE}
-df_demo <- df %>% 
-        filter(TimepointNr==0,
-               ParticipantType=='HC_PIT' | ParticipantType=='PD_POM') %>%
+# df_demo <- df %>% 
+#         filter(TimepointNr==0,
+#                ParticipantType=='HC_PIT' | ParticipantType=='PD_POM') %>%
+#         group_by(pseudonym,ParticipantType) %>% 
+#         summarise(across(everything(), ~first(.x))) %>%
+#         select(pseudonym, ParticipantType, CrossStudyParticipation, Subtype,
+#                Age, Gender, NpsEducYears, PrefHand, RespondingHand, RespHandIsDominant, MonthSinceDiag,
+#                ParkinMedUser, LEDD, Up3OfHoeYah, MostAffSide,
+#                Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfCompositeTremorSum, 
+#                MoCASum, BDI2Sum, STAITraitSum, STAIStateSum, QUIPicdSum, DiagParkCertain) %>%
+#         arrange(pseudonym,ParticipantType) %>%
+#         ungroup()
+
+dependent <- 'ParticipantType'
+exploratory <- c('Age', 'Gender', 'NpsEducYears','MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum',
+                 'PrefHand', 'RespondingHand', 'RespHandIsDominant','MonthSinceDiag',
+                 'ParkinMedUser', 'LEDD', 'Up3OfHoeYah', 'MostAffSide', 'Up2Total',
+                 'Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfPIGDSum_Up3Only', 'Up3OfCompositeTremorSum',
+                 'Up3OnTotal', 'Up3OnBradySum', 'Up3OnRigiditySum', 'Up3OnPIGDSum', 'Up3OnPIGDSum_Up3Only', 'Up3OnCompositeTremorSum')
+df %>% 
+        filter(ParticipantType=='HC_PIT' | ParticipantType=='PD_POM') %>%
         group_by(pseudonym,ParticipantType) %>% 
         summarise(across(everything(), ~first(.x))) %>%
-        select(pseudonym, ParticipantType, CrossStudyParticipation, Subtype,
-               Age, Gender, NpsEducYears, PrefHand, RespondingHand, RespHandIsDominant, MonthSinceDiag,
-               ParkinMedUser, LEDD, Up3OfHoeYah, MostAffSide,
-               Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfCompositeTremorSum, 
-               MoCASum, BDI2Sum, STAITraitSum, STAIStateSum, QUIPicdSum, DiagParkCertain) %>%
-        arrange(pseudonym,ParticipantType) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(ParticipantType=droplevels(ParticipantType)) %>%
+        summary_factorlist(dependent, 
+                           exploratory[1:11],
+                           add_dependent_label=TRUE,
+                           p = TRUE, 
+                           p_cont_para = 't.test',
+                           p_cat = 'chisq',
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>% 
+        print()
+df %>% 
+        filter(ParticipantType=='HC_PIT' | ParticipantType=='PD_POM') %>%
+        group_by(pseudonym,ParticipantType) %>% 
+        summarise(across(everything(), ~first(.x))) %>%
+        ungroup() %>%
+        mutate(ParticipantType=droplevels(ParticipantType)) %>%
+        summary_factorlist(dependent, 
+                           exploratory[12:26],
+                           add_dependent_label=TRUE,
+                           p = FALSE, 
+                           p_cont_para = 't.test',
+                           p_cat = 'chisq',
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>% 
+        print()
 
-cat('Number of patients excluded due to mis-diagnosis:', length(diag_exclusions$pseudonym))
-demographics_table(df_demo)
-
-groups <- c('HC_PIT','PD_POM')
-demo.test <- df_demo %>% filter(ParticipantType==groups[1] | ParticipantType==groups[2]) %>%
-        mutate(ParticipantType = factor(ParticipantType))
-numvars <- c('Age', 'NpsEducYears', 'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum')
-catvars <- c('Gender', 'PrefHand', 'RespondingHand', 'RespHandIsDominant')
-cat('Controls versus PD-On')
-compare_demographics(demo.test,numvars,catvars)
+# cat('Number of patients excluded due to mis-diagnosis:', length(diag_exclusions$pseudonym))
+# demographics_table(df_demo)
+# 
+# groups <- c('HC_PIT','PD_POM')
+# demo.test <- df_demo %>% filter(ParticipantType==groups[1] | ParticipantType==groups[2]) %>%
+#         mutate(ParticipantType = factor(ParticipantType))
+# numvars <- c('Age', 'NpsEducYears', 'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum')
+# catvars <- c('Gender', 'PrefHand', 'RespondingHand', 'RespHandIsDominant')
+# cat('Controls versus PD-On')
+# compare_demographics(demo.test,numvars,catvars)
 
 ```
 
-## ON vs OFF
+## ON vs OFF (motor scores in POM)
+
+```{r echo=FALSE, warning=FALSE}
+
+tmp <- df %>% 
+        filter(ParticipantType=='PD_POM') %>%
+        group_by(pseudonym) %>% 
+        select(pseudonym, Age, Gender, Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfPIGDSum_Up3Only, Up3OfCompositeTremorSum,
+               Up3OnTotal, Up3OnBradySum, Up3OnRigiditySum, Up3OnPIGDSum, Up3OnPIGDSum_Up3Only, Up3OnCompositeTremorSum) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        ungroup()
+tmp <- tmp %>%
+        pivot_longer(cols = starts_with('Up3'),
+                     names_to = 'Var',
+                     values_to = 'Val') %>%
+        mutate(Medication=if_else(str_detect(Var,'Up3Of'),'OFF','ON'),
+               Score=str_sub(Var,6)) %>%
+        pivot_wider(id_cols = c('pseudonym', 'Age', 'Gender','Medication'),
+                    names_from = Score,
+                    values_from = Val) %>%
+        mutate(Medication = factor(Medication)) %>% 
+        na.omit()
+
+dependent <- 'Medication'
+exploratory <- c('Total', 'BradySum', 'RigiditySum', 'PIGDSum', 'PIGDSum_Up3Only', 'CompositeTremorSum')
+tmp %>%
+        summary_factorlist(dependent,
+                           exploratory,
+                           add_dependent_label=TRUE,
+                           p = FALSE,
+                           p_cont_para = 't.test',
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>%
+        print()
+
+m.total <- lmer(Total ~ Medication + Age + Gender + (1|pseudonym), data = tmp)
+m.brady <- lmer(BradySum ~ Medication + Age + Gender + (1|pseudonym), data = tmp)
+m.rig <- lmer(RigiditySum ~ Medication + Age + Gender + (1|pseudonym), data = tmp)
+m.pigd <- lmer(PIGDSum ~ Medication + Age + Gender + (1|pseudonym), data = tmp)
+m.trem <- lmer(CompositeTremorSum ~ Medication + Age + Gender + (1|pseudonym), data = tmp)
+
+cat('Total\n')
+summary(m.total)$coefficients
+ggemmeans(m.total, terms='Medication') %>% plot(add.data=TRUE, connect.lines=TRUE)
+Anova(m.total,type=3)
+eta_squared(m.total, alternative = 'two.sided')
+
+cat('Bradykinesia\n')
+summary(m.brady)$coefficients
+ggemmeans(m.brady, terms='Medication') %>% plot(add.data=TRUE, connect.lines=TRUE)
+Anova(m.brady,type=3)
+eta_squared(m.brady, alternative = 'two.sided')
+
+cat('Rigidity\n')
+summary(m.rig)$coefficients
+ggemmeans(m.rig, terms='Medication') %>% plot(add.data=TRUE, connect.lines=TRUE)
+
+cat('PIGD\n')
+summary(m.pigd)$coefficients
+ggemmeans(m.pigd, terms='Medication') %>% plot(add.data=TRUE, connect.lines=TRUE)
+
+cat('Tremor\n')
+summary(m.trem)$coefficients
+ggemmeans(m.trem, terms='Medication') %>% plot(add.data=TRUE, connect.lines=TRUE)
+
+```
+
+
+## ON vs OFF (assessors)
+
+This section tests the convergence between POM and PIT assessors
 
 ```{r echo=FALSE, warning=FALSE}
 
 # Note: One PD_PIT subject lacks PD_POM clinical data, that's why 
 # There's 55 patients in the table above, and 54 in the table below
 
-df_demo.onoff <- df %>% 
-        filter(TimepointNr==0,
-               CrossStudyParticipation==TRUE | pseudonym == 'sub-POMU667093BC227A6F9F') %>%
+# df_demo.onoff <- df %>% 
+#         filter(TimepointNr==0,
+#                CrossStudyParticipation==TRUE | pseudonym == 'sub-POMU667093BC227A6F9F') %>%
+#         group_by(pseudonym,ParticipantType) %>% 
+#         summarise(across(everything(), ~first(.x))) %>%
+#         select(pseudonym, ParticipantType, CrossStudyParticipation, Subtype,
+#                Age, Gender, NpsEducYears, PrefHand, RespondingHand, RespHandIsDominant, MonthSinceDiag,
+#                ParkinMedUser, LEDD, Up3OfHoeYah, MostAffSide,
+#                Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfCompositeTremorSum, 
+#                MoCASum, BDI2Sum, STAITraitSum, STAIStateSum, QUIPicdSum, DiagParkCertain) %>%
+#         arrange(pseudonym,ParticipantType) %>%
+#         ungroup()
+
+dependent <- 'ParticipantType'
+exploratory <- c('Age', 'Gender',
+                 'PrefHand', 'RespondingHand', 'RespHandIsDominant','MonthSinceDiag',
+                 'Up3OfHoeYah', 'MostAffSide','Up2Total',
+                 'Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfPIGDSum_Up3Only', 'Up3OfCompositeTremorSum',
+                 'Up3OnTotal', 'Up3OnBradySum', 'Up3OnRigiditySum', 'Up3OnPIGDSum', 'Up3OnPIGDSum_Up3Only', 'Up3OnCompositeTremorSum')
+df %>% 
+        filter(CrossStudyParticipation==TRUE | pseudonym == 'sub-POMU667093BC227A6F9F') %>%
         group_by(pseudonym,ParticipantType) %>% 
         summarise(across(everything(), ~first(.x))) %>%
-        select(pseudonym, ParticipantType, CrossStudyParticipation, Subtype,
-               Age, Gender, NpsEducYears, PrefHand, RespondingHand, RespHandIsDominant, MonthSinceDiag,
-               ParkinMedUser, LEDD, Up3OfHoeYah, MostAffSide,
-               Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfCompositeTremorSum, 
-               MoCASum, BDI2Sum, STAITraitSum, STAIStateSum, QUIPicdSum, DiagParkCertain) %>%
-        arrange(pseudonym,ParticipantType) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(ParticipantType=droplevels(ParticipantType)) %>%
+        summary_factorlist(dependent, 
+                           exploratory,
+                           add_dependent_label=TRUE,
+                           p = FALSE, 
+                           p_cont_para = 't.test',
+                           p_cat = 'chisq',
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>% 
+        print()
 
-demographics_table(df_demo.onoff)
-
-groups <- c('PD_PIT','PD_POM')
-demo.test <- df_demo.onoff %>% filter(ParticipantType==groups[1] | ParticipantType==groups[2]) %>%
-        mutate(ParticipantType = factor(ParticipantType))
-numvars <- c('Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum')
-catvars <- c()
-cat('PD-Off versus PD-On')
-compare_demographics(demo.test,numvars,catvars)
+# demographics_table(df_demo.onoff)
+# 
+# groups <- c('PD_PIT','PD_POM')
+# demo.test <- df_demo.onoff %>% filter(ParticipantType==groups[1] | ParticipantType==groups[2]) %>%
+#         mutate(ParticipantType = factor(ParticipantType))
+# numvars <- c('Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum')
+# catvars <- c()
+# cat('PD-Off versus PD-On')
+# compare_demographics(demo.test,numvars,catvars)
 
 ```
 
@@ -458,31 +602,53 @@ compare_demographics(demo.test,numvars,catvars)
 
 ```{r echo=FALSE, warning=FALSE}
 
-df_demo.subs <- df %>% 
-        filter(TimepointNr==0,
-               ParticipantType=='PD_POM') %>%
-        mutate(ParticipantType=factor(Subtype)) %>%
-        group_by(pseudonym,ParticipantType) %>% 
+# df_demo.subs <- df %>% 
+#         filter(TimepointNr==0,
+#                ParticipantType=='PD_POM') %>%
+#         mutate(ParticipantType=factor(Subtype)) %>%
+#         group_by(pseudonym,ParticipantType) %>% 
+#         summarise(across(everything(), ~first(.x))) %>%
+#         select(pseudonym, ParticipantType, CrossStudyParticipation,
+#                Age, Gender, NpsEducYears, PrefHand, RespondingHand, RespHandIsDominant, MonthSinceDiag,
+#                ParkinMedUser, LEDD, Up3OfHoeYah, MostAffSide,
+#                Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfCompositeTremorSum, 
+#                MoCASum, BDI2Sum, STAITraitSum, STAIStateSum, QUIPicdSum, DiagParkCertain
+#                ) %>%
+#         arrange(pseudonym,ParticipantType) %>%
+#         ungroup()
+
+dependent <- 'Subtype'
+exploratory <- c('Age', 'Gender', 'NpsEducYears','MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum',
+                 'PrefHand', 'RespondingHand', 'RespHandIsDominant','MonthSinceDiag',
+                 'ParkinMedUser', 'LEDD', 'Up3OfHoeYah', 'MostAffSide', 'Up2Total',
+                 'Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfPIGDSum_Up3Only', 'Up3OfCompositeTremorSum',
+                 'Up3OnTotal', 'Up3OnBradySum', 'Up3OnRigiditySum', 'Up3OnPIGDSum', 'Up3OnPIGDSum_Up3Only', 'Up3OnCompositeTremorSum')
+df %>% 
+        filter(ParticipantType == 'HC_PIT' | ParticipantType=='PD_POM') %>%
+        group_by(pseudonym) %>% 
         summarise(across(everything(), ~first(.x))) %>%
-        select(pseudonym, ParticipantType, CrossStudyParticipation,
-               Age, Gender, NpsEducYears, PrefHand, RespondingHand, RespHandIsDominant, MonthSinceDiag,
-               ParkinMedUser, LEDD, Up3OfHoeYah, MostAffSide,
-               Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfCompositeTremorSum, 
-               MoCASum, BDI2Sum, STAITraitSum, STAIStateSum, QUIPicdSum, DiagParkCertain
-               ) %>%
-        arrange(pseudonym,ParticipantType) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(Subtype=droplevels(Subtype)) %>%
+        summary_factorlist(dependent, 
+                           exploratory,
+                           add_dependent_label=TRUE,
+                           p = FALSE, 
+                           p_cont_para = 't.test',
+                           p_cat = 'chisq',
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>% 
+        print()
 
-demographics_table(df_demo.subs)
+# demographics_table(df_demo.subs)
 
-groups <- c('1_Mild-Motor', '2_Intermediate','3_Diffuse-Malignant')
-demo.test <- df_demo.subs %>% filter(ParticipantType==groups[1] | ParticipantType==groups[2] | ParticipantType==groups[3]) %>%
-        mutate(ParticipantType = factor(ParticipantType))
-numvars <- c('Age', 'NpsEducYears', 'LEDD', 'MonthSinceDiag', 'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum', 
-             'Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum')
-catvars <- c('Gender', 'PrefHand', 'RespondingHand', 'RespHandIsDominant')
-cat('\n\n\n', 'Subtypes', '\n\n\n')
-compare_demographics.subs(demo.test,numvars,catvars)
+# groups <- c('1_Mild-Motor', '2_Intermediate','3_Diffuse-Malignant')
+# demo.test <- df_demo.subs %>% filter(ParticipantType==groups[1] | ParticipantType==groups[2] | ParticipantType==groups[3]) %>%
+#         mutate(ParticipantType = factor(ParticipantType))
+# numvars <- c('Age', 'NpsEducYears', 'LEDD', 'MonthSinceDiag', 'MoCASum', 'BDI2Sum', 'STAITraitSum', 'STAIStateSum', 'QUIPicdSum', 
+#              'Up3OfTotal', 'Up3OfBradySum', 'Up3OfRigiditySum', 'Up3OfPIGDSum', 'Up3OfCompositeTremorSum')
+# catvars <- c('Gender', 'PrefHand', 'RespondingHand', 'RespHandIsDominant')
+# cat('\n\n\n', 'Subtypes', '\n\n\n')
+# compare_demographics.subs(demo.test,numvars,catvars)
 
 ```
 
@@ -673,6 +839,7 @@ eta_squared(fit.clincorr, alternative = 'two.sided') %>% print()
 # Post hoc test
 emt <- emtrends(fit.clincorr, ~trial_type, var='Up3OfBradySum_Dmean', type = 'response')
 contrast(emt, 'revpairwise', adjust = 'mvt') %>% kable(., 'pipe', digits = 4) %>% print()
+contrast(emt, 'identity', adjust = 'mvt') %>% kable(., 'pipe', digits = 4) %>% print()
 emtc <- summary(emt)$Up3OfBradySum_Dmean.trend %>% mean()
 
 em <- emmeans(fit.clincorr, revpairwise ~ trial_type, type='response', adjust='mvt')
@@ -1333,7 +1500,7 @@ compare_rts_for_hcsubtypes(f=f, tmp=tmp.hcvsdm)
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
 
-compare_cov <- function(f, tmp, outlier_method = 1){
+compare_cov <- function(f, tmp, outlier_method = 2){
   
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
@@ -1343,8 +1510,7 @@ compare_cov <- function(f, tmp, outlier_method = 1){
                 tmp <- tmp[-c(outliers),]
         }else if(outlier_method == 2){
                 tmp <- tmp %>%
-                        filter(abs(Button.Press.CoV - mean(Button.Press.CoV)) < 3*sd(Button.Press.CoV)) %>%
-                        ungroup()
+                        filter(abs(bp_var - mean(bp_var)) < 3*sd(bp_var))
         }
         fit <- lm(f, data=tmp)
         s <- summary(fit)
@@ -1353,7 +1519,7 @@ compare_cov <- function(f, tmp, outlier_method = 1){
         cat('\n \n Outliers retained: ')
         kable(anovaOutliersRetained, 'pipe', digits = 3) %>% print()
         cat('\n \n Outliers removed: ')
-        anova <- anova(fit)
+        anova <- Anova(fit,type=3)
         kable(anova, 'pipe', digits = 3) %>% print()
         cat('\n \n')
         effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
@@ -1374,9 +1540,12 @@ compare_cov <- function(f, tmp, outlier_method = 1){
                        se = SE) %>%
                 select(-c(df, tvar, xvar)) %>%
                 mutate(ci = se*1.96)
-        raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
+        g <- raincloudplot_1Factor(data=tmp, y='bp_var', groupvar='ParticipantType',
                               title = '', ylab = 'Coefficient of variation', xlab = 'Group',
-                              xticklabs = c('Control','PD-On'), provided_summary = 'None') %>% print()
+                              xticklabs = c('Control','PD-On'), provided_summary = 'None')
+        print(g)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespPer_HCvsON.tiff',
+          g, dpi=300, device='tiff', base_width = 5)
         
         tplot <- emmip(fit, ~ ParticipantType, CIs = TRUE, type='response')
         tplot <- tplot + 
@@ -1392,7 +1561,7 @@ compare_cov <- function(f, tmp, outlier_method = 1){
         
 }
 
-f <- 'log(Button.Press.CoV) ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean'
+f <- 'log(bp_var) ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean'
 # removed due to non-significance
 
 groups <- c('PD_POM','HC_PIT')
@@ -1403,8 +1572,63 @@ tmp <- df %>%
         group_by(pseudonym, ParticipantType) %>%
         summarise(across(everything(), ~first(.x))) %>%
         ungroup() %>%
-        select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV) %>%
-        filter(Button.Press.CoV>0.001)
+        select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV)
+
+# Alternative characterization of button press variability
+bp_var <- function(dat){
+        
+        # Summarise number of presses by button
+        # Calculate the mean and sd across buttons
+        # The ideal situation would be:
+        # 1     2       3       4
+        # 30    30      30      30
+        # Mean = 30
+        # SD   = 0
+        # CoV  = 0
+        # An example situation indicating increased reliance on button 4
+        # 1     2       3       4
+        # 15    30      30      45
+        # Mean = 30
+        # SD   = 12.2
+        # CoV  = 0.41
+        
+        d <- na.omit(dat)
+        tab <- table(d) 
+        
+        calc_cov <- function(tab){
+                tryCatch({
+                        # f <- chisq.test(tab) %>%
+                        #     effectsize() %>%
+                        #     as_tibble() %>%
+                        #     select(Fei) %>%
+                        #     as.numeric()
+                        f <- sd(tab)/mean(tab)
+                        return(f)
+                },
+                error = function(e){
+                        return(NA)
+                },
+                warning = function(w){
+                        return(NA)
+                })
+        }
+        
+        calc_cov(tab)
+    
+}
+bp_cov <- dfTask %>%
+    filter(TimepointNr==0,
+           event_type=='response',
+           correct_response == 'Hit') %>%
+    group_by(pseudonym,ParticipantType) %>%
+    mutate(bp_var=bp_var(button_pressed)) %>%
+    summarise(across(everything(), ~first(.x))) %>%
+    ungroup() %>%
+    select(pseudonym,ParticipantType,bp_var)
+tmp <- left_join(tmp, bp_cov, by=c('pseudonym','ParticipantType')) %>%
+        mutate(ParticipantType=factor(ParticipantType)) %>%
+        na.omit()
+
 compare_cov(f=f, tmp=tmp)
 
 ```
@@ -1412,7 +1636,7 @@ compare_cov(f=f, tmp=tmp)
 ## ON, Bradykinesia-rigidity ~ CoV
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-f <- 'log(Button.Press.CoV) ~ 1 + Up3OfBradySum_Dmean + Age_Dmean + Gender + NpsEducYears_Dmean'
+f <- 'log(bp_var) ~ 1 + Up3OfBradySum_Dmean + Age_Dmean + Gender + NpsEducYears_Dmean'
 # removed due to non-significance
 
 groups <- c('PD_POM')
@@ -1424,30 +1648,36 @@ tmp <- df %>%
         summarise(across(everything(), ~first(.x))) %>%
         ungroup() %>%
         select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV,
-          Button.Press.SwitchRatio, Up3OfBradySum_Dmean, Up3OfBradySum) %>%
-        filter(Button.Press.CoV>0.001)
+          Button.Press.SwitchRatio, Up3OfBradySum_Dmean, Up3OfBradySum)
+tmp <- left_join(tmp, bp_cov, by=c('pseudonym','ParticipantType')) %>%
+        mutate(ParticipantType=factor(ParticipantType)) %>% 
+        na.omit()
+tmp <- tmp %>%
+        filter(abs(bp_var - mean(bp_var)) < 3*sd(bp_var))
 # tmp <- tmp %>%
 #   filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio))
 
 fit <- lm(f, tmp)
 s <- summary(fit)
 # print(s, corr=FALSE, digits = 3)
-anova <- anova(fit)
+anova <- Anova(fit,type=3)
 kable(anova, 'pipe', digits = 3) %>% print()
 
-c <- cor.test(tmp$Button.Press.CoV, tmp$Up3OfBradySum)
+c <- cor.test(tmp$bp_var, tmp$Up3OfBradySum)
 N <- tmp %>%
                 select(pseudonym) %>%
                 summarise(N=n())
 
-plot <- ggplot(tmp, aes(y=Button.Press.CoV, x=Up3OfBradySum)) +
+plot <- ggplot(tmp, aes(y=bp_var, x=Up3OfBradySum)) +
         geom_point(alpha = .3, shape = 19, size = 2) +
-        geom_smooth(method='lm', se = FALSE, lwd = 2, color = 'black') +
+        geom_smooth(method='lm', se = FALSE, linewidth = 2, color = 'black') +
         ggtitle('') + 
-        xlab('MDS-UPDRS III (bradykineisa + rigidity)') +
-        ylab('CoV') +
-        theme_cowplot(font_size = 35, font_family = 'Calibri')
+        xlab('MDS-UPDRS III (bradykinesia)') +
+        ylab('Coefficient of variation') +
+        theme_cowplot(font_size = 16, font_family = 'Calibri')
 print(plot)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespPer_Corr_ON_Severity.tiff',
+          plot, dpi=300, device='tiff', base_width = 5)
 
 ```
 
@@ -1596,7 +1826,7 @@ print(plot)
 ## OFF vs. ON
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-compare_cov_for_medication <- function(f, tmp, outlier_method = 1){
+compare_cov_for_medication <- function(f, tmp, outlier_method = 2){
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fitOutliersRetained <- lmer(f, data=tmp, control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)))
@@ -1614,10 +1844,10 @@ compare_cov_for_medication <- function(f, tmp, outlier_method = 1){
         cat('\n \n Outliers retained: ')
         kable(anovaOutliersRetained, 'pipe', digits = 3) %>% print()
         cat('\n \n Outliers removed: ')
-        anova <- anova(fit)
+        anova <- Anova(fit,type=3)
         kable(anova, 'pipe', digits = 3) %>% print()
         cat('\n \n')
-        effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
+        # effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
         # Post hoc test
         cat('\n \n EMMs \n')
         em <- emmeans(fit, ~ ParticipantType, type = 'response')
@@ -1635,9 +1865,12 @@ compare_cov_for_medication <- function(f, tmp, outlier_method = 1){
                        se = SE) %>%
                 select(-c(df, tvar, xvar)) %>%
                 mutate(ci = se*1.96)
-        raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
+        g <- raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
                               title = '', ylab = 'Coefficient of variation', xlab = 'Group',
-                              xticklabs = c('PD-Off','PD-On'), provided_summary = 'None') %>% print()
+                              xticklabs = c('PD-Off','PD-On'), provided_summary = 'None')
+        print(g)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespPer_ONvsOFF.tiff',
+          g, dpi=300, device='tiff', base_width = 5)
         
         # tplot <- emmip(fit, ParticipantType ~ Up3OfAppendicularSum_Dmean, cov.reduce=range,
         #                CIs = TRUE, type='response', dodge=2)
@@ -1668,7 +1901,7 @@ ids <- df %>%
 
 OnAndOff <- ids[duplicated(ids),]
 
-f <- 'log(Button.Press.CoV) ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
+f <- 'log(bp_var) ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean + (1|pseudonym)'
 # removed due to non-significance
 
 groups <- c('PD_POM','PD_PIT')
@@ -1681,8 +1914,7 @@ tmp <- df %>%
         summarise(across(everything(), ~first(.x))) %>%
         ungroup() %>%
         select(pseudonym, ParticipantType, 
-               Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV) %>%
-        filter(Button.Press.CoV>0.001)
+               Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV)
 covars <- tmp %>%
   filter(ParticipantType=='PD_POM') %>%
   select(pseudonym, Age_Dmean, Gender, NpsEducYears_Dmean) %>%
@@ -1693,13 +1925,17 @@ covars <- tmp %>%
 tmp <- tmp %>%
         select(-c(Age_Dmean, Gender, NpsEducYears_Dmean)) %>%
         left_join(., covars, by = 'pseudonym')
+
+tmp <- left_join(tmp, bp_cov, by=c('pseudonym','ParticipantType')) %>%
+        mutate(ParticipantType=factor(ParticipantType))
+
 compare_cov_for_medication(f=f, tmp=tmp)
 ```
 
 ## Subtypes
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-compare_cov_for_subtypes <- function(f, tmp, outlier_method = 1){
+compare_cov_for_subtypes <- function(f, tmp, outlier_method = 2){
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fitOutliersRetained <- lm(f, data=tmp)
@@ -1718,7 +1954,7 @@ compare_cov_for_subtypes <- function(f, tmp, outlier_method = 1){
         cat('\n \n Outliers retained: ')
         kable(anovaOutliersRetained, 'pipe', digits = 3) %>% print()
         cat('\n \n Outliers removed: ')
-        anova <- anova(fit)
+        anova <- Anova(fit,type=3)
         kable(anova, 'pipe', digits = 3) %>% print()
         cat('\n \n')
         effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
@@ -1741,10 +1977,13 @@ compare_cov_for_subtypes <- function(f, tmp, outlier_method = 1){
                        se = SE) %>%
                 select(-c(df, tvar, xvar)) %>%
                 mutate(ci = se*1.96)
-        raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
+        g <- raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
                               title = '', ylab = 'Coefficient of variation', xlab = 'Group',
                               xticklabs = levels(tmp$ParticipantType),
-                              color_scheme='viridis', provided_summary = 'None') %>% print()
+                              color_scheme='viridis', provided_summary = 'None')
+        print(g)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespPer_Subtypes.tiff',
+          g, dpi=300, device='tiff', base_width = 5)
         
         # tplot <- emmip(fit, ParticipantType ~ Up3OfAppendicularSum_Dmean, cov.reduce=range,
         #                CIs = TRUE, dodge=2)
@@ -1763,7 +2002,7 @@ compare_cov_for_subtypes <- function(f, tmp, outlier_method = 1){
         
 }
 
-f <- 'log(Button.Press.CoV) ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean'
+f <- 'log(bp_var) ~ 1 + ParticipantType + Age_Dmean + Gender + NpsEducYears_Dmean'
 # removed due to non-significance
 
 groups <- c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant')
@@ -1779,8 +2018,14 @@ tmp <- df %>%
                ParticipantType=factor(Subtype,
                                       levels = c('1_Mild-Motor', '2_Intermediate', '3_Diffuse-Malignant'),
                                       labels = c('MMP', 'IM', 'DM'))) %>%
-  select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV) %>%
-        filter(Button.Press.CoV>0.001)
+  select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.CoV)
+
+tmp <- bp_cov %>%
+        filter(ParticipantType=='PD_POM') %>%
+        select(-ParticipantType) %>%
+        right_join(., tmp, by=c('pseudonym')) %>%
+        na.omit()
+
 compare_cov_for_subtypes(f=f, tmp=tmp)
 
 # cat('\n\n\n\n')
@@ -1825,7 +2070,7 @@ compare_cov_for_subtypes(f=f, tmp=tmp)
 ## ON vs. HC
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-compare_switch <- function(f, tmp, outlier_method = 1){
+compare_switch <- function(f, tmp, outlier_method = 2){
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fitOutliersRetained <- lm(f, data=tmp)
@@ -1844,7 +2089,7 @@ compare_switch <- function(f, tmp, outlier_method = 1){
         cat('\n \n Outliers retained: ')
         kable(anovaOutliersRetained, 'pipe', digits = 3) %>% print()
         cat('\n \n Outliers removed: ')
-        anova <- anova(fit)
+        anova <- Anova(fit,type=3)
         kable(anova, 'pipe', digits = 3) %>% print()
         cat('\n \n')
         effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
@@ -1865,9 +2110,12 @@ compare_switch <- function(f, tmp, outlier_method = 1){
                        se = SE) %>%
                 select(-c(df, tvar, xvar)) %>%
                 mutate(ci = se*1.96)
-        raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
+        g <- raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
                               title = '', ylab = 'Switch ratio', xlab = 'Group',
-                              xticklabs = c('Control','PD-On'), provided_summary = 'None') %>% print()
+                              xticklabs = c('Control','PD-On'), provided_summary = 'None')
+        print(g)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespSwi_HCvsON.tiff',
+          g, dpi=300, device='tiff', base_width = 5)
         
         tplot <- emmip(fit, ~ ParticipantType, CIs = TRUE, type='response')
         tplot <- tplot + 
@@ -1915,12 +2163,12 @@ tmp <- df %>%
         ungroup() %>%
   select(pseudonym, ParticipantType, Age_Dmean, Gender, NpsEducYears_Dmean, Button.Press.SwitchRatio, Up3OfBradySum_Dmean, Up3OfBradySum) %>%
         filter(Button.Press.SwitchRatio>0.001)
-# tmp <- tmp %>%
-#   filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio))
+tmp <- tmp %>%
+  filter(abs(Button.Press.SwitchRatio - mean(Button.Press.SwitchRatio)) < 3*sd(Button.Press.SwitchRatio))
 fit <- lm(f, tmp)
 s <- summary(fit)
 # print(s, corr=FALSE, digits = 3)
-anova <- anova(fit)
+anova <- Anova(fit,type=3)
 kable(anova,'pipe', digits = 3) %>% print()
 
 c <- cor.test(tmp$Button.Press.SwitchRatio, tmp$Up3OfBradySum)
@@ -1930,12 +2178,14 @@ N <- tmp %>%
 
 plot <- ggplot(tmp, aes(y=Button.Press.SwitchRatio, x=Up3OfBradySum)) +
         geom_point(alpha = .3, shape = 19, size = 2) +
-        geom_smooth(method='lm', se = FALSE, lwd = 2, color = 'black') +
+        geom_smooth(method='lm', se = FALSE, linewidth = 2, color = 'black') +
         ggtitle('') + 
-        xlab('Bradykinesia severity') +
+        xlab('MDS-UPDRS III (bradykinesia)') +
         ylab('Switch ratio') +
-        theme_cowplot(font_size = 35, font_family = 'Calibri')
+        theme_cowplot(font_size = 16, font_family = 'Calibri')
 print(plot)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespSwi_Corr_ON_Severity.tiff',
+          plot, dpi=300, device='tiff', base_width = 5)
 
 ```
 
@@ -2099,10 +2349,10 @@ compare_switch_repeated <- function(f, tmp, outlier_method = 2){
         cat('\n \n Outliers retained: ')
         kable(anovaOutliersRetained, 'pipe', digits = 3) %>% print()
         cat('\n \n Outliers removed: ')
-        anova <- anova(fit)
+        anova <- Anova(fit,type=3)
         kable(anova, 'pipe', digits = 3) %>% print()
         cat('\n \n')
-        effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
+        # effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
         # Post hoc test
         cat('\n \n EMMs \n')
         em <- emmeans(fit, ~ ParticipantType, type = 'response')
@@ -2120,9 +2370,12 @@ compare_switch_repeated <- function(f, tmp, outlier_method = 2){
                        se = SE) %>%
                 select(-c(df, tvar, xvar)) %>%
                 mutate(ci = se*1.96)
-        raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
+        g <- raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
                               title = '', ylab = 'Switch ratio', xlab = 'Group',
-                              xticklabs = c('PD-Off','PD-On'), provided_summary = 'None') %>% print()
+                              xticklabs = c('PD-Off','PD-On'), provided_summary = 'None')
+        print(g)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespSwi_ONvsOFF.tiff',
+          g, dpi=300, device='tiff', base_width = 5)
         
         # tplot <- emmip(fit, ParticipantType~Up3OfAppendicularSum, CIs = TRUE,
         #                type='response', cov.reduce=range, dodge=2) +
@@ -2226,7 +2479,7 @@ compare_switch_repeated(f=f, tmp=tmp)
 ## Subtypes
 
 ```{r echo=FALSE, message=FALSE, warning=TRUE}
-compare_switch_for_subtypes <- function(f, tmp, outlier_method = 1){
+compare_switch_for_subtypes <- function(f, tmp, outlier_method = 2){
         # Fit model
         print(paste('Fitting the following model:', f, sep=' '))
         fitOutliersRetained <- lm(f, data=tmp)
@@ -2245,7 +2498,7 @@ compare_switch_for_subtypes <- function(f, tmp, outlier_method = 1){
         cat('\n \n Outliers retained: ')
         kable(anovaOutliersRetained, 'pipe', digits = 3) %>% print()
         cat('\n \n Outliers removed: ')
-        anova <- anova(fit)
+        anova <- Anova(fit,type=3)
         kable(anova, 'pipe', digits = 3) %>% print()
         cat('\n \n')
         effectsize(anova) %>% kable(., 'pipe', digits = 3) %>% print()
@@ -2266,10 +2519,13 @@ compare_switch_for_subtypes <- function(f, tmp, outlier_method = 1){
                        se = SE) %>%
                 select(-c(df, tvar, xvar)) %>%
                 mutate(ci = se*1.96)
-        raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
-                              title = '', ylab = 'Ratio of switches to non-switches', xlab = 'Group',
+        g <- raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
+                              title = '', ylab = 'Switch ratio', xlab = 'Group',
                               xticklabs = levels(tmp$ParticipantType),
-                              color_scheme = 'viridis', provided_summary = 'None') %>% print()
+                              color_scheme = 'viridis', provided_summary = 'None')
+        print(g)
+        save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RespSwi_Subtypes.tiff',
+          g, dpi=300, device='tiff', base_width = 5)
         
         # tplot <- emmip(fit, ParticipantType ~ Up3OfAppendicularSum_Dmean, cov.reduce=range,
         #                CIs = TRUE, type = 'response', dodge = 2)

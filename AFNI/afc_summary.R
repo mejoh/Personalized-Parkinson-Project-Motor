@@ -1,5 +1,6 @@
 library(tidyverse)
-dAFC <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/afc'
+library(ggpubr)
+dAFC <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/afc/Masked'
 fAFC <- dir(dAFC, pattern = 'sub-POMU.*_afc.txt', full.names = TRUE)
 df.AFC <- tibble()
 for(i in 1:length(fAFC)){
@@ -11,14 +12,14 @@ for(i in 1:length(fAFC)){
   df.AFC <- bind_rows(df.AFC, tibble(subinfo,afc))
 }
 
-con_0001 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/con_0001/'
-v1 <- tibble(file=dir(paste(con_0001,'ses-Visit1',sep=''))) %>%
+con_0010 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/con_0010/'
+v1 <- tibble(file=dir(paste(con_0010,'ses-Visit1',sep=''))) %>%
   mutate(pseudonym=str_sub(file,8,31),session=str_sub(file,33,45))
-v2 <- tibble(file=dir(paste(con_0001,'ses-Visit2',sep=''))) %>%
+v2 <- tibble(file=dir(paste(con_0010,'ses-Visit2',sep=''))) %>%
   mutate(pseudonym=str_sub(file,8,31),session=str_sub(file,33,45))
 analyzed <- bind_rows(v1,v2) %>% select(-file)
 
-# Exclude sessions that were not inlcuded in analyses
+# Exclude sessions that were not included in analyses
 df.AFC$include <- NA
 for(n in 1:nrow(df.AFC)){
   
@@ -59,7 +60,7 @@ summary <- df.AFC %>%
                      Sd.FWHM_z = sd(FWHM_z),
                      Sd.FWHM_comb = sd(FWHM_comb))
 summary <- round(summary, digits=5)
-outputname <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/afc/afc_FWHMxyz.txt'
+outputname <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/afc/Masked/afc_FWHMxyz.txt'
 vec <- summary[1:3]
 write_delim(vec, outputname, col_names = FALSE, delim = ' ')
   

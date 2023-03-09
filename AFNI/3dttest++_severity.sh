@@ -4,7 +4,7 @@
 # creation date: Fri Jan 13 11:39:59 2023
 
 #QSUB
-#CON=(con_0010 con_0012 con_0013); ROI=(0 1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_s_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++_severity.sh; done; done
+#CON=(con_0010 con_0012 con_0013 con_0008); ROI=(0 1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_s_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++_severity.sh; done; done
 
 # R=1
 # C=con_0010
@@ -52,7 +52,8 @@ rm ${con}_severity*
 
 # ------------------------- process the data -------------------------
 
-3dttest++ -prefix ${con}_severity                                                \
+3dttest++ -prefix ${con}_Severity2                                                \
+		  -resid ${con}_Severity2_resid.nii											\
 		  -covariates ${covars}														\
 		  -Clustsim	32																	\
           -mask $mask_dset                                                                \

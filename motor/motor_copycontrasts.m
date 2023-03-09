@@ -13,8 +13,8 @@ consession = [session(1:4) session(8:13)];
 FDThresh = 10;
 % ConList = {
 %     'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005'...
-%     'con_0010' 'con_0007' 'con_0012', 'con_0013'};
-ConList = {'con_0005'};
+%     'con_0010' 'con_0007' 'con_0008' 'con_0012', 'con_0013'};
+ConList = {'con_0008'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
 BIDSDir = '/project/3022026.01/pep/bids';
 ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-clin_ses-diff_groups-pd_2023-01-10.csv');

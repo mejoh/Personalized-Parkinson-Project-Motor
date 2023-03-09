@@ -7,6 +7,8 @@ function Inputs = motor_1stlevel(Force, Subset, preAROMA)
 
 if nargin<1 || isempty(Force)
 	Force = false;
+    Subset = [];
+    preAROMA=false;
 end
 
 % Fills the list of open Inputs and submit the jobs to the cluster

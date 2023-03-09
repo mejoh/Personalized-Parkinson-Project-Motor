@@ -12,11 +12,12 @@ EFFECT=$3      # Name of effect
 COEF=$4        # Index of coef for -idat
 STAT=$5        # Index of stats for -ithr
 TYPE=$6        # F or Z, determines whether 1sided or bisided
-CLUST_NVOX=$7  # Cluster size threhsold
+CLUST_NVOX=$7  # Cluster size threshold (Whole-brain = 108; ROI = 21)
 
+cwd=$(pwd)
 mkdir -p $DIR/stats
 cd $DIR/stats
-rm ${PREFIX}*
+rm ${PREFIX}*${EFFECT}*.BRIK ${PREFIX}*${EFFECT}*.HEAD
 
 pref_map=${PREFIX}_${EFFECT}_idxmask
 pref_dat=${PREFIX}_${EFFECT}_FWEcorr-stat
@@ -37,22 +38,7 @@ clusters=${PREFIX}_${EFFECT}_clusters.txt
 	  -clust_nvox ${CLUST_NVOX} \
 	  -bisided p=0.001 \
 	  > ${clusters}
-  elif [ $TYPE == T ]; then
-    # Two-tailed t-stat thresholding
-	3dClusterize \
-	  -pref_map ${pref_map} \
-	  -pref_dat ${pref_dat} \
-	  -mask ../mask.nii.gz \
-	  -nosum \
-	  -1Dformat \
-	  -inset ../${PREFIX}*+tlrc.HEAD \
-	  -idat ${COEF} \
-	  -ithr ${STAT} \
-	  -NN 2 \
-	  -clust_nvox ${CLUST_NVOX} \
-	  -bisided p=0.001 \
-	  > ${clusters}
-  elif [ $TYPE == Chisq ]; then
+  elif [ $TYPE == Chisq ] || [ $TYPE == F ]; then
     # Two-tailed F-stat threhsolding
 	# F/Chisq-values are exclusively positive
 	# p/0.001 provides us with an appropriate two-tailed threshold
@@ -68,7 +54,7 @@ clusters=${PREFIX}_${EFFECT}_clusters.txt
 	  -ithr ${STAT} \
 	  -NN 2 \
 	  -clust_nvox ${CLUST_NVOX} \
-	  -1sided RIGHT_TAIL p=0.0005 \
+	  -1sided RIGHT_TAIL p=0.0001 \
 	  > ${clusters}  
   fi
 
@@ -91,7 +77,27 @@ if [ -f "${pref_map}+tlrc.HEAD" ]; then
 	3dAFNItoNIFTI ${pref_map}+tlrc
 	3dAFNItoNIFTI ${pref_dat}+tlrc
 	3dAFNItoNIFTI ${pref_dat}+tlrc
+	
+	# Alternatively, check peak coordinates
+	# Here, there is no need to convert between coordinate systems
+	# However, you need to find a way to get the peaks
+	# a1=MNI_Glasser_HCP_v1.0
+	# a2=Brainnetome_1.0
+	# a3=CA_MPM_22_MNI
+	# a4=CA_MPM_18_MNI
+	# a5=CA_ML_18_MNI
+	# a6=MNI_VmPFC
+	# a7=DD_Desai_MPM
+	# coord=(-19 -65 60)
+	# whereami ${coord[@]} -space MNI -lpi -atlas $a1
+	# whereami ${coord[@]} -space MNI -lpi -atlas $a3
+	# whereami ${coord[@]} -space MNI -lpi -atlas $a7
+		
+	
+	
 fi
+
+cd $cwd
 
 }
 
