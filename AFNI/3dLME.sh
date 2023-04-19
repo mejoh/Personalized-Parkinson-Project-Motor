@@ -2,10 +2,10 @@
 
 #qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_test -l 'nodes=1:ppn=32,walltime=06:00:00,mem=90gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh
 
-#ROI=(1 0); GC=(1); for roi in ${ROI[@]}; do for gc in ${GC[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_${roi}${gc} -v R=${roi},G=${gc} -l 'nodes=1:ppn=32,walltime=07:00:00,mem=85gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh; done; done
+#ROI=(1 2 3); GC=(0 1); for roi in ${ROI[@]}; do for gc in ${GC[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_${roi}${gc} -v R=${roi},G=${gc} -l 'nodes=1:ppn=32,walltime=07:00:00,mem=85gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh; done; done
 
 # R=1
-# G=1
+# G=0
 # P=1
 
 ### OPTIONS ###
@@ -25,16 +25,30 @@ con=con_combined
 if [ $ROI -eq 1 ]; then
 
 	# ROI analysis
-	echo "ROI analysis"
-	dOutput=$dOutput/ROI
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/BG-dysfunc_and_pareital-comp_and_striatum_dil.nii.gz
+	echo "ROI analysis - BG and parietal"
+	dOutput=$dOutput/ROI/BG_Parietal
+  mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_BG-dysfunc_and_parietal-comp_and_striatum_dil.nii.gz
+
+elif [ $ROI -eq 2 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - BG"
+	dOutput=$dOutput/ROI/BG
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_HCgtPD_Mean_Mask_bilat_and_striatum-dil.nii.gz
+
+elif [ $ROI -eq 3 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - Parietal"
+	dOutput=$dOutput/ROI/Parietal
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_Neg_ClinCorr_bilat-dil-dil.nii.gz
 
 elif [ $ROI -eq 0 ]; then
 
 	# Whole-brain analysis
 	echo "Whole-brain analysis"
 	dOutput=$dOutput/WholeBrain
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin-ero.nii.gz
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin.nii.gz
 
 fi
 
@@ -51,9 +65,11 @@ if [ $GroupComparison -eq 1 ]; then
 	cp $mask $(pwd)/mask.nii.gz
 	cp $dataTable $(pwd)
 	rm ${con}*.BRIK ${con}*.HEAD
+	
+	# -resid ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3_resid.nii \
 
 	/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3 -jobs $njobs \
-	-resid ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3_resid.nii \
+	-resid ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3_resid \
 	-mask $mask \
 	-model '1+Group*TimepointNr*trial_type+Age+Sex+(1+TimepointNr|Subj)' \
 	-qVars 'Age' \
@@ -97,10 +113,6 @@ if [ $GroupComparison -eq 1 ]; then
 
 elif [ $GroupComparison -eq 0 ]; then
 
-	# This option is not very useful anymore since it does not adequately separate
-	# inter-individual variability (overall severity) from intra-individual variability
-	# (change in severity over time). The former will have a much stronger relationship
-	# and therefore completely overshadows the latter.
 	echo "Performing correlation analysis"
 	
 	echo "Severity: Linear"
@@ -113,18 +125,30 @@ elif [ $GroupComparison -eq 0 ]; then
 	rm ${con}*.BRIK ${con}*.HEAD
 
 	/opt/afni/2022/3dLMEr -prefix $dOutput/${con}_Severity2_x_Type3 -jobs $njobs \
-	-resid $dOutput/${con}_Severity2_x_Type3_resid
+	-resid $dOutput/${con}_Severity2_x_Type3_resid \
 	-mask $mask \
-	-model '1+ClinScore.imp*trial_type+Age+Sex+(1+ClinScore.imp|Subj)' \
-	-qVars 'ClinScore.imp,Age' \
-	-gltCode Type2gt1_by_Severity 'trial_type : -1*1c 1*2c ClinScore.imp :' \
-	-gltCode Type3gt1_by_Severity 'trial_type : -1*1c 1*3c ClinScore.imp :' \
-	-gltCode Type3gt2_by_Severity 'trial_type : -1*2c 1*3c ClinScore.imp :' \
-	-gltCode Type23gt1_by_Severity 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp :' \
-	-gltCode Mean_by_Severity 'ClinScore.imp :' \
-	-gltCode Type1_by_Severity 'trial_type : 1*1c ClinScore.imp :' \
-	-gltCode Type2_by_Severity 'trial_type : 1*2c ClinScore.imp :' \
-	-gltCode Type3_by_Severity 'trial_type : 1*3c ClinScore.imp :' \
+	-model '1+ClinScore.imp_cb*trial_type+ClinScore.imp_cw*trial_type+ClinScore.imp_cbxcw*trial_type+Age+Sex+YearSinceDiag.imp+(1+ClinScore.imp_cw|Subj)' \
+	-qVars 'ClinScore.imp_cb,ClinScore.imp_cw,ClinScore.imp_cbxcw,Age,YearSinceDiag.imp' \
+	-gltCode Type2gt1_by_Cb_by_Cw 'trial_type : -1*1c 1*2c ClinScore.imp_cbxcw :' \
+	-gltCode Type3gt1_by_Cb_by_Cw 'trial_type : -1*1c 1*3c ClinScore.imp_cbxcw :' \
+	-gltCode Type23gt1_by_Cb_by_Cw 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cbxcw :' \
+	-gltCode Mean_by_Cb_by_Cw 'ClinScore.imp_cbxcw :' \
+	-gltCode Type2gt1_by_Severity_cb 'trial_type : -1*1c 1*2c ClinScore.imp_cb :' \
+	-gltCode Type3gt1_by_Severity_cb 'trial_type : -1*1c 1*3c ClinScore.imp_cb :' \
+	-gltCode Type3gt2_by_Severity_cb 'trial_type : -1*2c 1*3c ClinScore.imp_cb :' \
+	-gltCode Type23gt1_by_Severity_cb 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cb :' \
+	-gltCode Mean_by_Severity_cb 'ClinScore.imp_cb :' \
+	-gltCode Type2gt1_by_Severity_cw 'trial_type : -1*1c 1*2c ClinScore.imp_cw :' \
+	-gltCode Type3gt1_by_Severity_cw 'trial_type : -1*1c 1*3c ClinScore.imp_cw :' \
+	-gltCode Type3gt2_by_Severity_cw 'trial_type : -1*2c 1*3c ClinScore.imp_cw :' \
+	-gltCode Type23gt1_by_Severity_cw 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cw :' \
+	-gltCode Mean_by_Severity_cw 'ClinScore.imp_cw :' \
+	-gltCode Type1_by_Severity_cb 'trial_type : 1*1c ClinScore.imp_cb :' \
+	-gltCode Type2_by_Severity_cb 'trial_type : 1*2c ClinScore.imp_cb :' \
+	-gltCode Type3_by_Severity_cb 'trial_type : 1*3c ClinScore.imp_cb :' \
+	-gltCode Type1_by_Severity_cw 'trial_type : 1*1c ClinScore.imp_cw :' \
+	-gltCode Type2_by_Severity_cw 'trial_type : 1*2c ClinScore.imp_cw :' \
+	-gltCode Type3_by_Severity_cw 'trial_type : 1*3c ClinScore.imp_cw :' \
 	-dataTable \
 	`cat $dataTable`
 

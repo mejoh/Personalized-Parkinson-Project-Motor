@@ -4,7 +4,7 @@
 # creation date: Thu Jan 12 09:55:18 2023
 
 #QSUB
-#CON=(con_0010 con_0012 con_0013 con_0008); ROI=(0 1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++.sh; done; done
+#CON=(con_0010 con_0012 con_0013); ROI=(1 2 3); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++.sh; done; done
 
 # R=1
 # C=con_0010
@@ -29,16 +29,30 @@ dirA=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/${con}/
 if [ $ROI -eq 1 ]; then
 
 	# ROI analysis
-	echo "ROI analysis"
-	dOutput=$dOutput/ROI
-	mask_dset=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/BG-dysfunc_and_pareital-comp_and_striatum_dil.nii.gz
+	echo "ROI analysis - BG and parietal"
+	dOutput=$dOutput/ROI/BG_Parietal
+  mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_BG-dysfunc_and_parietal-comp_and_striatum_dil.nii.gz
+
+elif [ $ROI -eq 2 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - BG"
+	dOutput=$dOutput/ROI/BG
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_HCgtPD_Mean_Mask_bilat_and_striatum-dil.nii.gz
+
+elif [ $ROI -eq 3 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - Parietal"
+	dOutput=$dOutput/ROI/Parietal
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_Neg_ClinCorr_bilat-dil-dil.nii.gz
 
 elif [ $ROI -eq 0 ]; then
 
 	# Whole-brain analysis
 	echo "Whole-brain analysis"
 	dOutput=$dOutput/WholeBrain
-	mask_dset=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin-ero.nii.gz
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin.nii.gz
 
 fi
 
@@ -46,7 +60,7 @@ fi
 results_dir=$dOutput/3dttest++
 mkdir -p $results_dir
 cd $results_dir
-cp $mask_dset $(pwd)/mask.nii.gz
+cp $mask $(pwd)/mask.nii.gz
 cp $covars $(pwd)/${con}_covars.txt
 rm ${con}_PDvsHC*
 
@@ -55,14 +69,15 @@ rm ${con}_PDvsHC*
 		  # ETAC options in case it becomes viable
 		  # -ETAC 32																		\
 		  # -ETAC_opt NN=2:sid=2:pthr=0.01/0.001/10:name:TestA							\
+			
+		  #-resid ${con}_Group2_resid.nii												\
 
 3dttest++ -prefix ${con}_Group2 -BminusA                                          \
-		  -resid ${con}_Group2_resid.nii												\
 		  -covariates ${covars}															\
 		  -Clustsim	32																	\
 		  -ETAC 32																		\
 		  -ETAC_opt NN=2:sid=2:pthr=0.01/0.001/10:name:TestA							\
-          -mask $mask_dset                                                                \
+          -mask $mask                                                                \
           -setA HC                                                                        \
              002A9E62F2779ACD_ses-PITVisitDiff_${con}L2Rswap                            \
           "$dirA/HC_PIT_sub-POMU002A9E62F2779ACD_ses-PITVisitDiff_${con}L2Rswap.nii[0]" \
@@ -452,11 +467,11 @@ rm ${con}_PDvsHC*
              4AD7E84C7EE45A54_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU4AD7E84C7EE45A54_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             4AECABC81B8291EF_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU4AECABC81B8291EF_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              4C1AB897320D7D8A_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU4C1AB897320D7D8A_ses-POMVisitDiff_${con}.nii[0]"        \
-                                                                                          \
-             4C49A6B506FEB946_ses-POMVisitDiff_${con}L2Rswap                            \
-          "$dirA/PD_POM_sub-POMU4C49A6B506FEB946_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              4CB9394F262897F8_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU4CB9394F262897F8_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \

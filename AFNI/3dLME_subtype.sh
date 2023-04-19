@@ -2,7 +2,7 @@
 
 #qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_test -l 'nodes=1:ppn=32,walltime=06:00:00,mem=90gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh
 
-#ROI=(1 0); SUBTYPE=(HCvsMMP HCvsIM HCvsDM MMPvsIM MMPvsDM IMvsDM); CON=(con_combined); for roi in ${ROI[@]}; do for subtype in ${SUBTYPE[@]}; do for con in ${CON[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_${subtype}_${roi}${con} -v R=${roi},S=${subtype},C=${con} -l 'nodes=1:ppn=22,walltime=10:00:00,mem=55gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_subtype.sh; done; done; done
+#ROI=(1 2 3); SUBTYPE=(HCvsIM); CON=(con_0010 con_0012 con_0013 con_combined); for roi in ${ROI[@]}; do for subtype in ${SUBTYPE[@]}; do for con in ${CON[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_${subtype}_${roi}${con} -v R=${roi},S=${subtype},C=${con} -l 'nodes=1:ppn=22,walltime=10:00:00,mem=55gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_subtype.sh; done; done; done
 
 # R=1
 # S=HCvsDM
@@ -17,6 +17,7 @@ con=${C}				# con_0010 = Mean, con_0012 = 2>1, con_0013 = 3>1, con_combined = Al
 module unload afni; module load afni/2022
 module unload R; module load R/4.1.0
 njobs=22
+export OMP_NUM_THREADS=22
 
 dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI
 
@@ -24,20 +25,34 @@ dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Long
 if [ $ROI -eq 1 ]; then
 
 	# ROI analysis
-	echo "ROI analysis"
-	dOutput=$dOutput/ROI
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/BG-dysfunc_and_pareital-comp_and_striatum_dil.nii.gz
+	echo "ROI analysis - BG and parietal"
+	dOutput=$dOutput/ROI/BG_Parietal
+  mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_BG-dysfunc_and_parietal-comp_and_striatum_dil.nii.gz
+
+elif [ $ROI -eq 2 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - BG"
+	dOutput=$dOutput/ROI/BG
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_HCgtPD_Mean_Mask_bilat_and_striatum-dil.nii.gz
+
+elif [ $ROI -eq 3 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - Parietal"
+	dOutput=$dOutput/ROI/Parietal
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_Neg_ClinCorr_bilat-dil-dil.nii.gz
 
 elif [ $ROI -eq 0 ]; then
 
 	# Whole-brain analysis
 	echo "Whole-brain analysis"
 	dOutput=$dOutput/WholeBrain
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin-ero.nii.gz
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin.nii.gz
 
 fi
 
-dOutput=$dOutput/3dLME_subtype
+dOutput=$dOutput/3dLME_${subtype}
 mkdir -p $dOutput
 dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease_${subtype}_dataTable.txt
 cd $dOutput
@@ -49,9 +64,12 @@ rm ${con}*.BRIK ${con}*.HEAD
 if [ ${con} = "con_combined" ]; then
 
 	echo "Performing full LMER"
+	
+	# Potentially useful arguments
+	# -resid ${dOutput}/${con}_${subtype}_x_TimepointNr2_x_Type3_resid.nii \
 
 	/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_${subtype}_x_TimepointNr2_x_Type3 -jobs $njobs \
-	-resid ${dOutput}/${con}_${subtype}_x_TimepointNr2_x_Type3_resid.nii \
+	-resid ${dOutput}/${con}_${subtype}_x_TimepointNr2_x_Type3_resid \
 	-mask $mask \
 	-model '1+Subtype1*TimepointNr*trial_type+Age+Sex+(1+TimepointNr|Subj)' \
 	-qVars 'Age' \
@@ -88,6 +106,7 @@ else
 	echo "Performing LMER collapsed across conditions"
 
 	/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_${subtype}_x_TimepointNr2 -jobs $njobs \
+	-resid ${dOutput}/${con}_${subtype}_x_TimepointNr2_resid \
 	-mask $mask \
 	-model '1+Subtype1*TimepointNr+Age+Sex+(1|Subj)' \
 	-qVars 'Age' \

@@ -2,10 +2,10 @@
 
 #qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_testRscGroup -l 'nodes=1:ppn=32,walltime=06:00:00,mem=90gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_AcrossCondition.sh
 
-#CON=(con_0010 con_0012 con_0013); ROI=(1 0); GC=(0 1); POLY=(1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do for gc in ${GC[@]}; do for poly in ${POLY[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_AC_${con}_${roi}${gc}${poly} -v R=${roi},G=${gc},P=${poly},C=${con} -l 'nodes=1:ppn=32,walltime=03:00:00,mem=40gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_AcrossCondition.sh; done; done; done; done
+#CON=(con_0010 con_0012 con_0013); ROI=(1 2 3); GC=(0); POLY=(1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do for gc in ${GC[@]}; do for poly in ${POLY[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_AC_${con}_${roi}${gc}${poly} -v R=${roi},G=${gc},P=${poly},C=${con} -l 'nodes=1:ppn=32,walltime=03:00:00,mem=40gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_AcrossCondition.sh; done; done; done; done
 
 # R=1
-# G=1
+# G=0
 # P=1
 # C=con_0010
 
@@ -13,12 +13,13 @@
 ROI=${R}				# 1 = ROI, 0 = Whole-brain
 GroupComparison=${G}	# 1 = Group comparison, 0 = Correlation analysis
 Polynomial=${P}			# 1 = Linear, 2 = Quadratic, 3 = Cubic
-con=${C}				# con_0010 = Mean, con_0012 = 2>1, con_0013 = 3>1
+con=${C}				# con_0010 = Mean, con_0012 = 2>1, con_0013 = 3>1, con_0008 = 3>2
 ###
 
 module unload afni; module load afni/2022
 module unload R; module load R/4.1.0
 njobs=32
+export OMP_NUM_THREADS=32
 
 dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI
 
@@ -26,16 +27,30 @@ dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Long
 if [ $ROI -eq 1 ]; then
 
 	# ROI analysis
-	echo "ROI analysis"
-	dOutput=$dOutput/ROI
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/BG-dysfunc_and_pareital-comp_and_striatum_dil.nii.gz
+	echo "ROI analysis - BG and parietal"
+	dOutput=$dOutput/ROI/BG_Parietal
+  mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_BG-dysfunc_and_parietal-comp_and_striatum_dil.nii.gz
+
+elif [ $ROI -eq 2 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - BG"
+	dOutput=$dOutput/ROI/BG
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_HCgtPD_Mean_Mask_bilat_and_striatum-dil.nii.gz
+
+elif [ $ROI -eq 3 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - Parietal"
+	dOutput=$dOutput/ROI/Parietal
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_Neg_ClinCorr_bilat-dil-dil.nii.gz
 
 elif [ $ROI -eq 0 ]; then
 
 	# Whole-brain analysis
 	echo "Whole-brain analysis"
 	dOutput=$dOutput/WholeBrain
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin-ero.nii.gz
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin.nii.gz
 
 fi
 
@@ -50,13 +65,14 @@ if [ $GroupComparison -eq 1 ]; then
 		echo "TimepointNr: Linear"
 		dOutput=$dOutput/3dLME_disease
 		mkdir -p $dOutput
-		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease-poly1_dataTable.txt
+		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease_dataTable.txt
 		cd $dOutput
 		cp $mask $(pwd)/mask.nii.gz
 		cp $dataTable $(pwd)
 		rm ${con}*.BRIK ${con}*.HEAD
 	
-		/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_TimepointNr2-poly1 -jobs $njobs \
+		/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_TimepointNr2 -jobs $njobs \
+		-resid ${dOutput}/${con}_Group2_x_TimepointNr2_resid \
 		-mask $mask \
 		-model '1+Group*TimepointNr+Age+Sex+(1|Subj)' \
 		-qVars 'Age' \
@@ -72,123 +88,6 @@ if [ $GroupComparison -eq 1 ]; then
 		-dataTable \
 		`cat $dataTable`
 
-	# DEPRECATED: Linear and quadratic terms
-	elif [ $Polynomial -eq 2 ]; then
-	
-		echo "YearsToFollowUp: Linear + Quadratic"
-		dOutput=$dOutput/3dLME_disease_p2
-		mkdir -p $dOutput
-		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease-poly2_dataTable.txt
-		cd $dOutput
-		cp $mask $(pwd)/mask.nii.gz
-		cp $dataTable $(pwd)
-		rm *.BRIK *.HEAD
-		
-		/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_YearsToFollowUp2-poly2_x_Type3 -jobs $njobs \
-		-mask $mask \
-		-model '1+(YearsToFollowUp.poly1+YearsToFollowUp.poly2)*Group*trial_type+Age+Sex+(1+YearsToFollowUp.poly1|Subj)' \
-		-qVars 'YearsToFollowUp.poly1,YearsToFollowUp.poly2,Age' \
-		-qVarCenters 0,0,61.73 \
-		-gltCode Group_by_Time_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly1 : ' \
-		-gltCode HC_by_Time 'Group : 1*HC_PIT YearsToFollowUp.poly1 : ' \
-		-gltCode PD_by_Time 'Group : 1*PD_POM YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time2_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly2 : ' \
-		-gltCode HC_by_Time2 'Group : 1*HC_PIT YearsToFollowUp.poly2 : ' \
-		-gltCode PD_by_Time2 'Group : 1*PD_POM YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c' \
-		-gltCode Group_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c' \
-		-gltCode Group_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c' \
-		-gltCode Group_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-gltCode HC_by_Type2gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*2c' \
-		-gltCode HC_by_Type3gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*3c' \
-		-gltCode HC_by_Type3gt2 'Group : 1*HC_PIT trial_type : -1*2c 1*3c' \
-		-gltCode HC_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-gltCode PD_by_Type2gt1 'Group : 1*PD_POM trial_type : -1*1c 1*2c' \
-		-gltCode PD_by_Type3gt1 'Group : 1*PD_POM trial_type : -1*1c 1*3c' \
-		-gltCode PD_by_Type3gt2 'Group : 1*PD_POM trial_type : -1*2c 1*3c' \
-		-gltCode PD_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-gltCode Group 'Group : -1*HC_PIT 1*PD_POM' \
-		-gltCode HC 'Group : 1*HC_PIT' \
-		-gltCode PD 'Group : 1*PD_POM' \
-		-gltCode Time 'YearsToFollowUp.poly1 : ' \
-		-gltCode Time2 'YearsToFollowUp.poly2 : ' \
-		-gltCode Type2gt1 'trial_type : -1*1c 1*2c' \
-		-gltCode Type3gt1 'trial_type : -1*1c 1*3c' \
-		-gltCode Type3gt2 'trial_type : -1*2c 1*3c' \
-		-gltCode Type23gt1 'trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-dataTable \
-		`cat $dataTable`
-
-	# DEPRECATED: Linear and quadratic and cubic terms
-	elif [ $Polynomial -eq 3 ]; then
-	
-		echo "YearsToFollowUp: Linear + Quadratic + Cubic"
-		dOutput=$dOutput/3dLME_disease_p3
-		mkdir -p $dOutput
-		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease-poly3_dataTable.txt
-		cd $dOutput
-		cp $mask $(pwd)/mask.nii.gz
-		cp $dataTable $(pwd)
-		rm *.BRIK *.HEAD
-	
-		/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_YearsToFollowUp2-poly3_x_Type3 -jobs $njobs \
-		-mask $mask \
-		-model '1+(YearsToFollowUp.poly1+YearsToFollowUp.poly2+YearsToFollowUp.poly3)*Group*trial_type+Age+Sex+(1+YearsToFollowUp.poly1|Subj)' \
-		-qVars 'YearsToFollowUp.poly1,YearsToFollowUp.poly2,YearsToFollowUp.poly3,Age' \
-		-qVarCenters 0,0,0,61.73 \
-		-gltCode Group_by_Time_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly1 : ' \
-		-gltCode HC_by_Time 'Group : 1*HC_PIT YearsToFollowUp.poly1 : ' \
-		-gltCode PD_by_Time 'Group : 1*PD_POM YearsToFollowUp.poly1 : ' \
-		-gltCode Group_by_Time2_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time2 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly2 : ' \
-		-gltCode HC_by_Time2 'Group : 1*HC_PIT YearsToFollowUp.poly2 : ' \
-		-gltCode PD_by_Time2 'Group : 1*PD_POM YearsToFollowUp.poly2 : ' \
-		-gltCode Group_by_Time3_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly3 : ' \
-		-gltCode Group_by_Time3_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly3 : ' \
-		-gltCode Group_by_Time3_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly3 : ' \
-		-gltCode Group_by_Time3_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly3 : ' \
-		-gltCode Group_by_Time3 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly3 : ' \
-		-gltCode HC_by_Time3 'Group : 1*HC_PIT YearsToFollowUp.poly3 : ' \
-		-gltCode PD_by_Time3 'Group : 1*PD_POM YearsToFollowUp.poly3 : ' \
-		-gltCode Group_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c' \
-		-gltCode Group_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c' \
-		-gltCode Group_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c' \
-		-gltCode Group_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-gltCode HC_by_Type2gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*2c' \
-		-gltCode HC_by_Type3gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*3c' \
-		-gltCode HC_by_Type3gt2 'Group : 1*HC_PIT trial_type : -1*2c 1*3c' \
-		-gltCode HC_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-gltCode PD_by_Type2gt1 'Group : 1*PD_POM trial_type : -1*1c 1*2c' \
-		-gltCode PD_by_Type3gt1 'Group : 1*PD_POM trial_type : -1*1c 1*3c' \
-		-gltCode PD_by_Type3gt2 'Group : 1*PD_POM trial_type : -1*2c 1*3c' \
-		-gltCode PD_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-gltCode Group 'Group : -1*HC_PIT 1*PD_POM' \
-		-gltCode HC 'Group : 1*HC_PIT' \
-		-gltCode PD 'Group : 1*PD_POM' \
-		-gltCode Time 'YearsToFollowUp.poly1 : ' \
-		-gltCode Time2 'YearsToFollowUp.poly2 : ' \
-		-gltCode Time3 'YearsToFollowUp.poly3 : ' \
-		-gltCode Type2gt1 'trial_type : -1*1c 1*2c' \
-		-gltCode Type3gt1 'trial_type : -1*1c 1*3c' \
-		-gltCode Type3gt2 'trial_type : -1*2c 1*3c' \
-		-gltCode Type23gt1 'trial_type : -1*1c 0.5*2c 0.5*3c' \
-		-dataTable \
-		`cat $dataTable`
 	fi
 
 elif [ $GroupComparison -eq 0 ]; then
@@ -201,99 +100,23 @@ elif [ $GroupComparison -eq 0 ]; then
 		echo "Severity: Linear"
 		dOutput=$dOutput/3dLME_severity
 		mkdir -p $dOutput
-		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_severity-poly1_dataTable.txt
+		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_severity_dataTable.txt
 		cd $dOutput
 		cp $mask $(pwd)/mask.nii.gz
 		cp $dataTable $(pwd)
 		rm ${con}*.BRIK ${con}*.HEAD
 	
-		/opt/afni/2022/3dLMEr -prefix $dOutput/${con}_Severity2-poly1 -jobs $njobs \
+		/opt/afni/2022/3dLMEr -prefix $dOutput/${con}_Severity2 -jobs $njobs \
+		-resid ${dOutput}/${con}_Severity2_resid \
 		-mask $mask \
-		-model '1+ClinScore.imp2+Age+Sex+(1|Subj)' \
-		-qVars 'ClinScore.imp2,Age' \
-		-gltCode Severity 'ClinScore.imp2 :' \
+		-model '1+ClinScore.imp_cb+ClinScore.imp_cw+ClinScore.imp_cbxcw+Age+Sex+(1|Subj)' \
+		-qVars 'ClinScore.imp_cb,ClinScore.imp_cw,ClinScore.imp_cbxcw,Age' \
+		-gltCode Cb_by_Cw 'ClinScore.imp_cbxcw :' \
+		-gltCode Severity_cb 'ClinScore.imp_cb :' \
+		-gltCode Severity_cw 'ClinScore.imp_cw :' \
 		-dataTable \
 		`cat $dataTable`
 
-	# DEPRECATED: Linear and quadratic terms
-	elif [ $Polynomial -eq 2 ]; then
-	
-		echo "Severity: Linear + Quadratic"
-		dOutput=$dOutput/3dLME_severity_p2
-		mkdir -p $dOutput
-		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_severity-poly2_dataTable.txt
-		cd $dOutput
-		cp $mask $(pwd)/mask.nii.gz
-		cp $dataTable $(pwd)
-		rm *.BRIK *.HEAD
-	
-		/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Severity2-poly2_x_Type3 -jobs $njobs \
-		-mask $mask \
-		-model '1+(ClinScore.poly1+ClinScore.poly2)*trial_type+Age+Sex+(1+ClinScore.poly1|Subj)' \
-		-qVars 'ClinScore.poly1,ClinScore.poly2,Age' \
-		-qVarCenters 0,0,62.04 \
-		-gltCode Type2gt1_by_Severity 'trial_type : -1*1c 1*2c ClinScore.poly1 :' \
-		-gltCode Type3gt1_by_Severity 'trial_type : -1*1c 1*3c ClinScore.poly1 :' \
-		-gltCode Type3gt2_by_Severity 'trial_type : -1*2c 1*3c ClinScore.poly1 :' \
-		-gltCode Type23gt1_by_Severity 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly1 :' \
-		-gltCode Mean_by_Severity 'ClinScore.poly1 :' \
-		-gltCode Type1_by_Severity 'trial_type : 1*1c ClinScore.poly1 :' \
-		-gltCode Type2_by_Severity 'trial_type : 1*2c ClinScore.poly1 :' \
-		-gltCode Type3_by_Severity 'trial_type : 1*3c ClinScore.poly1 :' \
-		-gltCode Type2gt1_by_Severity2 'trial_type : -1*1c 1*2c ClinScore.poly2 :' \
-		-gltCode Type3gt1_by_Severity2 'trial_type : -1*1c 1*3c ClinScore.poly2 :' \
-		-gltCode Type3gt2_by_Severity2 'trial_type : -1*2c 1*3c ClinScore.poly2 :' \
-		-gltCode Type23gt1_by_Severity2 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly2 :' \
-		-gltCode Mean_by_Severity2 'ClinScore.poly2 :' \
-		-gltCode Type1_by_Severity2 'trial_type : 1*1c ClinScore.poly2 :' \
-		-gltCode Type2_by_Severity2 'trial_type : 1*2c ClinScore.poly2 :' \
-		-gltCode Type3_by_Severity2 'trial_type : 1*3c ClinScore.poly2 :' \
-		-dataTable \
-		`cat $dataTable`
-
-	# DEPRECATED: Linear and quadratic and cubic terms
-	elif [ $Polynomial -eq 3 ]; then
-	
-		echo "Severity: Linear + Quadratic + Cubic"
-		dOutput=$dOutput/3dLME_severity_p3
-		mkdir -p $dOutput
-		dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_severity-poly3_dataTable.txt
-		cd $dOutput
-		cp $mask $(pwd)/mask.nii.gz
-		cp $dataTable $(pwd)
-		rm *.BRIK *.HEAD
-	
-		/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Severity2-poly3_x_Type3 -jobs $njobs \
-		-mask $mask \
-		-model '1+(ClinScore.poly1+ClinScore.poly2+ClinScore.poly3)*trial_type+Age+Sex+(1+ClinScore.poly1|Subj)' \
-		-qVars 'ClinScore.poly1,ClinScore.poly2,ClinScore.poly3,Age' \
-		-qVarCenters 0,0,0,62.04 \
-		-gltCode Type2gt1_by_Severity 'trial_type : -1*1c 1*2c ClinScore.poly1 :' \
-		-gltCode Type3gt1_by_Severity 'trial_type : -1*1c 1*3c ClinScore.poly1 :' \
-		-gltCode Type3gt2_by_Severity 'trial_type : -1*2c 1*3c ClinScore.poly1 :' \
-		-gltCode Type23gt1_by_Severity 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly1 :' \
-		-gltCode Mean_by_Severity 'ClinScore.poly1 :' \
-		-gltCode Type1_by_Severity 'trial_type : 1*1c ClinScore.poly1 :' \
-		-gltCode Type2_by_Severity 'trial_type : 1*2c ClinScore.poly1 :' \
-		-gltCode Type3_by_Severity 'trial_type : 1*3c ClinScore.poly1 :' \
-		-gltCode Type2gt1_by_Severity2 'trial_type : -1*1c 1*2c ClinScore.poly2 :' \
-		-gltCode Type3gt1_by_Severity2 'trial_type : -1*1c 1*3c ClinScore.poly2 :' \
-		-gltCode Type3gt2_by_Severity2 'trial_type : -1*2c 1*3c ClinScore.poly2 :' \
-		-gltCode Type23gt1_by_Severity2 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly2 :' \
-		-gltCode Mean_by_Severity2 'ClinScore.poly2 :' \
-		-gltCode Type1_by_Severity2 'trial_type : 1*1c ClinScore.poly2 :' \
-		-gltCode Type2_by_Severity2 'trial_type : 1*2c ClinScore.poly2 :' \
-		-gltCode Type3_by_Severity2 'trial_type : 1*3c ClinScore.poly2 :' \
-		-gltCode Type2gt1_by_Severity3 'trial_type : -1*1c 1*2c ClinScore.poly3 :' \
-		-gltCode Type3gt1_by_Severity3 'trial_type : -1*1c 1*3c ClinScore.poly3 :' \
-		-gltCode Type3gt2_by_Severity3 'trial_type : -1*2c 1*3c ClinScore.poly3 :' \
-		-gltCode Type23gt1_by_Severity3 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly3 :' \
-		-gltCode Mean_by_Severity3 'ClinScore.poly3 :' \
-		-gltCode Type1_by_Severity3 'trial_type : 1*1c ClinScore.poly3 :' \
-		-gltCode Type2_by_Severity3 'trial_type : 1*2c ClinScore.poly3 :' \
-		-gltCode Type3_by_Severity3 'trial_type : 1*3c ClinScore.poly3 :' \
-		-dataTable \
-		`cat $dataTable`
 	fi
 
 fi
@@ -410,3 +233,202 @@ fi
 # -gltLabel 12 'Type3_by_Severity2' -gltCode 12 'trial_type : 1*3c ClinScore.poly2 :' \
 # -dataTable \
 # `cat $dataTable`
+
+
+# DEPRECATED: Linear and quadratic terms
+	# elif [ $Polynomial -eq 2 ]; then
+	
+		# echo "YearsToFollowUp: Linear + Quadratic"
+		# dOutput=$dOutput/3dLME_disease_p2
+		# mkdir -p $dOutput
+		# dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease-poly2_dataTable.txt
+		# cd $dOutput
+		# cp $mask $(pwd)/mask.nii.gz
+		# cp $dataTable $(pwd)
+		# rm *.BRIK *.HEAD
+		
+		# /opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_YearsToFollowUp2-poly2_x_Type3 -jobs $njobs \
+		# -mask $mask \
+		# -model '1+(YearsToFollowUp.poly1+YearsToFollowUp.poly2)*Group*trial_type+Age+Sex+(1+YearsToFollowUp.poly1|Subj)' \
+		# -qVars 'YearsToFollowUp.poly1,YearsToFollowUp.poly2,Age' \
+		# -qVarCenters 0,0,61.73 \
+		# -gltCode Group_by_Time_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly1 : ' \
+		# -gltCode HC_by_Time 'Group : 1*HC_PIT YearsToFollowUp.poly1 : ' \
+		# -gltCode PD_by_Time 'Group : 1*PD_POM YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time2_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly2 : ' \
+		# -gltCode HC_by_Time2 'Group : 1*HC_PIT YearsToFollowUp.poly2 : ' \
+		# -gltCode PD_by_Time2 'Group : 1*PD_POM YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c' \
+		# -gltCode Group_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c' \
+		# -gltCode Group_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c' \
+		# -gltCode Group_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -gltCode HC_by_Type2gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*2c' \
+		# -gltCode HC_by_Type3gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*3c' \
+		# -gltCode HC_by_Type3gt2 'Group : 1*HC_PIT trial_type : -1*2c 1*3c' \
+		# -gltCode HC_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -gltCode PD_by_Type2gt1 'Group : 1*PD_POM trial_type : -1*1c 1*2c' \
+		# -gltCode PD_by_Type3gt1 'Group : 1*PD_POM trial_type : -1*1c 1*3c' \
+		# -gltCode PD_by_Type3gt2 'Group : 1*PD_POM trial_type : -1*2c 1*3c' \
+		# -gltCode PD_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -gltCode Group 'Group : -1*HC_PIT 1*PD_POM' \
+		# -gltCode HC 'Group : 1*HC_PIT' \
+		# -gltCode PD 'Group : 1*PD_POM' \
+		# -gltCode Time 'YearsToFollowUp.poly1 : ' \
+		# -gltCode Time2 'YearsToFollowUp.poly2 : ' \
+		# -gltCode Type2gt1 'trial_type : -1*1c 1*2c' \
+		# -gltCode Type3gt1 'trial_type : -1*1c 1*3c' \
+		# -gltCode Type3gt2 'trial_type : -1*2c 1*3c' \
+		# -gltCode Type23gt1 'trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -dataTable \
+		# `cat $dataTable`
+
+	# # DEPRECATED: Linear and quadratic and cubic terms
+	# elif [ $Polynomial -eq 3 ]; then
+	
+		# echo "YearsToFollowUp: Linear + Quadratic + Cubic"
+		# dOutput=$dOutput/3dLME_disease_p3
+		# mkdir -p $dOutput
+		# dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease-poly3_dataTable.txt
+		# cd $dOutput
+		# cp $mask $(pwd)/mask.nii.gz
+		# cp $dataTable $(pwd)
+		# rm *.BRIK *.HEAD
+	
+		# /opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_YearsToFollowUp2-poly3_x_Type3 -jobs $njobs \
+		# -mask $mask \
+		# -model '1+(YearsToFollowUp.poly1+YearsToFollowUp.poly2+YearsToFollowUp.poly3)*Group*trial_type+Age+Sex+(1+YearsToFollowUp.poly1|Subj)' \
+		# -qVars 'YearsToFollowUp.poly1,YearsToFollowUp.poly2,YearsToFollowUp.poly3,Age' \
+		# -qVarCenters 0,0,0,61.73 \
+		# -gltCode Group_by_Time_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly1 : ' \
+		# -gltCode HC_by_Time 'Group : 1*HC_PIT YearsToFollowUp.poly1 : ' \
+		# -gltCode PD_by_Time 'Group : 1*PD_POM YearsToFollowUp.poly1 : ' \
+		# -gltCode Group_by_Time2_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time2 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly2 : ' \
+		# -gltCode HC_by_Time2 'Group : 1*HC_PIT YearsToFollowUp.poly2 : ' \
+		# -gltCode PD_by_Time2 'Group : 1*PD_POM YearsToFollowUp.poly2 : ' \
+		# -gltCode Group_by_Time3_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c YearsToFollowUp.poly3 : ' \
+		# -gltCode Group_by_Time3_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c YearsToFollowUp.poly3 : ' \
+		# -gltCode Group_by_Time3_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c YearsToFollowUp.poly3 : ' \
+		# -gltCode Group_by_Time3_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c YearsToFollowUp.poly3 : ' \
+		# -gltCode Group_by_Time3 'Group : -1*HC_PIT 1*PD_POM YearsToFollowUp.poly3 : ' \
+		# -gltCode HC_by_Time3 'Group : 1*HC_PIT YearsToFollowUp.poly3 : ' \
+		# -gltCode PD_by_Time3 'Group : 1*PD_POM YearsToFollowUp.poly3 : ' \
+		# -gltCode Group_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c' \
+		# -gltCode Group_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c' \
+		# -gltCode Group_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c' \
+		# -gltCode Group_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -gltCode HC_by_Type2gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*2c' \
+		# -gltCode HC_by_Type3gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*3c' \
+		# -gltCode HC_by_Type3gt2 'Group : 1*HC_PIT trial_type : -1*2c 1*3c' \
+		# -gltCode HC_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -gltCode PD_by_Type2gt1 'Group : 1*PD_POM trial_type : -1*1c 1*2c' \
+		# -gltCode PD_by_Type3gt1 'Group : 1*PD_POM trial_type : -1*1c 1*3c' \
+		# -gltCode PD_by_Type3gt2 'Group : 1*PD_POM trial_type : -1*2c 1*3c' \
+		# -gltCode PD_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -gltCode Group 'Group : -1*HC_PIT 1*PD_POM' \
+		# -gltCode HC 'Group : 1*HC_PIT' \
+		# -gltCode PD 'Group : 1*PD_POM' \
+		# -gltCode Time 'YearsToFollowUp.poly1 : ' \
+		# -gltCode Time2 'YearsToFollowUp.poly2 : ' \
+		# -gltCode Time3 'YearsToFollowUp.poly3 : ' \
+		# -gltCode Type2gt1 'trial_type : -1*1c 1*2c' \
+		# -gltCode Type3gt1 'trial_type : -1*1c 1*3c' \
+		# -gltCode Type3gt2 'trial_type : -1*2c 1*3c' \
+		# -gltCode Type23gt1 'trial_type : -1*1c 0.5*2c 0.5*3c' \
+		# -dataTable \
+		# `cat $dataTable`
+		
+		# DEPRECATED: Linear and quadratic terms
+	# elif [ $Polynomial -eq 2 ]; then
+	
+		# echo "Severity: Linear + Quadratic"
+		# dOutput=$dOutput/3dLME_severity_p2
+		# mkdir -p $dOutput
+		# dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_severity-poly2_dataTable.txt
+		# cd $dOutput
+		# cp $mask $(pwd)/mask.nii.gz
+		# cp $dataTable $(pwd)
+		# rm *.BRIK *.HEAD
+	
+		# /opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Severity2-poly2_x_Type3 -jobs $njobs \
+		# -mask $mask \
+		# -model '1+(ClinScore.poly1+ClinScore.poly2)*trial_type+Age+Sex+(1+ClinScore.poly1|Subj)' \
+		# -qVars 'ClinScore.poly1,ClinScore.poly2,Age' \
+		# -qVarCenters 0,0,62.04 \
+		# -gltCode Type2gt1_by_Severity 'trial_type : -1*1c 1*2c ClinScore.poly1 :' \
+		# -gltCode Type3gt1_by_Severity 'trial_type : -1*1c 1*3c ClinScore.poly1 :' \
+		# -gltCode Type3gt2_by_Severity 'trial_type : -1*2c 1*3c ClinScore.poly1 :' \
+		# -gltCode Type23gt1_by_Severity 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly1 :' \
+		# -gltCode Mean_by_Severity 'ClinScore.poly1 :' \
+		# -gltCode Type1_by_Severity 'trial_type : 1*1c ClinScore.poly1 :' \
+		# -gltCode Type2_by_Severity 'trial_type : 1*2c ClinScore.poly1 :' \
+		# -gltCode Type3_by_Severity 'trial_type : 1*3c ClinScore.poly1 :' \
+		# -gltCode Type2gt1_by_Severity2 'trial_type : -1*1c 1*2c ClinScore.poly2 :' \
+		# -gltCode Type3gt1_by_Severity2 'trial_type : -1*1c 1*3c ClinScore.poly2 :' \
+		# -gltCode Type3gt2_by_Severity2 'trial_type : -1*2c 1*3c ClinScore.poly2 :' \
+		# -gltCode Type23gt1_by_Severity2 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly2 :' \
+		# -gltCode Mean_by_Severity2 'ClinScore.poly2 :' \
+		# -gltCode Type1_by_Severity2 'trial_type : 1*1c ClinScore.poly2 :' \
+		# -gltCode Type2_by_Severity2 'trial_type : 1*2c ClinScore.poly2 :' \
+		# -gltCode Type3_by_Severity2 'trial_type : 1*3c ClinScore.poly2 :' \
+		# -dataTable \
+		# `cat $dataTable`
+
+	# # DEPRECATED: Linear and quadratic and cubic terms
+	# elif [ $Polynomial -eq 3 ]; then
+	
+		# echo "Severity: Linear + Quadratic + Cubic"
+		# dOutput=$dOutput/3dLME_severity_p3
+		# mkdir -p $dOutput
+		# dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_severity-poly3_dataTable.txt
+		# cd $dOutput
+		# cp $mask $(pwd)/mask.nii.gz
+		# cp $dataTable $(pwd)
+		# rm *.BRIK *.HEAD
+	
+		# /opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Severity2-poly3_x_Type3 -jobs $njobs \
+		# -mask $mask \
+		# -model '1+(ClinScore.poly1+ClinScore.poly2+ClinScore.poly3)*trial_type+Age+Sex+(1+ClinScore.poly1|Subj)' \
+		# -qVars 'ClinScore.poly1,ClinScore.poly2,ClinScore.poly3,Age' \
+		# -qVarCenters 0,0,0,62.04 \
+		# -gltCode Type2gt1_by_Severity 'trial_type : -1*1c 1*2c ClinScore.poly1 :' \
+		# -gltCode Type3gt1_by_Severity 'trial_type : -1*1c 1*3c ClinScore.poly1 :' \
+		# -gltCode Type3gt2_by_Severity 'trial_type : -1*2c 1*3c ClinScore.poly1 :' \
+		# -gltCode Type23gt1_by_Severity 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly1 :' \
+		# -gltCode Mean_by_Severity 'ClinScore.poly1 :' \
+		# -gltCode Type1_by_Severity 'trial_type : 1*1c ClinScore.poly1 :' \
+		# -gltCode Type2_by_Severity 'trial_type : 1*2c ClinScore.poly1 :' \
+		# -gltCode Type3_by_Severity 'trial_type : 1*3c ClinScore.poly1 :' \
+		# -gltCode Type2gt1_by_Severity2 'trial_type : -1*1c 1*2c ClinScore.poly2 :' \
+		# -gltCode Type3gt1_by_Severity2 'trial_type : -1*1c 1*3c ClinScore.poly2 :' \
+		# -gltCode Type3gt2_by_Severity2 'trial_type : -1*2c 1*3c ClinScore.poly2 :' \
+		# -gltCode Type23gt1_by_Severity2 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly2 :' \
+		# -gltCode Mean_by_Severity2 'ClinScore.poly2 :' \
+		# -gltCode Type1_by_Severity2 'trial_type : 1*1c ClinScore.poly2 :' \
+		# -gltCode Type2_by_Severity2 'trial_type : 1*2c ClinScore.poly2 :' \
+		# -gltCode Type3_by_Severity2 'trial_type : 1*3c ClinScore.poly2 :' \
+		# -gltCode Type2gt1_by_Severity3 'trial_type : -1*1c 1*2c ClinScore.poly3 :' \
+		# -gltCode Type3gt1_by_Severity3 'trial_type : -1*1c 1*3c ClinScore.poly3 :' \
+		# -gltCode Type3gt2_by_Severity3 'trial_type : -1*2c 1*3c ClinScore.poly3 :' \
+		# -gltCode Type23gt1_by_Severity3 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.poly3 :' \
+		# -gltCode Mean_by_Severity3 'ClinScore.poly3 :' \
+		# -gltCode Type1_by_Severity3 'trial_type : 1*1c ClinScore.poly3 :' \
+		# -gltCode Type2_by_Severity3 'trial_type : 1*2c ClinScore.poly3 :' \
+		# -gltCode Type3_by_Severity3 'trial_type : 1*3c ClinScore.poly3 :' \
+		# -dataTable \
+		# `cat $dataTable`

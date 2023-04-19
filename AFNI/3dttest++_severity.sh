@@ -4,7 +4,7 @@
 # creation date: Fri Jan 13 11:39:59 2023
 
 #QSUB
-#CON=(con_0010 con_0012 con_0013 con_0008); ROI=(0 1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_s_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++_severity.sh; done; done
+#CON=(con_0010 con_0012 con_0013); ROI=(1 2 3); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_s_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++_severity.sh; done; done
 
 # R=1
 # C=con_0010
@@ -29,16 +29,30 @@ dirA=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/${con}/
 if [ $ROI -eq 1 ]; then
 
 	# ROI analysis
-	echo "ROI analysis"
-	dOutput=$dOutput/ROI
-	mask_dset=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/BG-dysfunc_and_pareital-comp_and_striatum_dil.nii.gz
+	echo "ROI analysis - BG and parietal"
+	dOutput=$dOutput/ROI/BG_Parietal
+  mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_BG-dysfunc_and_parietal-comp_and_striatum_dil.nii.gz
+
+elif [ $ROI -eq 2 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - BG"
+	dOutput=$dOutput/ROI/BG
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_HCgtPD_Mean_Mask_bilat_and_striatum-dil.nii.gz
+
+elif [ $ROI -eq 3 ]; then
+
+	# ROI analysis
+	echo "ROI analysis - Parietal"
+	dOutput=$dOutput/ROI/Parietal
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_Neg_ClinCorr_bilat-dil-dil.nii.gz
 
 elif [ $ROI -eq 0 ]; then
 
 	# Whole-brain analysis
 	echo "Whole-brain analysis"
 	dOutput=$dOutput/WholeBrain
-	mask_dset=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin-ero.nii.gz
+	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin.nii.gz
 
 fi
 
@@ -46,17 +60,19 @@ fi
 results_dir=$dOutput/3dttest++_severity
 mkdir -p $results_dir
 cd $results_dir
-cp $mask_dset $(pwd)/mask.nii.gz
+cp $mask $(pwd)/mask.nii.gz
 cp $covars $(pwd)/${con}_covars.txt
 rm ${con}_severity*
 
 # ------------------------- process the data -------------------------
 
+
+# -resid ${con}_Severity2_resid.nii											\
+
 3dttest++ -prefix ${con}_Severity2                                                \
-		  -resid ${con}_Severity2_resid.nii											\
 		  -covariates ${covars}														\
 		  -Clustsim	32																	\
-          -mask $mask_dset                                                                \
+          -mask $mask                                                                \
           -setA setlistA                                                                  \
              0002C991F61D84B4_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU0002C991F61D84B4_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
@@ -84,6 +100,9 @@ rm ${con}_severity*
                                                                                           \
              06664E2F91AA04E0_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU06664E2F91AA04E0_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             084D50C9F60B6AEC_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU084D50C9F60B6AEC_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              085C98CE3CB8B59B_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU085C98CE3CB8B59B_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -139,6 +158,9 @@ rm ${con}_severity*
              1C34E1FD03D68AC7_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU1C34E1FD03D68AC7_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             1C52DA1EA585BF34_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU1C52DA1EA585BF34_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              1C7AEA3B0ADEB876_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU1C7AEA3B0ADEB876_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
@@ -168,6 +190,9 @@ rm ${con}_severity*
                                                                                           \
              20075E6786088974_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU20075E6786088974_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             20D139D8C639057F_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU20D139D8C639057F_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              20E3ED60D71C4BDB_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU20E3ED60D71C4BDB_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -253,6 +278,12 @@ rm ${con}_severity*
              3C2A2F759C62AEEA_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU3C2A2F759C62AEEA_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
+             3C38E2DBEDB1D512_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU3C38E2DBEDB1D512_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
+             3C43712393290EF5_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU3C43712393290EF5_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
              3C57634EE8A0414B_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU3C57634EE8A0414B_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -277,6 +308,9 @@ rm ${con}_severity*
              4AD7E84C7EE45A54_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU4AD7E84C7EE45A54_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             4AECABC81B8291EF_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU4AECABC81B8291EF_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              4C1AB897320D7D8A_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU4C1AB897320D7D8A_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -297,6 +331,9 @@ rm ${con}_severity*
                                                                                           \
              50FA20AC84D19C9D_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU50FA20AC84D19C9D_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             520EB89D579F74CE_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU520EB89D579F74CE_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
              5433A8F50C28EED0_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU5433A8F50C28EED0_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -322,6 +359,9 @@ rm ${con}_severity*
              5C25F24BD734C250_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU5C25F24BD734C250_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
+             5C283463A3867EA3_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU5C283463A3867EA3_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              5C6D29ADEA24E379_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU5C6D29ADEA24E379_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
@@ -346,6 +386,9 @@ rm ${con}_severity*
              627D79E96AB466DC_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU627D79E96AB466DC_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
+             66F1AF44563E6F13_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU66F1AF44563E6F13_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              6886340AA50ED0F6_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU6886340AA50ED0F6_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -357,6 +400,9 @@ rm ${con}_severity*
                                                                                           \
              6AB50AF4C627380A_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU6AB50AF4C627380A_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
+             6E2895037F9D639D_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU6E2895037F9D639D_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              6E6C9C134160CB8D_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU6E6C9C134160CB8D_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -528,6 +574,9 @@ rm ${con}_severity*
                                                                                           \
              B095BA226B76557A_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUB095BA226B76557A_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             B0A6FB4D3AF0D3B5_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMUB0A6FB4D3AF0D3B5_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
              B0B32692E1393605_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUB0B32692E1393605_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -753,6 +802,9 @@ rm ${con}_severity*
                                                                                           \
              F8EBD4A1FA1E13A4_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMUF8EBD4A1FA1E13A4_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
+             FAB8E98269745B2E_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMUFAB8E98269745B2E_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
              FAD42CA8190CAAF1_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMUFAD42CA8190CAAF1_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
