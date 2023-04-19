@@ -10,9 +10,9 @@
 function ExtractBetas(dir,con)
 
 if nargin<1
-    dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/3dLME_disease';
-%     dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/3dttest++_severity';
-    con = 'con_0010';
+%     dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/BG_Parietal/3dLME_severity';
+    dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/BG_Parietal/3dLME_HCvsDM';
+    con = 'con_combined';
 end
 
 dStats =  fullfile(dir, 'stats');
@@ -37,9 +37,9 @@ if(contains(dir,'3dttest++'))
         msg = strcat('Error: More than one dataTable found in ', dir);
         error(msg)
     end
-    opts = delimitedTextImportOptions("NumVariables", 4);
+    opts = delimitedTextImportOptions("NumVariables", 7);
     opts.VariableNamesLine = 1;
-    opts.VariableTypes = ["char", "double", "double", "char"];
+    opts.VariableTypes = ["char", "double", "double", "double", "double", "double", "char"];
     opts.DataLines = [2 Inf];
     opts.Delimiter = {'\t'};
     dataTable = readtable(fname_dataTable,opts);     % input table
@@ -50,8 +50,8 @@ if(contains(dir,'3dttest++'))
     spm_file_merge(dataTable.voxelwiseBA, fullfile(dStats, '4d_Cons_BA'))    % Concatenate 1st-level contrasts
     ConcatImg = spm_select('FPList', dStats, '4d_Cons_Delta.nii');
     BaselineImg = spm_select('FPList', dStats, '4d_Cons_BA.nii');
-elseif(contains(dir,'3dLME_subtype'))
-    comp = char(extractBetween(con,'con_combined_','_x_'));
+elseif(contains(dir,'3dLME_MMPvsDM') || contains(dir,'3dLME_HCvsMMP') || contains(dir,'3dLME_HCvsDM'))
+    comp = char(extractAfter(dir,'3dLME_'));
     tname = ['con_combined_disease_' comp '_dataTable.txt'];
     fname_dataTable = spm_select('FPList', dir, tname);
     if(size(fname_dataTable,1)>1)
@@ -63,6 +63,16 @@ elseif(contains(dir,'3dLME_subtype'))
     ConcatImg = spm_select('FPList', dStats, '4d_Cons.nii');
 elseif(contains(dir,'3dLME_disease'))
     tname = 'con_combined_disease_dataTable.txt';
+    fname_dataTable = spm_select('FPList', dir, tname);
+    if(size(fname_dataTable,1)>1)
+        msg = strcat('Error: More than one dataTable found in ', dir);
+        error(msg)
+    end
+    dataTable = readtable(fname_dataTable);     % input table
+    spm_file_merge(dataTable.InputFile, fullfile(dStats, '4d_Cons'))    % Concatenate 1st-level contrasts
+    ConcatImg = spm_select('FPList', dStats, '4d_Cons.nii');
+elseif(contains(dir,'3dLME_severity'))
+    tname = 'con_combined_severity_dataTable.txt';
     fname_dataTable = spm_select('FPList', dir, tname);
     if(size(fname_dataTable,1)>1)
         msg = strcat('Error: More than one dataTable found in ', dir);
@@ -91,7 +101,7 @@ for m = 1:numel(Masks)
         else
             d = spm_summarise(ConcatImg, spm_atlas('mask',IdxMask,IdxMask.labels(i).index), @mean);
             d = round(d,5);
-            colname = erase(IdxMask.info.name, {'_idxmask' '_x_' 'Group2' 'TimepointNr2-poly1' 'Type3'});
+            colname = erase(IdxMask.info.name, {'_idxmask' '_x_' 'Group2' 'TimepointNr2' 'Type3', 'Severity2', comp});
             colname = {[colname '_cid' num2str(IdxMask.labels(i).index)]};
             d = table(d,'VariableNames',colname);
         end

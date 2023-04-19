@@ -29,6 +29,7 @@ tab = rmmissing(tab,2);
 spm_file_merge(tab.InputFile, fullfile(dOutput, [COI '_' AOI '_4d_Cons']))    % Concatenate 1st-level output found in table
 img = spm_select('FPList', dOutput, [COI '_' AOI '_4d_Cons.nii']);
 mask = cellstr(spm_select('FPList', dMask, '^x_.*.nii$'));
+mask = [mask; cellstr(spm_select('FPList', dMask, '^a_Pathology1_vs_Compensation23.*.nii$'))];
 
 f = spm_vol(img);
 for m = 1:numel(mask)

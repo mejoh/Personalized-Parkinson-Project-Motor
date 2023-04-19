@@ -31,7 +31,7 @@ clusters=${PREFIX}_${EFFECT}_clusters.txt
 	  -mask ../mask.nii.gz \
 	  -nosum \
 	  -1Dformat \
-	  -inset ../${PREFIX}*+tlrc.HEAD \
+	  -inset ../${PREFIX}+tlrc.HEAD \
 	  -idat ${COEF} \
 	  -ithr ${STAT} \
 	  -NN 2 \
@@ -49,7 +49,7 @@ clusters=${PREFIX}_${EFFECT}_clusters.txt
 	  -mask ../mask.nii.gz \
 	  -nosum \
 	  -1Dformat \
-	  -inset ../${PREFIX}*+tlrc.HEAD \
+	  -inset ../${PREFIX}+tlrc.HEAD \
 	  -idat ${COEF} \
 	  -ithr ${STAT} \
 	  -NN 2 \
@@ -65,13 +65,13 @@ if [ -f "${pref_map}+tlrc.HEAD" ]; then
 	# It is unclear which of them is correct. Use at your own risk.
 	# I think 3drefit simply changes coordinate systems from RAI (AFNI default) to LPS (SPM default)
 	# Therefore, there should be no problem with using either output
-	whereami -atlas DD_Desai_MPM -omask ${pref_map}+tlrc. > ${pref_map}_a-DD-Desai-MPM.txt
-	whereami -atlas CA_MPM_22_TT  -omask ${pref_map}+tlrc. > ${pref_map}_a-CA-MPM-22-TT.txt
+	whereami -space TLRC -atlas DD_Desai_MPM -omask ${pref_map}+tlrc. > ${pref_map}_a-DD-Desai-MPM.txt
+	whereami -space TLRC -atlas CA_MPM_22_TT  -omask ${pref_map}+tlrc. > ${pref_map}_a-CA-MPM-22-TT.txt
 	3drefit -space MNI ${pref_map}+tlrc.
-	whereami -atlas CA_MPM_22_MNI  -omask ${pref_map}+tlrc. > ${pref_map}_a-CA-MPM-22-MNI.txt
-	whereami -atlas MNI_Glasser_HCP_v1.0  -omask ${pref_map}+tlrc > ${pref_map}_a-MNI-Glasser-HCP-v1.txt
-	whereami -atlas Brainnetome_1.0  -omask ${pref_map}+tlrc > ${pref_map}_a-Brainnetome-v1.txt
-	3drefit -space TLRC ${pref_map}+tlrc.
+	whereami -space MNI -spm -atlas CA_MPM_22_MNI  -omask ${pref_map}+tlrc. > ${pref_map}_a-CA-MPM-22-MNI.txt
+	whereami -space MNI -spm -atlas MNI_Glasser_HCP_v1.0  -omask ${pref_map}+tlrc > ${pref_map}_a-MNI-Glasser-HCP-v1.txt
+	whereami -space MNI -spm -atlas Brainnetome_1.0  -omask ${pref_map}+tlrc > ${pref_map}_a-Brainnetome-v1.txt
+	# 3drefit -space TLRC ${pref_map}+tlrc.
 
 	3dAFNItoNIFTI ${pref_map}+tlrc
 	3dAFNItoNIFTI ${pref_map}+tlrc
@@ -93,7 +93,12 @@ if [ -f "${pref_map}+tlrc.HEAD" ]; then
 	# whereami ${coord[@]} -space MNI -lpi -atlas $a3
 	# whereami ${coord[@]} -space MNI -lpi -atlas $a7
 		
-	
+	# Output: Mean, standard deviation, cluster size + cluster volume, coords of maximum after taking absolute values of image
+	echo "Mean SD K Vol Min Max X Y Z" > ${PREFIX}_${EFFECT}_clusters-stats.txt
+  fslstats \
+	-K ${pref_map}.nii \
+	${pref_dat}.nii \
+	-M -S -V -R -a -x >> ${PREFIX}_${EFFECT}_clusters-stats.txt
 	
 fi
 
