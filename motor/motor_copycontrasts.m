@@ -11,13 +11,13 @@ end
 
 consession = [session(1:4) session(8:13)];
 FDThresh = 10;
-% ConList = {
-%     'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005'...
-%     'con_0010' 'con_0007' 'con_0008' 'con_0012', 'con_0013'};
-ConList = {'con_0008'};
+ConList = {
+    'con_0001' 'con_0002' 'con_0003' 'con_0004' 'con_0005'...
+    'con_0010' 'con_0007' 'con_0008' 'con_0012', 'con_0013'};
+% ConList = {'con_0008'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
 BIDSDir = '/project/3022026.01/pep/bids';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-clin_ses-diff_groups-pd_2023-01-10.csv');
+% ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-clin_ses-diff_groups-pd_2023-01-10.csv');
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir), 'dir', '^sub-POM.*'));
 fprintf('Number of subjects processed: %i\n', numel(Sub))
 
@@ -91,17 +91,6 @@ end
 fprintf('%i participants excluded due to excessive motion \n', sum(Sel == 0))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
-% Percentage correct responses in external
-Sel = true(size(SubInfo.Sub));
-for n = 1:numel(SubInfo.Sub)
-    if double(SubInfo.PercentageCorrect(n)) <= 0.25
-        Sel(n) = false;
-        sprintf('Excluding %s (%s) due to %f percentage correct responses in External (Threshold = 25%) \n', SubInfo.Sub{n}, SubInfo.Group(n), SubInfo.PercentageCorrect(n))
-    end
-end
-fprintf('%i participants excluded due to poor performance \n', sum(Sel == 0))
-SubInfo = subset_subinfo(SubInfo, Sel);
-
 % Quality control: outlier exclusion
 Outliers = readtable('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Exclusions.csv');
 % Lenient option:
@@ -121,15 +110,55 @@ fprintf('%i outliers have been excluded \n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
 % Diagnosis
+diagnosis=readtable('/project/3024006.02/Data/exclusions_diagnosis.csv',...
+    'Format','%s%s%s%s');
 Sel = true(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
-    subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
-    if ClinicalConfs.Misdiagnosis(subid)>0
+    subid = find(contains(diagnosis.pseudonym, SubInfo.Sub{n}));
+    if subid>0
         fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
 end
 fprintf('%i subjects have a non-PD diagnosis, excluding these now...\n', length(Sel) - sum(Sel))
+SubInfo = subset_subinfo(SubInfo, Sel);
+
+% Percentage correct responses in one-choice
+accuracy=readtable('/project/3024006.02/Data/exclusions_accuarcy.csv');
+if(str2double(session(13))==1)
+    baseid = accuracy.TimepointNr==0;
+else
+    baseid = accuracy.TimepointNr==2;
+end
+accuracy = accuracy(baseid,:);
+Sel = true(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    subid = find(contains(accuracy.pseudonym, SubInfo.Sub{n}));
+    if subid>0
+        fprintf('Low accuracy, excluding %s...\n', SubInfo.Sub{n})
+        Sel(n) = false;
+    end
+end
+fprintf('%i participants excluded due to low accuracy \n', sum(Sel == 0))
+SubInfo = subset_subinfo(SubInfo, Sel);
+
+% Number of missing responses
+misses=readtable('/project/3024006.02/Data/exclusions_misses.csv');
+if(str2double(session(13))==1)
+    baseid = misses.TimepointNr==0;
+else
+    baseid = misses.TimepointNr==2;
+end
+misses = misses(baseid,:);
+Sel = true(size(SubInfo.Sub));
+for n = 1:numel(SubInfo.Sub)
+    subid = find(contains(misses.pseudonym, SubInfo.Sub{n}));
+    if subid>0
+        fprintf('Too many misses, excluding %s...\n', SubInfo.Sub{n})
+        Sel(n) = false;
+    end
+end
+fprintf('%i participants excluded due to excessive missing \n', sum(Sel == 0))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
 fprintf('%i subjects will be copied\n', length(SubInfo.Sub))
