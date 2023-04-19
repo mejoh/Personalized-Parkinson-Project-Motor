@@ -478,6 +478,7 @@ df %>%
 
 ```{r echo=FALSE, warning=FALSE}
 
+# Test in the whole POM cohort
 tmp <- df %>% 
         filter(ParticipantType=='PD_POM') %>%
         group_by(pseudonym) %>% 
@@ -538,6 +539,41 @@ ggemmeans(m.pigd, terms='Medication') %>% plot(add.data=TRUE, connect.lines=TRUE
 cat('Tremor\n')
 summary(m.trem)$coefficients
 ggemmeans(m.trem, terms='Medication') %>% plot(add.data=TRUE, connect.lines=TRUE)
+
+# Test medication effect in the PIT cohort, but use the scores from the POM cohort
+tmp <- df %>% 
+        filter(CrossStudyParticipation==TRUE | pseudonym == 'sub-POMU667093BC227A6F9F',
+               ParticipantType=='PD_POM') %>%
+        group_by(pseudonym) %>%
+        select(pseudonym, Age, Gender, Up3OfTotal, Up3OfBradySum, Up3OfRigiditySum, Up3OfPIGDSum, Up3OfPIGDSum_Up3Only, Up3OfCompositeTremorSum,
+               Up3OnTotal, Up3OnBradySum, Up3OnRigiditySum, Up3OnPIGDSum, Up3OnPIGDSum_Up3Only, Up3OnCompositeTremorSum) %>%
+        summarise(across(everything(), ~first(.x))) %>%
+        ungroup()
+
+tmp <- tmp %>%
+        pivot_longer(cols = starts_with('Up3'),
+                     names_to = 'Var',
+                     values_to = 'Val') %>%
+        mutate(Medication=if_else(str_detect(Var,'Up3Of'),'OFF','ON'),
+               Score=str_sub(Var,6)) %>%
+        pivot_wider(id_cols = c('pseudonym', 'Age', 'Gender','Medication'),
+                    names_from = Score,
+                    values_from = Val) %>%
+        mutate(Medication = factor(Medication)) %>% 
+        na.omit()
+
+dependent <- 'Medication'
+exploratory <- c('Total', 'BradySum', 'RigiditySum', 'PIGDSum', 'PIGDSum_Up3Only', 'CompositeTremorSum')
+tmp %>%
+        summary_factorlist(dependent,
+                           exploratory,
+                           add_dependent_label=TRUE,
+                           p = FALSE,
+                           p_cont_para = 't.test',
+                           na_include = TRUE) %>%
+        kable(., 'pipe', digits = 3) %>%
+        print()
+        
 
 ```
 
