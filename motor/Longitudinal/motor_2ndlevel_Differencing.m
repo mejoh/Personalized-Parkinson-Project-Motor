@@ -5,9 +5,9 @@
 % swapping is consistent between images, then takes the T2 - T1 difference.
 
 dGroup = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group';
-% con = {'con_0001','con_0002','con_0003','con_0004', 'con_0005',...
-%     'con_0010', 'con_0007', 'con_0008', 'con_0012', 'con_0013'};
-con = {'con_0008'};
+con = {'con_0001','con_0002','con_0003','con_0004', 'con_0005',...
+    'con_0010', 'con_0007', 'con_0008', 'con_0012', 'con_0013'};
+% con = {'con_0008'};
 
 for c = 1:numel(con)
     
