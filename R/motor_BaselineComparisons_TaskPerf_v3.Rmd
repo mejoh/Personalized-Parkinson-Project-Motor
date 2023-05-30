@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # options(width = 150)
 ```
 
-# Load libraries and functions.
+# Prepare R environment
 
 ```{r libraries, echo=FALSE, message=FALSE}
 # funcdir <- 'H:/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/'
@@ -44,6 +44,7 @@ library(lattice)
 library(viridis)
 library(extrafont)
 library(kableExtra)
+library(GGally)
 loadfonts(device='win',quiet = TRUE)
 
 sigsize=10
@@ -68,6 +69,15 @@ dfTask <- dfTask %>%
                TimepointNr = factor(TimepointNr)) %>%
         relocate(pseudonym, TimepointNr, ParticipantType) %>%
         select(-Timepoint)
+# Missed responses
+misses <- dfTask %>%
+        filter(is.na(response_time), event_type=='cue', correct_response=='Miss') %>%
+        group_by(pseudonym, ParticipantType, TimepointNr, trial_type, block) %>%
+        summarise(n_misses=n()) %>%
+        ungroup()
+dfTask <- dfTask %>%
+        left_join(., misses) %>%
+        mutate(n_misses = if_else(is.na(n_misses),0,n_misses))
 
 # fClin <- 'P:/3022026.01/pep/ClinVars2/derivatives/merged_manipulated_2022-05-25.csv'
 # fClin <- 'P:/3022026.01/pep/ClinVars3/derivatives/merged_manipulated_2022-06-16.csv'
@@ -99,6 +109,7 @@ dfClin$MostAffSide[dfClin$MostAffSide=='BiL>R'] <- 'Left'
 dfClin$MostAffSide[dfClin$MostAffSide=='LeftOnly'] <- 'Left'
 dfClin$MostAffSide[dfClin$MostAffSide=='BiR>L'] <- 'Right'
 dfClin$MostAffSide[dfClin$MostAffSide=='Right'] <- 'Right'
+dfClin$MostAffSide[dfClin$MostAffSide=='RightOnly'] <- 'Right'
 dfClin$MostAffSide[dfClin$MostAffSide=='BiR=L'] <- 'Bilateral'
 dfClin$MostAffSide[dfClin$MostAffSide=='None'] <- 'Bilateral'
 
@@ -685,6 +696,18 @@ df %>%
 # catvars <- c('Gender', 'PrefHand', 'RespondingHand', 'RespHandIsDominant')
 # cat('\n\n\n', 'Subtypes', '\n\n\n')
 # compare_demographics.subs(demo.test,numvars,catvars)
+
+```
+
+# Bradykinesia correlations
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+
+df.bcor <- dfClin %>%
+        filter(ParticipantType=='PD_POM',
+               TimepointNr==0) %>%
+        select(pseudonym, Up3OfTotal, Up3OfBradySum, MoCASum, CognitiveComposite)
+ggpairs(df.bcor[,2:5], progress = F, lower = list(continuous = 'smooth'))
 
 ```
 
@@ -1527,6 +1550,95 @@ tmp.hcvsdm <- tmp %>%
   filter(ParticipantType == 'HC' | ParticipantType == 'DM') %>%
   mutate(ParticipantType = droplevels(ParticipantType))
 compare_rts_for_hcsubtypes(f=f, tmp=tmp.hcvsdm)
+
+```
+
+# Misses
+
+## ON vs. HC
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+
+dfMiss <- dfTask %>%
+        group_by(pseudonym, ParticipantType, TimepointNr) %>%
+        summarise(n_misses = first(n_misses),
+                  total_misses = sum(n_misses,na.rm=T)) %>%
+        ungroup()
+
+ggplot(dfMiss, aes(x=total_misses_by_time)) + 
+        geom_histogram(binwidth = 1) + 
+        facet_wrap(~ParticipantType+TimepointNr,ncol = 2)
+
+g <- dfMiss %>%
+        mutate(ParticipantType=factor(ParticipantType,levels=c('HC_PIT','PD_POM'),labels=c('Control','Patient'))) %>%
+        ggplot(aes(x=TimepointNr, y = total_misses_by_time, color = ParticipantType)) +
+        geom_jitter(alpha=0.2, width=0.1) +
+        geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
+        stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5) +
+        facet_grid(~ParticipantType) + 
+        theme_bw() + 
+        scale_x_discrete(labels=c('Baseline','Two years')) +
+        scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                              direction = -1) +
+        guides(color = guide_legend(title='Group')) +
+        ggtitle('Group comparison of miss rates') +
+        ylab('Number of misses') + xlab('Time point') +
+        ylim(-1,60)
+y <- 55
+d = 3
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  2.00,  0.80,  1.80),
+        xend = c(2.00, 1.00,  2.00,  1.20,  2.20),
+        y =    c(y,    y,     y,     y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1)
+)
+sigmap <- data.frame(
+        x =     c(1.50),
+        y =     c(y),
+        label = c('***')
+)
+g <- g + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(g)
+save_plot('H:/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/Miss_fmri-lmer.png',
+          g, dpi=300, device='png', base_width = 5)
+
+# Test whether 
+f <- 'total_misses_by_time ~ ParticipantType*TimepointNr + (1|pseudonym)'
+m <- glmer(f, data = dfMiss, family = 'poisson', control=glmerControl(optimizer = 'bobyqa'))
+summary(m) %>% print()
+Anova(m,type=3) %>% print()
+effectsize(m)
+em <- emmeans(m, ~ TimepointNr|ParticipantType, type='response')
+contrast(em, interaction=c('revpairwise','revpairwise'), adjust = 'mvt', by=NULL)
+contrast(em, interaction=c('revpairwise','revpairwise'), adjust = 'mvt')
+modplot <- predictorEffects(m)
+plot(modplot)
+
+```
+
+## ON, Bradykinesia
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+
+```
+
+## OFF vs ON
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+
+```
+
+## Subtypes
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
 
 ```
 
