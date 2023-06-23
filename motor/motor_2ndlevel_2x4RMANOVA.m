@@ -20,9 +20,9 @@ spm('defaults', 'FMRI');
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri6.csv');
-baseid = ClinicalConfs.TimepointNr == 0;
-ClinicalConfs = ClinicalConfs(baseid,:);
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-06-19.csv');
+% baseid = ClinicalConfs.TimepointNr == 0;
+% ClinicalConfs = ClinicalConfs(baseid,:);
 if Offstate
     g1 = string(ClinicalConfs.ParticipantType) == "HC_PIT";
     g2 = string(ClinicalConfs.ParticipantType) == "PD_PIT";
@@ -90,7 +90,7 @@ for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
+    if ClinicalConfs.Misdiagnosis(subid)
         fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
@@ -98,6 +98,18 @@ for n = 1:numel(SubInfo.Sub)
 end
 fprintf('%i subjects have a non-PD diagnosis, excluding these now...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
+
+%% Control analysis: Right-handed MMP vs HC
+% Table = readtable('/project/3024006.02/Data/matlab/right_hand_responders(MMP_HC).csv');
+% Sel = false(size(SubInfo.Sub));
+% for n = 1:numel(SubInfo.Sub)
+%     if sum(contains(Table.pseudonym,SubInfo.Sub{n})) > 0
+%         Sel(n) = true;
+%     else
+%         Sel(n) = false;
+%     end
+% end
+% SubInfo = subset_subinfo(SubInfo, Sel);
 
 %% Collect events.json and confound files
 
@@ -127,11 +139,13 @@ for n = 1:numel(SubInfo.Sub)
     SubInfo.FD(n) = mean(FrameDisp);
 end
 
-%% Age and Gender
+%% Confounders
 
 % Interpolate age and gender
-SubInfo.Age = zeros(size(SubInfo.Sub));
-SubInfo.Gender = zeros(size(SubInfo.Sub));
+% SubInfo.Age = zeros(size(SubInfo.Sub));
+% SubInfo.Gender = zeros(size(SubInfo.Sub));
+% SubInfo.Education = zeros(size(SubInfo.Sub));
+% SubInfo.HandDominance = zeros(size(SubInfo.Sub));
 % for n = 1:numel(SubInfo.Sub)
 %     
 %     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
@@ -151,35 +165,32 @@ SubInfo.Gender = zeros(size(SubInfo.Sub));
 Sel = true(size(SubInfo.Sub));
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = zeros(size(SubInfo.Sub));
+SubInfo.Education = zeros(size(SubInfo.Sub));
+SubInfo.HandDominance = zeros(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.NpsEducYears(subid)) || isnan(ClinicalConfs.RespHandIsDominant_T0(subid))
         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
+        SubInfo.Education(n) = ClinicalConfs.NpsEducYears(subid);
+        SubInfo.HandDominance(n) = ClinicalConfs.RespHandIsDominant_T0(subid);
     end
     
 end
-fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
+fprintf('%i subjects have missing Age/Gender/Education/HandDominance, excluding...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
-% SubInfo.Gender_num = zeros(size(SubInfo.Gender));
-% for n = 1:numel(SubInfo.Gender)
-%     if strcmp(SubInfo.Gender{n}, 'Male')
-%         SubInfo.Gender_num(n) = 0;
-%     else
-%         SubInfo.Gender_num(n) = 1;
-%     end
-% end
-
 %% Demean covars
+SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
 SubInfo.Age = SubInfo.Age - mean(SubInfo.Age);
 SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
-SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
+SubInfo.Education = SubInfo.Education - mean(SubInfo.Education);
+SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
 
 %% Examine correlation structure between relevant regressors
 
@@ -210,9 +221,9 @@ if ~istrue(exclude_outliers) && istrue(Offstate)
 elseif ~istrue(exclude_outliers) && ~istrue(Offstate)
     Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOn_x_ExtInt2Int3Catch')};
 elseif istrue(exclude_outliers) && istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOff_x_ExtInt2Int3Catch_NoOutliers_CovInt')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOff_x_ExtInt2Int3Catch_NoOutliers')};
 elseif istrue(exclude_outliers) && ~istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOn_x_ExtInt2Int3Catch_NoOutliers_CovInt')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOn_x_ExtInt2Int3Catch_NoOutliers')};
 end
 
 ExtHc = dir(fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses, 'HC*'));
@@ -257,18 +268,26 @@ Inputs{9,1} = fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses, CatchPd_files)
 FD_hc = SubInfo.FD(strcmp(SubInfo.Group, 'HC_PIT'));
 Age_hc = SubInfo.Age(strcmp(SubInfo.Group, 'HC_PIT'));
 Gender_hc = SubInfo.Gender(strcmp(SubInfo.Group, 'HC_PIT'));
+Educ_hc = SubInfo.Education(strcmp(SubInfo.Group, 'HC_PIT'));
+Hand_hc = SubInfo.HandDominance(strcmp(SubInfo.Group, 'HC_PIT'));
 if Offstate
     FD_pd = SubInfo.FD(strcmp(SubInfo.Group, 'PD_PIT'));
     Age_pd = SubInfo.Age(strcmp(SubInfo.Group, 'PD_PIT'));
     Gender_pd = SubInfo.Gender(strcmp(SubInfo.Group, 'PD_PIT'));
+    Educ_pd = SubInfo.Education(strcmp(SubInfo.Group, 'PD_PIT'));
+    Hand_pd = SubInfo.HandDominance(strcmp(SubInfo.Group, 'PD_PIT'));
 else
     FD_pd = SubInfo.FD(strcmp(SubInfo.Group, 'PD_POM'));
     Age_pd = SubInfo.Age(strcmp(SubInfo.Group, 'PD_POM'));
     Gender_pd = SubInfo.Gender(strcmp(SubInfo.Group, 'PD_POM'));
+    Educ_pd = SubInfo.Education(strcmp(SubInfo.Group, 'PD_POM'));
+    Hand_pd = SubInfo.HandDominance(strcmp(SubInfo.Group, 'PD_POM'));
 end
 Inputs{10,1} = [FD_hc; FD_hc; FD_hc; FD_hc; FD_pd; FD_pd; FD_pd; FD_pd];
 Inputs{11,1} = [Age_hc; Age_hc; Age_hc; Age_hc; Age_pd; Age_pd; Age_pd; Age_pd];
 Inputs{12,1} = [Gender_hc; Gender_hc; Gender_hc; Gender_hc; Gender_pd; Gender_pd; Gender_pd; Gender_pd];
+Inputs{13,1} = [Educ_hc; Educ_hc; Educ_hc; Educ_hc; Educ_pd; Educ_pd; Educ_pd; Educ_pd];
+Inputs{14,1} = [Hand_hc; Hand_hc; Hand_hc; Hand_hc; Hand_pd; Hand_pd; Hand_pd; Hand_pd];
 
 %% Run
 

@@ -13,9 +13,9 @@ ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri6.csv');
-baseid = ClinicalConfs.TimepointNr == 0;
-ClinicalConfs = ClinicalConfs(baseid,:);
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-05-31.csv');
+% baseid = ClinicalConfs.TimepointNr == 0;
+% ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "PD_POM";
 ClinicalConfs = ClinicalConfs(logical(g1),:);
 Sub = cellstr(spm_select('List', fullfile(ANALYSESDir, GroupFolder, 'con_0001', 'ses-Visit1'), '.*sub-POM.*'));
@@ -79,7 +79,7 @@ for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
+    if ClinicalConfs.Misdiagnosis(subid)
         fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
@@ -146,35 +146,32 @@ SubInfo.Gender = zeros(size(SubInfo.Sub));
 Sel = true(size(SubInfo.Sub));
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = zeros(size(SubInfo.Sub));
+SubInfo.Education = zeros(size(SubInfo.Sub));
+SubInfo.HandDominance = zeros(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.NpsEducYears(subid)) || isnan(ClinicalConfs.RespHandIsDominant_T0(subid))
         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
+        SubInfo.Education(n) = ClinicalConfs.NpsEducYears(subid);
+        SubInfo.HandDominance(n) = ClinicalConfs.RespHandIsDominant_T0(subid);
     end
     
 end
 fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
-% SubInfo.Gender_num = zeros(size(SubInfo.Gender));
-% for n = 1:numel(SubInfo.Gender)
-%     if strcmp(SubInfo.Gender{n}, 'Male')
-%         SubInfo.Gender_num(n) = 0;
-%     else
-%         SubInfo.Gender_num(n) = 1;
-%     end
-% end
-
 %% Demean covars
+SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
 SubInfo.Age = SubInfo.Age - mean(SubInfo.Age);
 SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
-SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
+SubInfo.Education = SubInfo.Education - mean(SubInfo.Education);
+SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
 
 %% Assemble inputs
 
@@ -227,11 +224,18 @@ Gender_PD_PIT = SubInfo.Gender(strcmp(SubInfo.Group, 'PD_PIT'))';
 Gender_PD_POM = SubInfo.Gender(strcmp(SubInfo.Group, 'PD_POM'))';
 % MotorSymSev_PIT = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_PIT'))';
 % MotorSymSev_POM = SubInfo.UPDRSTotalBA(strcmp(SubInfo.Group, 'PD_POM'))';
+Educ_PD_PIT = SubInfo.Education(strcmp(SubInfo.Group, 'PD_PIT'))';
+Educ_PD_POM = SubInfo.Education(strcmp(SubInfo.Group, 'PD_POM'))';
+Hand_PD_PIT = SubInfo.HandDominance(strcmp(SubInfo.Group, 'PD_PIT'))';
+Hand_PD_POM = SubInfo.HandDominance(strcmp(SubInfo.Group, 'PD_POM'))';
 
 Inputs{10,1} = [FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM FD_PD_PIT FD_PD_POM]';
 Inputs{11,1} = [Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM Age_PD_PIT Age_PD_POM]';
 Inputs{12,1} = [Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM Gender_PD_PIT Gender_PD_POM]';
 % Inputs{13,1} = [MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM MotorSymSev_PIT MotorSymSev_POM]';
+Inputs{13,1} = [Educ_PD_PIT Educ_PD_POM Educ_PD_PIT Educ_PD_POM Educ_PD_PIT Educ_PD_POM Educ_PD_PIT Educ_PD_POM]';
+Inputs{14,1} = [Hand_PD_PIT Hand_PD_POM Hand_PD_PIT Hand_PD_POM Hand_PD_PIT Hand_PD_POM Hand_PD_PIT Hand_PD_POM]';
+
 
 %% Run
 tabulate(SubInfo.Group)

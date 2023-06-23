@@ -14,9 +14,9 @@ end
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/ClinVars_select_mri6.csv');
-baseid = ClinicalConfs.TimepointNr == 0;
-ClinicalConfs = ClinicalConfs(baseid,:);
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-06-19.csv');
+% baseid = ClinicalConfs.TimepointNr == 0;
+% ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "HC_PIT";
 g2 = string(ClinicalConfs.ParticipantType) == "PD_POM";
 ClinicalConfs = ClinicalConfs(logical(g1 + g2),:);
@@ -116,7 +116,7 @@ for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
+    if ClinicalConfs.Misdiagnosis(subid)
         fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
@@ -124,7 +124,6 @@ for n = 1:numel(SubInfo.Sub)
 end
 fprintf('%i subjects have a non-PD diagnosis, excluding these now...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
-
 
 %% Collect events.json and confound files
 
@@ -151,11 +150,13 @@ for n = 1:numel(SubInfo.Sub)
     SubInfo.FD(n) = mean(FrameDisp);
 end
 
-%% Age, Gender, 
+%% Confounders
 
 % Interpolate age and gender
 % SubInfo.Age = zeros(size(SubInfo.Sub));
 % SubInfo.Gender = zeros(size(SubInfo.Sub));
+% SubInfo.Education = zeros(size(SubInfo.Sub));
+% SubInfo.HandDominance = zeros(size(SubInfo.Sub));
 % for n = 1:numel(SubInfo.Sub)
 %     
 %     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
@@ -175,36 +176,32 @@ end
 Sel = true(size(SubInfo.Sub));
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = zeros(size(SubInfo.Sub));
+SubInfo.Education = zeros(size(SubInfo.Sub));
+SubInfo.HandDominance = zeros(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.NpsEducYears(subid)) || isnan(ClinicalConfs.RespHandIsDominant_T0(subid))
         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
+        SubInfo.Education(n) = ClinicalConfs.NpsEducYears(subid);
+        SubInfo.HandDominance(n) = ClinicalConfs.RespHandIsDominant_T0(subid);
     end
     
 end
-fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
+fprintf('%i subjects have missing Age/Gender/Education/HandDominance, excluding...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
-
-% SubInfo.Gender_num = zeros(size(SubInfo.Gender));
-% for n = 1:numel(SubInfo.Gender)
-%     if strcmp(SubInfo.Gender{n}, 'Male')
-%         SubInfo.Gender_num(n) = 0;
-%     else
-%         SubInfo.Gender_num(n) = 1;
-%     end
-% end
-
 %% Demean covars
+SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
 SubInfo.Age = SubInfo.Age - mean(SubInfo.Age);
 SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
-SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
+SubInfo.Education = SubInfo.Education - mean(SubInfo.Education);
+SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
 
 %% Examine correlation structure between relevant regressors
 
@@ -241,6 +238,8 @@ Inputs{14,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, Gro
 HealthyControl.FD = repmat(SubInfo.FD(HealthyControl.idx),4,1);
 HealthyControl.Age  = repmat(SubInfo.Age(HealthyControl.idx),4,1);
 HealthyControl.Gender  = repmat(SubInfo.Gender(HealthyControl.idx),4,1);
+HealthyControl.Educ  = repmat(SubInfo.Education(HealthyControl.idx),4,1);
+HealthyControl.Hand  = repmat(SubInfo.HandDominance(HealthyControl.idx),4,1);
 
 MildMotor.idx = contains(SubInfo.Type, 'Mild-Motor');
 MildMotor.Sub = SubInfo.Sub(MildMotor.idx);
@@ -252,6 +251,8 @@ Inputs{15,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFol
 MildMotor.FD = repmat(SubInfo.FD(MildMotor.idx),4,1);
 MildMotor.Age  = repmat(SubInfo.Age(MildMotor.idx),4,1);
 MildMotor.Gender  = repmat(SubInfo.Gender(MildMotor.idx),4,1);
+MildMotor.Educ  = repmat(SubInfo.Education(MildMotor.idx),4,1);
+MildMotor.Hand  = repmat(SubInfo.HandDominance(MildMotor.idx),4,1);
 
 Intermediate.idx = contains(SubInfo.Type, 'Intermediate');
 Intermediate.Sub = SubInfo.Sub(Intermediate.idx);
@@ -263,6 +264,8 @@ Inputs{16,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, Group
 Intermediate.FD = repmat(SubInfo.FD(Intermediate.idx),4,1);
 Intermediate.Age  = repmat(SubInfo.Age(Intermediate.idx),4,1);
 Intermediate.Gender  = repmat(SubInfo.Gender(Intermediate.idx),4,1);
+Intermediate.Educ  = repmat(SubInfo.Education(Intermediate.idx),4,1);
+Intermediate.Hand  = repmat(SubInfo.HandDominance(Intermediate.idx),4,1);
 
 DiffuseMalignant.idx = contains(SubInfo.Type, 'Diffuse-Malignant');
 DiffuseMalignant.Sub = SubInfo.Sub(DiffuseMalignant.idx);
@@ -274,10 +277,14 @@ Inputs{17,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, G
 DiffuseMalignant.FD = repmat(SubInfo.FD(DiffuseMalignant.idx),4,1);
 DiffuseMalignant.Age  = repmat(SubInfo.Age(DiffuseMalignant.idx),4,1);
 DiffuseMalignant.Gender  = repmat(SubInfo.Gender(DiffuseMalignant.idx),4,1);
+DiffuseMalignant.Educ  = repmat(SubInfo.Education(DiffuseMalignant.idx),4,1);
+DiffuseMalignant.Hand  = repmat(SubInfo.HandDominance(DiffuseMalignant.idx),4,1);
 
 Inputs{18,1} = [HealthyControl.FD; MildMotor.FD; Intermediate.FD; DiffuseMalignant.FD];
 Inputs{19,1} = [HealthyControl.Age; MildMotor.Age; Intermediate.Age; DiffuseMalignant.Age];
 Inputs{20,1} = [HealthyControl.Gender; MildMotor.Gender; Intermediate.Gender; DiffuseMalignant.Gender];
+Inputs{21,1} = [HealthyControl.Educ; MildMotor.Educ; Intermediate.Educ; DiffuseMalignant.Educ];
+Inputs{22,1} = [HealthyControl.Hand; MildMotor.Hand; Intermediate.Hand; DiffuseMalignant.Hand];
 
 %% Run
 
