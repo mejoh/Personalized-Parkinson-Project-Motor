@@ -1,7 +1,7 @@
 #!/bin/bash
 
 module load afni
-dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/BG_Parietal
+dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ON_ANALYSES/WholeBrain
 cd $dir
 source ~/scripts/Personalized-Parkinson-Project-Motor/AFNI/ExtractClusters.sh
 # nvox=`1d_tool.py -infile /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/afc/CLUSTER-TABLE.NN2_2sided.1D -csim_show_clustsize -verb 0`
@@ -31,30 +31,30 @@ extract_clusters $dir/3dttest++_severity con_0013_Severity2 T_Delta 5 5 Z $nvox
 # 3dLME - disease
 ## Combined
 nvox=`1d_tool.py -infile 3dLME_disease/con_combined_Group2_x_TimepointNr2_x_Type3.CSimA.NN2_2sided.1D -csim_show_clustsize -verb 0`
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_TimeGroupType 8 8 Chisq $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_TimeGroup 5 5 Chisq $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_GroupType 6 6 Chisq $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_TimeType 7 7 Chisq $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_Group 0 0 Chisq $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_Time 1 1 Chisq $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_Type 2 2 Chisq $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_TimeGroupType 8 8 Chisq $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_TimeGroup 5 5 Chisq $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_GroupType 6 6 Chisq $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_TimeType 7 7 Chisq $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_Group 0 0 Chisq $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_Time 1 1 Chisq $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 chi_Type 2 2 Chisq $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_TimeGroupType2gt1 10 10 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_TimeGroupType3gt1 12 12 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_TimeGroupType3gt2 14 14 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_TimeGroup 18 18 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Group 48 48 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_GroupBA 50 50 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_GroupFU 52 52 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Time 54 54 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type2gt1 56 56 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type2gt1BA 58 58 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type2gt1FU 60 60 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt1 62 62 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt1BA 64 64 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt1FU 66 66 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt2 68 68 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt2BA 70 70 Z $nvox
-extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt2FU 72 72 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Group 96 96 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_GroupBA 98 98 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_GroupFU 100 100 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Time 102 102 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type2gt1 104 104 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type2gt1BA 106 106 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type2gt1FU 108 108 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt1 110 110 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt1BA 112 112 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt1FU 114 114 Z $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt2 68 68 Z $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt2BA 70 70 Z $nvox
+# extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Type3gt2FU 72 72 Z $nvox
 ## Across choice
 nvox=`1d_tool.py -infile 3dLME_disease/con_0010_Group2_x_TimepointNr2.CSimA.NN2_2sided.1D -csim_show_clustsize -verb 0`
 extract_clusters $dir/3dLME_disease con_0010_Group2_x_TimepointNr2 chi_TimeGroup 4 4 Chisq $nvox
