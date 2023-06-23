@@ -10,16 +10,17 @@
 function ExtractBetas(dir,con)
 
 if nargin<1
-%     dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/BG_Parietal/3dLME_severity';
-    dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/BG_Parietal/3dLME_HCvsDM';
-    con = 'con_combined';
+    dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ON_ANALYSES/ROI/BG_Parietal/3dttest++_severity';
+%     dir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ROI/BG_Parietal/3dLME_HCvsDM';
+    con = 'con_0013';
 end
 
 dStats =  fullfile(dir, 'stats');
 
 % Find cluster index masks
 % Exit if none are found
-if exist(spm_select('FPList',dStats, [con '.*idxmask.nii']),'file')
+Masks = spm_select('FPList',dStats, [con '.*idxmask.nii']);
+if size(Masks,1) > 0
     msg = ['Masks found for search pattern ' [con '.*idxmask.nii'] '\n'];
     fprintf(msg)
     Masks = cellstr(spm_select('FPList',dStats, [con '.*idxmask.nii']));  % Find cluster index masks
@@ -101,7 +102,7 @@ for m = 1:numel(Masks)
         else
             d = spm_summarise(ConcatImg, spm_atlas('mask',IdxMask,IdxMask.labels(i).index), @mean);
             d = round(d,5);
-            colname = erase(IdxMask.info.name, {'_idxmask' '_x_' 'Group2' 'TimepointNr2' 'Type3', 'Severity2', comp});
+            colname = erase(IdxMask.info.name, {'_idxmask' '_x_' 'Group2' 'TimepointNr2' 'Type3', 'Severity2'});
             colname = {[colname '_cid' num2str(IdxMask.labels(i).index)]};
             d = table(d,'VariableNames',colname);
         end
@@ -112,7 +113,6 @@ outputname = fullfile(dStats, [con '_dataTable_' date '.txt']);
 writetable(dataTable, outputname)
 
 % Binary mask of all contrast images
-% Used to reslice the mask_ICV.nii mask
 % ci = ConcatImg;
 % co = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks', '3dLME_4dConsMask.nii');
 % spm_imcalc(ci, co, '(i1.^2) > 0');
