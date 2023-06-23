@@ -1,11 +1,29 @@
 #!/bin/bash
 
-#dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/HcOn_x_ExtInt2Int3Catch_NoOutliers
+# Standard analyses
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/HcOn_x_ExtInt2Int3Catch_NoOutliers
 # dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers
-#dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/Subtypes_x_ExtInt2Int3Catch_NoOutliers
-# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/OneSampleTtest_ClinCorr-Off-BABradySum_NoOutliers/Int2gtExt
-# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/OneSampleTtest_ClinCorr-Off-BABradySum_NoOutliers/Int3gtExt
-dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/OneSampleTtest_ClinCorr-Off-BABradySum_NoOutliers/Mean_ExtInt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/Subtypes_x_ExtInt2Int3Catch_NoOutliers
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Int2gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Int3gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Mean_ExtInt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_CognitiveComposite_T0_NoOutliers/Int2gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_CognitiveComposite_T0_NoOutliers/Int3gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_CognitiveComposite_T0_NoOutliers/Mean_ExtInt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Select2_T0_NoOutliers/Int2gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Select3_T0_NoOutliers/Int3gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Motor_T0_NoOutliers/Mean_ExtInt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySumCognitiveComposite_T0_NoOutliers/Int2gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySumCognitiveComposite_T0_NoOutliers/Int3gtExt
+
+# Reserve control analyses
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ReserveControl_Subtypes_x_ExtInt2Int3Catch_NoOutliers
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ReserveControl_ClinCorr-BA_Up3OfBradySumCognitiveComposite_T0_NoOutliers/Int2gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ReserveControl_ClinCorr-BA_Up3OfBradySumCognitiveComposite_T0_NoOutliers/Int3gtExt
+# dir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ReserveControl_ClinCorr-BA_Up3OfBradySumCognitiveComposite_T0_NoOutliers/Mean_ExtInt
+
+
+
 
 if [  ! "$dir" ]; then
 
