@@ -14,7 +14,7 @@ gl.loadimage('C:/Program Files/MRIcroGL/MRIcroGL_windows_20190902/Resources/stan
 #gl.orthoviewmm(-27,-46,3)
 
 # Set mosaic
-gl.mosaic("A L- H 0 -18 -6 2; 6 62 S X R 0");
+gl.mosaic("A L+ H 0 -18 2 6; 10 64 S X R 0");
 
 # Smooth interpolation of overlay 
 gl.overlayloadsmooth(0)

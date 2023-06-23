@@ -14,7 +14,7 @@ gl.loadimage('C:/Program Files/MRIcroGL/MRIcroGL_windows_20190902/Resources/stan
 #gl.orthoviewmm(-27,-46,3)
 
 # Set mosaic
-gl.mosaic("A L+ H 0 38 50 54; 58 62 S X R 0");
+gl.mosaic("A L- H 0 48 52 56; 60 64 S X R 0");
 
 # Smooth interpolation of overlay 
 gl.overlayloadsmooth(0)
@@ -23,15 +23,15 @@ gl.overlayloadsmooth(0)
 gl.sharpen()
 
 # Open overlay
-gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/Subtypes_x_ExtInt2Int3Catch_NoOutliers/x_MMPgtDM_3gt1.nii')
-gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/Subtypes_x_ExtInt2Int3Catch_NoOutliers/x_IMgtDM_3gt1.nii')
+gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_CognitiveComposite_T0_NoOutliers/Mean_ExtInt/x_Pos_Mean.nii')
+gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Mean_ExtInt/x_Neg_Mean.nii')
 
 # Set overlay display parameters; 1 indicates 1st overlay
 gl.colorname(1,"1red")
-gl.minmax(1, 3.1, 4.7)
+gl.minmax(1, 3.1, 4.5)
 gl.opacity(1, 100)
 gl.colorname(2,"3blue")
-gl.minmax(2, 3.1, 4.7)
+gl.minmax(2, 3.1, 4.5)
 gl.opacity(2, 100)
 
 # Set color bar options 
@@ -43,6 +43,7 @@ gl.backcolor(255, 255, 255)
 
 # Set shader
 gl.shadername('Standard')
+gl.shaderquality1to10(10)
 
 # Save the image 
-gl.savebmp('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/MMPgtDM_3gt1.png')
+gl.savebmp('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr_CogComp_and_Brady_Mean.nii')

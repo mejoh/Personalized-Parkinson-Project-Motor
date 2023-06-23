@@ -14,7 +14,7 @@ gl.loadimage('C:/Program Files/MRIcroGL/MRIcroGL_windows_20190902/Resources/stan
 #gl.orthoviewmm(-27,-46,3)
 
 # Set mosaic
-gl.mosaic("A L- H 0 48 52 56; 60 64 S X R 0");
+gl.mosaic("A L+ H 0 46 50 54; 58 62 S X R 0");
 
 # Smooth interpolation of overlay 
 gl.overlayloadsmooth(0)
@@ -23,8 +23,8 @@ gl.overlayloadsmooth(0)
 gl.sharpen()
 
 # Open overlay
-gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/OneSampleTtest_ClinCorr-Off-BABradySum_NoOutliers/Mean_ExtInt/x_Neg_Mean_NULL.nii.gz')
-gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/OneSampleTtest_ClinCorr-Off-BABradySum_NoOutliers/Mean_ExtInt/x_Neg_Mean.nii')
+gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Mean_ExtInt/x_Neg_Mean_NULL.nii.gz')
+gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Mean_ExtInt/x_Neg_Mean.nii')
 
 # Set overlay display parameters; 1 indicates 1st overlay
 gl.colorname(1,"8redyell")
@@ -46,4 +46,4 @@ gl.shadername('Standard')
 gl.shaderquality1to10(10)
 
 # Save the image 
-gl.savebmp('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr_Neg_Mean.nii')
+gl.savebmp('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr_Brady_Mean.nii')
