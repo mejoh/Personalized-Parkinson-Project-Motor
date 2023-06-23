@@ -13,7 +13,7 @@ bids_old = '/project/3024006.01/bids';
 bids_new = '/project/3024006.01/bids_qsm';
 acquisition = '.*acq-GRE.*run-1_T2star.*';
 
-% substr = 'POM1FM';
+% substr = 'PIT1MR';
 substr = 'PIT2MR';
 
 sub_new = cellstr(spm_select('List', bids_new, 'dir', ['^sub-' substr '.*']));
