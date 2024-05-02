@@ -1,0 +1,208 @@
+---
+title: "R Notebook"
+output: 
+ html_notebook:
+  toc: yes
+  toc_float: true
+  number_sections: true
+---
+
+```{r libs, include=F}
+library(MASS)
+library(simglm)
+library(tidyverse)
+library(GGally)
+library(ggExtra)
+library(ggeffects)
+library(lme4)
+library(rmcorr)
+set.seed(160)
+```
+
+# Simulation exercise
+
+## Simulate subject-specific intercepts and slopes
+
+```{r}
+# Determine parameters for simulation of intercepts and slopes
+# These parameters 
+N <- 350               # Sample size
+perc_drop <- 0.05      # Percentage drop-out
+mns <- c(16.50, 3.50, 6.70, 0.34)  # 1=Intercept, 2=Slope
+sds <- c(7,10,  7.47, 2.04, 1.31)
+cv_mat <- rbind(c( 1.00, -0.28, 0.05, 0.07),
+                c(-0.28,  1.00, 0.02, -0.26),
+                c(0.05,   0.02, 1.00, 0.13),
+                c(0.07,   -0.26, 0.13, 1.00))  # Covariance between intercepts and slopes
+# Note: cv_mat[4,2] and [2,4] controls 
+subj_coefs <- data.frame(mvrnorm(n = N, mu = mns, Sigma = cv_mat))  # Simulate coefficients
+colnames(subj_coefs) <- c('y_intercept', 'y_slope', 'x_intercept', 'x_slope')
+
+# Check the covariance structure between variables
+head(subj_coefs) %>% print()
+ggpairs(subj_coefs, progress = F, lower = list(continuous = 'smooth'))
+
+
+
+# REMOVABLE!! Random test of multicollinearity consequences
+mns <- c(5, 5, 5, 5)  # 1=Intercept, 2=Slope
+sds <- c(2, 2, 2, 2)
+cv_mat <- rbind(c( 1.00, 0.28, 0.28, 0.28),
+                c(0.28,  1.00, 0.02, 0.25),
+                c(0.28,   0.02, 1.00, 0.85),
+                c(0.28,   0.25, 0.85, 1.00)) 
+subj_coefs <- data.frame(mvrnorm(n = N, mu = mns, Sigma = cv_mat))  # Simulate coefficients
+colnames(subj_coefs) <- c('v1', 'v2', 'v3', 'v4')
+# Check the covariance structure between variables
+head(subj_coefs) %>% print()
+ggpairs(subj_coefs, progress = F, lower = list(continuous = 'smooth'))
+
+m1 <- lm(v1 ~ v2, data = subj_coefs)
+m2 <- lm(v1 ~ v3, data = subj_coefs)
+m3 <- lm(v1 ~ v4, data = subj_coefs)
+m4 <- lm(v1 ~ v2 + v3, data = subj_coefs)
+m5 <- lm(v1 ~ v2 + v4, data = subj_coefs)
+m6 <- lm(v1 ~ v2 + v3 + v4, data = subj_coefs)
+m7 <- lm(v1 ~ v3 + v4, data = subj_coefs)
+```
+
+## Generate data in wide format
+
+```{r}
+# Generate wide-format data set
+sim_data_w <- bind_cols(subj_id = paste('sub-', as.character(seq(1,N)), sep = ''),
+                      y_T0 = subj_coefs[,1],
+                      y_T1 = subj_coefs[,1] + 1*subj_coefs[,2] + rnorm(1, 0, 1),
+                      y_T2 = subj_coefs[,1] + 2*subj_coefs[,2] + rnorm(1, 0, 1),
+                      y_T3 = subj_coefs[,1] + 3*subj_coefs[,2] + rnorm(1, 0, 1),
+                      x_T0 = subj_coefs[,3],
+                      x_T1 = subj_coefs[,3] + 1*subj_coefs[,4] + rnorm(1, 0, 1),
+                      x_T2 = subj_coefs[,3] + 2*subj_coefs[,4] + rnorm(1, 0, 1),
+                      x_T3 = subj_coefs[,3] + 3*subj_coefs[,4] + rnorm(1, 0, 1))
+# Inject missing completely at random (MCAR)
+sim_data_w$y_T1[rbinom(nrow(sim_data_w), 1, 1*perc_drop)>0] <- NA
+sim_data_w$y_T2[rbinom(nrow(sim_data_w), 1, 2*perc_drop)>0] <- NA
+sim_data_w$y_T3[rbinom(nrow(sim_data_w), 1, 3*perc_drop)>0] <- NA
+sim_data_w$x_T1[rbinom(nrow(sim_data_w), 1, 1*perc_drop)>0] <- NA
+sim_data_w$x_T2[rbinom(nrow(sim_data_w), 1, 2*perc_drop)>0] <- NA
+sim_data_w$x_T3[rbinom(nrow(sim_data_w), 1, 3*perc_drop)>0] <- NA
+
+# Calculate deltas
+sim_data_w <- sim_data_w %>%
+        mutate(y_Td = y_T1-y_T0,
+               x_Td = x_T1-x_T0)
+
+head(sim_data_w)
+ggpairs(sim_data_w[,10:11], progress = F, lower = list(continuous = 'smooth'))
+
+# IN PROGRESS: Alternative data simulation through 'simglm'
+#https://simglm.brandonlebeau.org/articles/simulation_arguments.html#correlated-fixed-and-random-effects
+# Simulate time-varying variable #1
+sim_arguments1 <- list(
+        formula = y ~ 1 + time + (1 + time | id),
+        reg_weights = c(18, 3.5),
+        fixed = list(time = list(var_type = 'time')),
+        randomeffect = list(int_id = list(variance = 6.1, var_level = 2),
+                            time_id = list(variance = 3.2, var_level = 2)),
+        correlate = list(random = data.frame(x='int_id',
+                                             y='time_id',
+                                             corr=0.3)),
+        missing_data = list(miss_prop = 0.1, new_outcome = 'y_missing',
+                            type = 'random'),
+        sample_size = list(level1 = 5, level2 = 350)
+)
+nested_data1 <- sim_arguments1 %>%
+        simulate_fixed(data = NULL, .) %>%
+        simulate_randomeffect(sim_arguments1) %>%
+        simulate_error(sim_arguments1) %>%
+        correlate_variables(sim_arguments1) %>%
+        generate_response(sim_arguments1) %>%
+        generate_missing(sim_arguments1)
+head(nested_data1)
+s <- model_fit(nested_data1, sim_arguments1) %>%
+        summary()
+s$varcor; s$coefficients
+
+sim_arguments2 <- list(
+        formula = y ~ 1 + time + (1 + time | id),
+        reg_weights = c(5, 0.78),
+        fixed = list(time = list(var_type = 'time')),
+        randomeffect = list(int_id = list(variance = 2.8, var_level = 2),
+                            time_id = list(variance = 0.8, var_level = 2)),
+        correlate = list(random = data.frame(x='int_id',
+                                             y='time_id',
+                                             corr=0.14)),
+        missing_data = list(miss_prop = 0.1, new_outcome = 'y_missing',
+                            type = 'random'),
+        sample_size = list(level1 = 5, level2 = 350)
+)
+nested_data2 <- sim_arguments2 %>%
+        simulate_fixed(data = NULL, .) %>%
+        simulate_randomeffect(sim_arguments2) %>%
+        simulate_error(sim_arguments2) %>%
+        correlate_variables(sim_arguments2) %>%
+        generate_response(sim_arguments2) %>%
+        generate_missing(sim_arguments2)
+head(nested_data2)
+s <- model_fit(nested_data2, sim_arguments2) %>%
+        summary()
+s$varcor; s$coefficients
+
+nested_data3 <- bind_cols(id=nested_data1$id,
+                          time=nested_data1$time,
+                          x=nested_data1$y_missing,
+                          y=nested_data2$y_missing)
+
+```
+
+## Pivot to long format
+
+```{r}
+# Pivot to long-format data set
+sim_data_l1 <- sim_data_w %>%
+        select(subj_id, y_T0, y_T1, x_T0, x_T1) %>%
+ pivot_longer(cols = c(y_T0,y_T1,x_T0,x_T1),
+              names_to = c('var','time'),
+              names_pattern = '(.*)_(.*)',
+              values_to = 'val') %>%
+        mutate(time=as.numeric(factor(time))-1)
+head(sim_data_l1) %>% print()
+
+sim_data_l2 <- sim_data_l1 %>%
+        pivot_wider(id_cols = c('subj_id','time'),
+                    names_from = 'var',
+                    values_from = 'val') %>%
+ mutate(time=as.numeric(factor(time))-1)
+head(sim_data_l2) %>% print()
+
+```
+
+# One group
+# Two visits
+# Two continuous scores
+ # Both increasing
+ # Both decreasing
+ # One increasing, one decreasing
+# Random missing values
+# Inter-subject relationship
+ # Positive
+ # Negative
+# Intra-subject relationship
+ # Positive
+ # Negative
+# Covariates
+ # Time-invariant categorical
+ # Time-invariant continuous
+ # Time-varying categorical
+ # Time-varying continuous
+
+# Analyses
+ # Raw change
+ # Single-corrected raw change
+ # Double-corrected raw change
+ # Growth curve modelling
+  # Interaction with time
+  # Disaggregation
+  # Including baseline in model as covar (Fitzmaurize et al. 2015, p. 217)
+ # rmcorr
+ # Spearman

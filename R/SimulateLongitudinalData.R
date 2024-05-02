@@ -3,8 +3,8 @@
 ## the known associations.
 ## https://stirlingcodingclub.github.io/simulating_data/index.html
 
-library(tidyverse)
 library(MASS)
+library(tidyverse)
 library(GGally)
 
 set.seed(160)
@@ -53,6 +53,7 @@ sp_1 <- data.frame(subj_id, time_id, sim_data_1) %>%
  # Growth curve modelling
   # Interaction with time
   # Disaggregation
+  # Including baseline in model as covar (Fitzmaurize et al. 2015, p. 217)
  # rmcorr
  # Spearman
 
