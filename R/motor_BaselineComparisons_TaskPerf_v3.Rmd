@@ -52,9 +52,9 @@ source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclo
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
 
-sigsize=10
-lsize=0.8
-legend_position <- c(0.8,1.1)
+sigsize=7
+lsize=0.6
+legend_position <- c(0.92,1.15)
 ```
 
 # Load data
@@ -64,7 +64,7 @@ legend_position <- c(0.8,1.1)
 ```{r datafile-clin, echo=FALSE, warning=FALSE}
 
 # Read data
-fClin <- 'P:/3022026.01/pep/ClinVars4/derivatives/merged_manipulated_2022-09-28.csv'
+fClin <- 'P:/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2023-10-18.csv'
 dfClin <- read_csv(fClin, show_col_types = FALSE)
 
 # Add additional scores
@@ -140,8 +140,22 @@ dfClin <- dfClin %>%
 ## Task performance
 
 ```{r datafile-task, echo=FALSE, warning=FALSE}
-fTask <- 'P:/3022026.01/pep/bids/derivatives/manipulated_merged_motor_task_mri_2022-04-22.csv'
+# fTask <- 'P:/3022026.01/pep/bids/derivatives/merged_motor_task_mri_2023-08-11.csv'
+fTask <- 'P:/3022026.01/pep/bids/derivatives/merged_motor_task_mri_2023-09-15.csv'
 dfTask <- read_csv(fTask, show_col_types = FALSE)
+
+# LEGACY COMPATIBILITY
+dfTask <- dfTask %>%
+        mutate(trial_type = case_when(
+                trial_type == 'NChoice1' ~ '1choice',
+                trial_type == 'NChoice2' ~ '2choice',
+                trial_type == 'NChoice3' ~ '3choice',
+        ))
+
+# Aggregate by trial number
+dfTask %>%
+        group_by(pseudonym,Timepoint,trial_type,block) %>%
+        summarise(response_time=mean(response_time,na.rm=T))
 
 # FIX: Error in composite file containing task data. Two subjects have more than
 # one run. The first of two runs is always a throw-away, so here we remove it
@@ -322,7 +336,7 @@ print(n_after)
 
 ## Accuracy
 
-```{r poor_performance, echo=FALSE, eval=FALSE}
+```{r poor_performance, echo=FALSE}
 
 # Performance
 # I've tried to balance the exclusion of subjects due to poor accuracy
@@ -527,6 +541,9 @@ df.agg2 <- df.agg1 %>%
 ```
 
 # Demographics
+
+NOTE: Demographics are not correct unless you turn Exclusion > Accuracy to eval=FALSE.
+However, nothing below the demographics will be correct unless eval=TRUE.
 
 ```{r echo=FALSE, warning=FALSE}
 
@@ -983,6 +1000,36 @@ df.bcor <- dfClin %>%
         select(pseudonym, Up3OfBradySum, MoCASum, CognitiveComposite, CognitiveComposite_raw)
 ggpairs(df.bcor[,2:5], progress = F, lower = list(continuous = 'smooth')) %>% print()
 
+cor.test(df.bcor$Up3OfBradySum, df.bcor$CognitiveComposite) %>% print()
+
+# Visualize
+plotdat <- dfClin %>%
+        filter(ParticipantType=='PD_POM') %>%
+        group_by(pseudonym) %>%
+        summarise(ParticipantType=first(ParticipantType),
+                  Up3OfBradySum=first(Up3OfBradySum),
+                  CognitiveComposite=first(CognitiveComposite)) %>%
+        ungroup()
+c <- cor.test(plotdat$Up3OfBradySum, plotdat$CognitiveComposite)
+N <- plotdat  %>%
+ na.omit() %>%
+ nrow()
+plot <- ggplot(plotdat, aes(y=CognitiveComposite, x=Up3OfBradySum)) +
+        geom_point(alpha = .3, shape = 19, size = 1.5) +
+        geom_smooth(method='lm', se = TRUE, lwd = 2, color='black') +
+        ggtitle('Association between bradykinesia\n and cognitive performance') + 
+        xlab('Bradykinesia severity') +
+        ylab('Cognitive performance (z)') +
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        annotate(geom='text', x=0,y=-2.5, label = paste('N = ', N, 
+                                             ', Pearson\'s r = ', round(c$estimate,digits=3),
+                                             ', P < 0.001', sep=''),
+                  size=4, hjust=F) +
+        xlim(0,45)
+print(plot)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Corr_Brady_vs_Cog.tiff',
+          plot, dpi=300, device='tiff', base_width = 5)
+
 ```
 
 # Relationship between clinical scores and covariates
@@ -1100,13 +1147,13 @@ compare_rts <- function(f, tmp, tmp.collapsed){
         y <- 1.75
         d = 0.12
         segmap <- data.frame(
-                x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  0.80,  1.80,  1.80),
-                xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  1.00,  1.20,  2.00,  2.20),
+                x =    c(1.00, 1.00,  2.00,  0.85,  1.85,  0.85,  0.85,  1.85,  1.85),
+                xend = c(2.00, 1.00,  2.00,  1.15,  2.15,  1.00,  1.15,  2.00,  2.15),
                 y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3),
                 yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*3, y-d*2, y-d*3)
         )
         sigmap <- data.frame(
-                x =     c(1.50,  0.90,  1.00,  1.90,  2.00),
+                x =     c(1.50,  0.92,  1.00,  1.92,  2.00),
                 y =     c(y,     y-d*2, y-d*3, y-d*2, y-d*3),
                 label = c('***', '***', '***', '***', '***')
         )
@@ -1220,10 +1267,10 @@ plot <- ggplot(plotdat, aes(y=response_time, x=Up3OfBradySum, color=trial_type))
         ggtitle('Association between response \ntimes and bradykinesia') + 
         xlab('Bradykinesia severity') +
         ylab('Response time (s)') +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
         guides(color=guide_legend(title='', reverse = FALSE,
                                  title.position = 'left', label.position = 'right')) +
-        theme(legend.position = c(0.8,1.10),
+        theme(legend.position = legend_position,
               legend.key.size = unit(0.5,'cm')) +
         annotate(geom='text', x=0,y=1.6, label = paste('N = ', N, 
                                              ', β = ', round(s$coefficients[2,1],digits=3),
@@ -1294,13 +1341,13 @@ plot <- ggplot(plotdat, aes(y=response_time, x=CognitiveComposite, color=trial_t
         geom_smooth(method='lm', se = TRUE, linewidth = 2) +
         scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8,
                               direction = -1, labels = c('One','Two','Three')) +
-        ggtitle('Association between response \ntimes and cognitive function') + 
-        xlab('Cognitive function') +
+        ggtitle('Association between response \ntimes and cognitive performance') + 
+        xlab('Cognitive performance (z)') +
         ylab('Response time (s)') +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
         guides(color=guide_legend(title='', reverse = FALSE,
                                  title.position = 'left', label.position = 'right')) +
-        theme(legend.position = c(0.8,1.10),
+        theme(legend.position = legend_position,
               legend.key.size = unit(0.5,'cm')) +
         annotate(geom='text', x=-3,y=1.6, label = paste('N = ', N, 
                                              ', β = ', round(s$coefficients[2,1],digits=3),
@@ -1537,13 +1584,13 @@ compare_rts_for_medication <- function(f, tmp, tmp.collapsed){
         y <- 1.75
         d = 0.12
         segmap <- data.frame(
-                x =    c(0.80,  0.80,  1.80,  1.80),
-                xend = c(1.00,  1.20,  2.00,  2.20),
+                x =    c(0.85,  0.85,  1.85,  1.85),
+                xend = c(1.00,  1.15,  2.00,  2.15),
                 y =    c(y-d*2, y-d*3, y-d*2, y-d*3),
                 yend = c(y-d*2, y-d*3, y-d*2, y-d*3)
         )
         sigmap <- data.frame(
-                x =     c(0.90,  1.00,  1.90,  2.00),
+                x =     c(0.92,  1.00,  1.92,  2.00),
                 y =     c(y-d*2, y-d*3, y-d*2, y-d*3),
                 label = c('***', '***', '***', '***')
         )
@@ -1572,7 +1619,9 @@ ids <- df %>%
         filter(ParticipantType %in% c('PD_PIT','PD_POM'),
                CrossStudyParticipation == T) %>%
         group_by(pseudonym,ParticipantType) %>%
-        summarise(pseudonym=first(pseudonym)) %>%
+        summarise(pseudonym=first(pseudonym),
+                  response_time=mean(response_time)) %>%
+        na.omit() %>%
         ungroup() %>%
         select(pseudonym)
 OnAndOff <- ids[duplicated(ids),]
@@ -1683,31 +1732,31 @@ compare_rts_for_subtypes <- function(f, tmp, tmp.collapsed){
         y <- 1.75
         d = 0.12
         segmap <- data.frame(
-                x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  1.20,  1.80,  2.20,  0.80,  0.80,  1.80,  1.80,  2.80,  2.80),
-                xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  0.80,  1.20,  1.80,  2.20,  1.00,  1.20,  2.00,  2.20,  3.00,  3.20),
+                x =    c(1.00, 1.00,  2.00,  0.85,  1.85,  0.85,  1.15,  1.85,  2.15,  0.85,  0.85,  1.85,  1.85,  2.85,  2.85),
+                xend = c(2.00, 1.00,  2.00,  1.15,  2.15,  0.85,  1.15,  1.85,  2.15,  1.00,  1.15,  2.00,  2.15,  3.00,  3.15),
                 y =    c(y,    y,     y,     y-1*d, y-1*d, y-1*d, y-1*d, y-1*d, y-1*d, y-d*3, y-d*4, y-d*3, y-d*4, y-d*3, y-d*4),
                 yend = c(y,    y-1*d, y-1*d, y-1*d, y-1*d, y-2*d, y-2*d, y-2*d, y-2*d, y-d*3, y-d*4, y-d*3, y-d*4, y-d*3, y-d*4)
         )
         sigmap <- data.frame(
-                x =     c(1.5, 0.90,  1.00,  1.90,  2.00,  2.90,  3.00),
+                x =     c(1.5, 0.92,  1.00,  1.92,  2.00,  2.92,  3.00),
                 y =     c(y,   y-d*3, y-d*4, y-d*3, y-d*4, y-d*3, y-d*4),
                 label = c('*', '***', '***', '***', '***', '***', '***')
         )
-        plot <- plot + 
+        plot <- plot +
                 geom_segment(data=segmap,
                              mapping = aes(x=x,xend=xend,y=y,yend=yend),
                              inherit.aes = FALSE,
                              size = lsize) +
-                geom_text(data=sigmap, 
+                geom_text(data=sigmap,
                           mapping = aes(x=x,y=y,label=label),
                           inherit.aes = FALSE,
-                          size = sigsize) + 
-            geom_segment(mapping = aes(x=2,xend=3,y=y,yend=y), lwd=lsize, linetype=2) +
-            geom_segment(mapping = aes(x=3,xend=3,y=y,yend=y-1*d), lwd=lsize, linetype=2) +
-            geom_segment(mapping = aes(x=2.8,xend=3.2,y=y-1*d,yend=y-1*d), lwd=lsize, linetype=2) +
-            geom_segment(mapping = aes(x=2.8,xend=2.8,y=y-1*d,yend=y-2*d), lwd=lsize, linetype=2) +
-            geom_segment(mapping = aes(x=3.2,xend=3.2,y=y-1*d,yend=y-2*d), lwd=lsize, linetype=2) +
-            annotate(x=2.5,y=1.8,geom='text',label='+', size = sigsize-4)
+                          size = sigsize) #+
+            # geom_segment(mapping = aes(x=2,xend=3,y=y,yend=y), lwd=lsize, linetype=2) +
+            # geom_segment(mapping = aes(x=3,xend=3,y=y,yend=y-1*d), lwd=lsize, linetype=2) +
+            # geom_segment(mapping = aes(x=2.8,xend=3.2,y=y-1*d,yend=y-1*d), lwd=lsize, linetype=2) +
+            # geom_segment(mapping = aes(x=2.8,xend=2.8,y=y-1*d,yend=y-2*d), lwd=lsize, linetype=2) +
+            # geom_segment(mapping = aes(x=3.2,xend=3.2,y=y-1*d,yend=y-2*d), lwd=lsize, linetype=2) +
+            # annotate(x=2.5,y=1.8,geom='text',label='+', size = sigsize-4)
         print(plot)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/RT_Subtypes.tiff',
                   plot, dpi=300, device='tiff', base_width = 5)
@@ -1746,7 +1795,7 @@ compare_rts_for_subtypes(f=f, tmp=tmp, tmp.collapsed=tmp.collapsed)
 
 ## Subtypes vs HC: Post hoc follow-up on the subtype x choice interaction
 
-```{r echo=FALSE, warning=FALSE}
+```{r echo=FALSE, warning=FALSE, eval=FALSE}
 
 compare_rts_for_hcsubtypes <- function(f, tmp){
   
@@ -1931,10 +1980,11 @@ compare_cov <- function(f, tmp, outlier_method = 2){
                 select(ParticipantType) %>%
                 table()
         g <- raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
-                              title = '', ylab = 'Coefficient of variation', xlab = 'Group',
+                              title = '', ylab = 'Button press variability (cov)', xlab = '',
                               xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
                                           paste('PD-On', ' (n=', N[2],')', sep='')), 
-                              provided_summary = 'None')
+                              provided_summary = 'None') +
+                ylim(0,0.8)
         print(g)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPcov_HCvsON.tiff',
           g, dpi=300, device='tiff', base_width = 5)
@@ -2001,15 +2051,15 @@ plot <- ggplot(tmp, aes(y=Button.Press.CoV, x=Up3OfBradySum)) +
         geom_point(alpha = .3, shape = 19, size = 2) +
         geom_smooth(method='lm', se = FALSE, linewidth = 2, color = 'black') +
         ggtitle('') + 
-        xlab('Bradykinesia (MDS-UPDRS III)') +
-        ylab('Coefficient of variation') +
+        xlab('Bradykinesia severity') +
+        ylab('Button press variability (cov)') +
         annotate(geom='text', x=0,y=0.7, label = paste('N = ', N, 
                                              ', β = ', round(s$coefficients[2,1],digits=3),
                                              ', SE = ', round(s$coefficients[2,2],digits=3),
                                              ', P = ', round(s$coefficients[2,4],digits=3), sep=''),
                   size=4, hjust=F) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-    xlim(0,45)
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+    xlim(0,45) + ylim(0,0.8)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPcov_Corr_Brady_ON_Severity.tiff',
           plot, dpi=300, device='tiff', base_width = 5)
@@ -2049,15 +2099,15 @@ plot <- ggplot(tmp, aes(y=Button.Press.CoV, x=CognitiveComposite)) +
         geom_point(alpha = .3, shape = 19, size = 2) +
         geom_smooth(method='lm', se = FALSE, linewidth = 2, color = 'black') +
         ggtitle('') + 
-        xlab('Cognitive composite') +
-        ylab('Coefficient of variation') +
+        xlab('Cognitive performance (z)') +
+        ylab('Button press variability (cov)') +
         annotate(geom='text', x=-3,y=0.7, label = paste('N = ', N, 
                                              ', β = ', round(s$coefficients[2,1],digits=3),
                                              ', SE = ', round(s$coefficients[2,2],digits=3),
                                              ', P = ', round(s$coefficients[2,4],digits=3), sep=''),
                   size=4, hjust=F) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') + 
-    xlim(-3,2)
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') + 
+    xlim(-3,2) + ylim(0,0.8)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPcov_Corr_CogComp_ON_Severity.tiff',
           plot, dpi=300, device='tiff', base_width = 5)
@@ -2256,9 +2306,10 @@ compare_cov_for_medication <- function(f, tmp, outlier_method = 2){
                 select(ParticipantType) %>%
                 table()
         g <- raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
-                              title = '', ylab = 'Coefficient of variation', xlab = 'Group',
+                              title = '', ylab = 'Button press variability (cov)', xlab = '',
                               xticklabs = c(paste('PD-Off', ' (n=', N[1],')', sep=''),
-                                          paste('PD-On', ' (n=', N[2],')', sep='')), provided_summary = 'None')
+                                          paste('PD-On', ' (n=', N[2],')', sep='')), provided_summary = 'None') +
+                ylim(0,0.8)
         print(g)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPcov_ONvsOFF.tiff',
           g, dpi=300, device='tiff', base_width = 5)
@@ -2282,7 +2333,9 @@ ids <- df %>%
         filter(ParticipantType %in% c('PD_PIT','PD_POM'),
                CrossStudyParticipation == T) %>%
         group_by(pseudonym,ParticipantType) %>%
-        summarise(pseudonym=first(pseudonym)) %>%
+        summarise(pseudonym=first(pseudonym),
+                  Button.Press.CoV=mean(Button.Press.CoV)) %>%
+        na.omit() %>%
         ungroup() %>%
         select(pseudonym)
 OnAndOff <- ids[duplicated(ids),]
@@ -2361,11 +2414,12 @@ compare_cov_for_subtypes <- function(f, tmp, outlier_method = 2){
                 select(ParticipantType) %>%
                 table()
         g <- raincloudplot_1Factor(data=tmp, y='Button.Press.CoV', groupvar='ParticipantType',
-                              title = '', ylab = 'Coefficient of variation', xlab = 'Group',
+                              title = '', ylab = 'Button press variability (cov)', xlab = '',
                               xticklabs = c(paste('MMP', ' (n=', N[1],')', sep=''),
                                           paste('IM', ' (n=', N[2],')', sep=''),
                                           paste('DM', ' (n=', N[3],')', sep='')),
-                              color_scheme='viridis', provided_summary = 'None')
+                              color_scheme='viridis', provided_summary = 'None') +
+                ylim(0,0.8)
         print(g)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPcov_Subtypes.tiff',
           g, dpi=300, device='tiff', base_width = 5)
@@ -2495,9 +2549,10 @@ compare_switch <- function(f, tmp, outlier_method = 2){
                 select(ParticipantType) %>%
                 table()
         g <- raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
-                              title = '', ylab = 'Switch ratio', xlab = 'Group',
+                              title = '', ylab = 'Switch ratio', xlab = '',
                               xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
-                                          paste('PD-On', ' (n=', N[2],')', sep='')), provided_summary = 'None')
+                                          paste('PD-On', ' (n=', N[2],')', sep='')), provided_summary = 'None') +
+                ylim(0,1)
         print(g)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPswitch_HCvsON.tiff',
           g, dpi=300, device='tiff', base_width = 5)
@@ -2556,6 +2611,7 @@ s <- summary(fit)
 # print(s, corr=FALSE, digits = 3)
 anova <- Anova(fit,type=3)
 kable(anova,'pipe', digits = 3) %>% print()
+eta_squared(fit) %>% print()
 
 c <- cor.test(tmp$Button.Press.SwitchRatio, tmp$Up3OfBradySum)
 N <- tmp %>%
@@ -2566,15 +2622,15 @@ plot <- ggplot(tmp, aes(y=Button.Press.SwitchRatio, x=Up3OfBradySum)) +
         geom_point(alpha = .3, shape = 19, size = 2) +
         geom_smooth(method='lm', se = FALSE, linewidth = 2, color = 'black') +
         ggtitle('') + 
-        xlab('MDS-UPDRS III (bradykinesia)') +
+        xlab('Bradykinesia severity') +
         ylab('Switch ratio') +
         annotate(geom='text', x=0,y=1, label = paste('N = ', N, 
                                              ', β = ', round(s$coefficients[2,1],digits=3),
                                              ', SE = ', round(s$coefficients[2,2],digits=3),
                                              ', P = ', round(s$coefficients[2,4],digits=3), sep=''),
                   size=4, hjust=F) + 
-        theme_cowplot(font_size = 16, font_family = 'Calibri') + 
-    xlim(0,45)
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') + 
+    xlim(0,45) + ylim(0,1)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPswitch_Corr_Brady_ON_Severity.tiff',
           plot, dpi=300, device='tiff', base_width = 5)
@@ -2604,7 +2660,7 @@ s <- summary(fit)
 # print(s, corr=FALSE, digits = 3)
 anova <- Anova(fit,type=3)
 kable(anova,'pipe', digits = 3) %>% print()
-eta_squared(fit) %>%
+eta_squared(fit) %>% print()
 
 c <- cor.test(tmp$Button.Press.SwitchRatio, tmp$CognitiveComposite)
 N <- tmp %>%
@@ -2615,15 +2671,15 @@ plot <- ggplot(tmp, aes(y=Button.Press.SwitchRatio, x=CognitiveComposite)) +
         geom_point(alpha = .3, shape = 19, size = 2) +
         geom_smooth(method='lm', se = FALSE, linewidth = 2, color = 'black') +
         ggtitle('') + 
-        xlab('Cognitive composite') +
+        xlab('Cognitive performance (z)') +
         ylab('Switch ratio') +
         annotate(geom='text', x=-3,y=1, label = paste('N = ', N, 
                                              ', β = ', round(s$coefficients[2,1],digits=3),
                                              ', SE = ', round(s$coefficients[2,2],digits=3),
                                              ', P = ', round(s$coefficients[2,4],digits=3), sep=''),
                   size=4, hjust=F) + 
-        theme_cowplot(font_size = 16, font_family = 'Calibri') + 
-    xlim(-3,2)
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') + 
+    xlim(-3,2) + ylim(0,1)
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPswitch_Corr_CogCom_ON_Severity.tiff',
           plot, dpi=300, device='tiff', base_width = 5)
@@ -2819,9 +2875,10 @@ compare_switch_repeated <- function(f, tmp, outlier_method = 2){
                 select(ParticipantType) %>%
                 table()
         g <- raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
-                              title = '', ylab = 'Switch ratio', xlab = 'Group',
+                              title = '', ylab = 'Switch ratio', xlab = '',
                               xticklabs = c(paste('PD-Off', ' (n=', N[1],')', sep=''),
-                                          paste('PD-On', ' (n=', N[2],')', sep='')), provided_summary = 'None')
+                                          paste('PD-On', ' (n=', N[2],')', sep='')), provided_summary = 'None') +
+                ylim(0,1)
         print(g)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPswitch_ONvsOFF.tiff',
           g, dpi=300, device='tiff', base_width = 5)
@@ -2887,7 +2944,9 @@ ids <- df %>%
         filter(ParticipantType %in% c('PD_PIT','PD_POM'),
                CrossStudyParticipation == T) %>%
         group_by(pseudonym,ParticipantType) %>%
-        summarise(pseudonym=first(pseudonym)) %>%
+        summarise(pseudonym=first(pseudonym),
+                  Button.Press.SwitchRatio=mean(Button.Press.SwitchRatio)) %>%
+        na.omit() %>%
         ungroup() %>%
         select(pseudonym)
 OnAndOff <- ids[duplicated(ids),]
@@ -2963,11 +3022,12 @@ compare_switch_for_subtypes <- function(f, tmp, outlier_method = 2){
                 select(ParticipantType) %>%
                 table()
         g <- raincloudplot_1Factor(data=tmp, y='Button.Press.SwitchRatio', groupvar='ParticipantType',
-                              title = '', ylab = 'Switch ratio', xlab = 'Group',
+                              title = '', ylab = 'Switch ratio', xlab = '',
                               xticklabs = c(paste('MMP', ' (n=', N[1],')', sep=''),
                                           paste('IM', ' (n=', N[2],')', sep=''),
                                           paste('DM', ' (n=', N[3],')', sep='')),
-                              color_scheme = 'viridis', provided_summary = 'None')
+                              color_scheme = 'viridis', provided_summary = 'None') +
+                ylim(0,1)
         print(g)
         save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/BPswitch_Subtypes.tiff',
           g, dpi=300, device='tiff', base_width = 5)
@@ -3108,15 +3168,15 @@ compare_misses <- function(f, tmp, tmp.collapsed){
         y <- 60
         d = 6
         segmap <- data.frame(
-                x =    c(1.00, 1.00,  2.00,  0.80,  1.80),
-                xend = c(2.00, 1.00,  2.00,  1.20,  2.20),
+                x =    c(1.00, 1.00,  2.00,  0.85,  1.85),
+                xend = c(2.00, 1.00,  2.00,  1.15,  2.15),
                 y =    c(y,    y,     y,     y-d*1, y-d*1),
                 yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1)
         )
         sigmap <- data.frame(
                 x =     c(1.50),
                 y =     c(y),
-                label = c('***')
+                label = c('**')
         )
         plot <- plot +
                 geom_segment(data=segmap,
@@ -3239,15 +3299,15 @@ plot <- ggplot(plotdat, aes(y=miss_rate*100, x=Up3OfBradySum, color=trial_type))
         ggtitle('Association between miss rates \nand bradykinesia') +
         xlab('Bradykinesia severity') +
         ylab('Misses (%)') +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
         guides(color=guide_legend(title='', reverse = FALSE,
                                  title.position = 'left', label.position = 'right')) +
-        theme(legend.position = c(0.8,1.10),
+        theme(legend.position = legend_position,
               legend.key.size = unit(0.5,'cm')) +
         geom_text(x=0,y=55, label = paste('N = ', N, 
                                              ', OR = ', round(exp(tab[4,1]),digits=3),
                                              ', SE = ', round(exp(tab[4,2]),digits=3),
-                                             ', P < 0.001', sep=''),
+                                             ', P = 0.001', sep=''),
                   size=4, inherit.aes = FALSE, hjust = F) +
         ylim(0,60) + xlim(0,45)
 print(plot)
@@ -3332,13 +3392,13 @@ plot <- ggplot(plotdat, aes(y=miss_rate*100, x=CognitiveComposite, color=trial_t
         geom_smooth(method='lm', se = TRUE, lwd = 2) +
         scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8,
                               direction = -1, labels = c('One','Two','Three')) +
-        ggtitle('Association between miss rates \nand cognitive function') +
-        xlab('Cognitive function') +
+        ggtitle('Association between miss rates \nand cognitive performance') +
+        xlab('Cognitive performance (z)') +
         ylab('Misses (%)') +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
         guides(color=guide_legend(title='', reverse = FALSE,
                                  title.position = 'left', label.position = 'right')) +
-        theme(legend.position = c(0.8,1.10),
+        theme(legend.position = legend_position,
               legend.key.size = unit(0.5,'cm')) +
         geom_text(x=-3,y=55, label = paste('N = ', N, 
                                              ', OR = ', round(exp(tab[4,1]),digits=3),
@@ -3356,9 +3416,9 @@ plot <- plot_model(fit, vline.color = 'black',
                    terms = c('CognitiveComposite_Dmean',
                              'trial_type2choice:CognitiveComposite_Dmean',
                              'trial_type3choice:CognitiveComposite_Dmean'),
-                   axis.labels = c('Cognitive function, Three > One',
-                                   'Cognitive function, Two > One',
-                                   'Cognitive function'),
+                   axis.labels = c('Cognitive performance, Three > One',
+                                   'Cognitive performance, Two > One',
+                                   'Cognitive performance'),
                    show.values = T,
                    value.offset = .3,
                    width = .2) + 
@@ -3429,8 +3489,8 @@ compare_misses <- function(f, tmp, tmp.collapsed){
         y <- 60
         d = 6
         segmap <- data.frame(
-                x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  1.20,  1.80,  2.20,  0.80),
-                xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  0.80,  1.20,  1.80,  2.20,  1.20),
+                x =    c(1.00, 1.00,  2.00,  0.85,  1.85,  0.85,  1.15,  1.85,  2.15,  0.85),
+                xend = c(2.00, 1.00,  2.00,  1.15,  2.15,  0.85,  1.15,  1.85,  2.15,  1.15),
                 y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*3),
                 yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*2, y-d*2, y-d*3)
         )
@@ -3459,8 +3519,8 @@ compare_misses <- function(f, tmp, tmp.collapsed){
                            terms = c('ParticipantTypePD_POM', 'trial_type2choice', 'trial_type3choice',
                                      'ParticipantTypePD_POM:trial_type2choice',
                                      'ParticipantTypePD_POM:trial_type3choice'),
-                           axis.labels = c('PD-On > PD-Off, Three > One',
-                                           'PD-On > PD-Off, Two > One',
+                           axis.labels = c('PD-Off > PD-On, One > Three',
+                                           'PD-Off > PD-On, One > Two',
                                            'Three > One',
                                            'Two > One',
                                            'PD-On > Ctrl'),
@@ -3478,7 +3538,9 @@ ids <- df %>%
         filter(ParticipantType %in% c('PD_PIT','PD_POM'),
                CrossStudyParticipation == T) %>%
         group_by(pseudonym,ParticipantType) %>%
-        summarise(pseudonym=first(pseudonym)) %>%
+        summarise(pseudonym=first(pseudonym),
+                  miss_rate=mean(miss_rate)) %>%
+        na.omit() %>%
         ungroup() %>%
         select(pseudonym)
 OnAndOff <- ids[duplicated(ids),]
@@ -3697,13 +3759,13 @@ compare_correct <- function(f, tmp, tmp.collapsed){
         y <- 70
         d = 6
         segmap <- data.frame(
-                x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  1.20,  1.80,  2.20,  1.80,  1.80,  2.00),
-                xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  0.80,  1.20,  1.80,  2.20,  2.00,  2.20,  2.20),
+                x =    c(1.00, 1.00,  2.00,  0.85,  1.85,  0.85,  1.15,  1.85,  2.15,  1.85,  1.85,  2.00),
+                xend = c(2.00, 1.00,  2.00,  1.15,  2.15,  0.85,  1.15,  1.85,  2.15,  2.00,  2.15,  2.15),
                 y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*3, y-d*4, y-d*5),
                 yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*2, y-d*2, y-d*3, y-d*4, y-d*5)
         )
         sigmap <- data.frame(
-                x =     c(1.50, 1.90, 2.00,  2.10),
+                x =     c(1.50, 1.925, 2.00,  2.075),
                 y =     c(y,    y-d*3,    y-d*4, y-d*5),
                 label = c('*',  '*',  '***', '***')
         )
@@ -3727,8 +3789,8 @@ compare_correct <- function(f, tmp, tmp.collapsed){
                            terms = c('ParticipantTypePD_POM', 'trial_type2choice', 'trial_type3choice',
                                      'ParticipantTypePD_POM:trial_type2choice',
                                      'ParticipantTypePD_POM:trial_type3choice'),
-                           axis.labels = c('PD-On > Ctrl, Three > One',
-                                           'PD-On > Ctrl, Two > One',
+                           axis.labels = c('Ctrl > PD-On, One > Three',
+                                           'Ctrl > PD-On, One > Two',
                                            'Three > One',
                                            'Two > One',
                                            'PD-On > Ctrl'),
@@ -3828,12 +3890,12 @@ plot <- ggplot(plotdat, aes(y=error_rate*100, x=Up3OfBradySum, color=trial_type)
         ggtitle('Association between error rates \nand bradykinesia') +
         xlab('Bradykinesia severity') +
         ylab('Errors (%)') +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
         guides(color=guide_legend(title='', reverse = FALSE,
                                  title.position = 'left', label.position = 'right')) +
-        theme(legend.position = c(0.8,1.10),
+        theme(legend.position = legend_position,
               legend.key.size = unit(0.5,'cm')) +
-        geom_text(x=10,y=55, label = paste('N = ', N, 
+        geom_text(x=0,y=55, label = paste('N = ', N, 
                                              ', OR = ', round(exp(tab[4,1]),digits=3),
                                              ', SE = ', round(exp(tab[4,2]),digits=3),
                                              ', P < 0.001', sep=''),
@@ -3926,15 +3988,15 @@ plot <- ggplot(plotdat, aes(y=error_rate*100, x=CognitiveComposite, color=trial_
         geom_smooth(method='lm', se = TRUE, lwd = 2) +
         scale_color_viridis_d(option='mako', begin = .1, end = .6, alpha = .8,
                               direction = -1, labels = c('One','Two','Three')) +
-        ggtitle('Association between error rates \nand cognitive function') +
-        xlab('Cognitive function') +
+        ggtitle('Association between error rates \nand cognitive performance') +
+        xlab('Cognitive performance (z)') +
         ylab('Errors (%)') +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
         guides(color=guide_legend(title='', reverse = FALSE,
                                  title.position = 'left', label.position = 'right')) +
-        theme(legend.position = c(0.8,1.10),
+        theme(legend.position = legend_position,
               legend.key.size = unit(0.5,'cm')) +
-        geom_text(x=10,y=55, label = paste('N = ', N, 
+        geom_text(x=-3,y=55, label = paste('N = ', N, 
                                              ', OR = ', round(exp(tab[4,1]),digits=3),
                                              ', SE = ', round(exp(tab[4,2]),digits=3),
                                              ', P < 0.001', sep=''),
@@ -3954,9 +4016,9 @@ plot <- plot_model(fit, vline.color = 'black',
                    terms = c('CognitiveComposite_Dmean',
                              'trial_type2choice:CognitiveComposite_Dmean',
                              'trial_type3choice:CognitiveComposite_Dmean'),
-                   axis.labels = c('Cognitive function, Three > One',
-                                   'Cognitive function, Two > One',
-                                   'Cognitive function'),
+                   axis.labels = c('Cognitive performance, Three > One',
+                                   'Cognitive performance, Two > One',
+                                   'Cognitive performance'),
                    show.values = T,
                    value.offset = .3,
                    width = .2) + 
@@ -4186,8 +4248,10 @@ ids <- df %>%
         filter(ParticipantType %in% c('PD_PIT','PD_POM'),
                CrossStudyParticipation == T) %>%
         group_by(pseudonym,ParticipantType) %>%
-        summarise(pseudonym=first(pseudonym)) %>%
+        summarise(pseudonym=first(pseudonym),
+                  error_rate=mean(error_rate)) %>%
         ungroup() %>%
+        na.omit() %>%
         select(pseudonym)
 OnAndOff <- ids[duplicated(ids),]
 
@@ -4285,13 +4349,13 @@ compare_correct_for_subtypes <- function(f, tmp, tmp.collapsed){
         y <- 67
         d = 6
         segmap <- data.frame(
-                x =    c(1.00, 1.00,  3.00, 0.80,  2.80,  0.80,  1.00,  1.80,  2.00,  2.80,  3.00),
-                xend = c(3.00, 1.00,  3.00, 1.20,  3.20,  1.20,  1.20,  2.20,  2.20,  3.20,  3.20),
+                x =    c(1.00, 1.00,  3.00, 0.85,  2.85,  0.85,  1.00,  1.85,  2.00,  2.85,  3.00),
+                xend = c(3.00, 1.00,  3.00, 1.15,  3.15,  1.15,  1.15,  2.15,  2.15,  3.15,  3.15),
                 y =    c(y,    y,     y,    y-d*1,y-d*1, y-d*2, y-d*3, y-d*2, y-d*3, y-d*2, y-d*3),
                 yend = c(y,    y-d*1, y-d*1,y-d*1,y-d*1, y-d*2, y-d*3, y-d*2, y-d*3, y-d*2, y-d*3)
         )
         sigmap <- data.frame(
-                x =     c(1.00,  1.10,  2.00,  2.10,  3.00,  3.10),
+                x =     c(1.00,  1.075,  2.00,  2.075,  3.00,  3.075),
                 y =     c(y-d*2, y-d*3, y-d*2, y-d*3, y-d*2, y-d*3),
                 label = c('***', '***',  '***', '**',  '***', '**')
         )
@@ -4326,10 +4390,10 @@ compare_correct_for_subtypes <- function(f, tmp, tmp.collapsed){
                                      'ParticipantTypeDM:trial_type2choice',
                                      'ParticipantTypeIM:trial_type3choice',
                                      'ParticipantTypeDM:trial_type3choice'),
-                           axis.labels = c('DM > MMP, Three > One',
-                                           'IM > MMP, Three > One',
-                                           'DM > MMP, Two > One',
-                                           'IM > MMP, Two > One',
+                           axis.labels = c('MMP > DM, One > Three',
+                                           'MMP > IM, One > Three',
+                                           'MMP > DM, One > Two',
+                                           'MMP > IM, One > Two',
                                            'Three > One',
                                            'Two > One',
                                            'DM > MMP',
@@ -4808,7 +4872,9 @@ ids <- df %>%
         filter(ParticipantType %in% c('PD_PIT','PD_POM'),
                CrossStudyParticipation == T) %>%
         group_by(pseudonym,ParticipantType) %>%
-        summarise(pseudonym=first(pseudonym)) %>%
+        summarise(pseudonym=first(pseudonym),
+                  false_alarm_rate=mean(false_alarm_rate)) %>%
+        na.omit() %>%
         ungroup() %>%
         select(pseudonym)
 OnAndOff <- ids[duplicated(ids),]
@@ -4905,7 +4971,7 @@ tmp <- df %>%
 # fmri.onvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcOn_x_ExtInt2Int3Catch_NoOutliers/'
 # vois <- dir(fmri.onvshc, 'VOI.*csv', full.names = TRUE)
 # MarsBar ROI betas
-fmri.onvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/'
+fmri.onvshc <- 'P:/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/'
 vois <- dir(fmri.onvshc, '*csv', full.names = TRUE)
 regions <- c('Putamen (MAS)', 'Pre-central (4a)', 'CB (V)', 'Putamen (LAS)', 'Putamen (LAS)', 'MTG (TE1p)')
 
@@ -4978,25 +5044,26 @@ fmridat <- read_csv(csvfile, show_col_types = FALSE) %>%
         # group_by(pseudonym, Group) %>%
         # summarise(across(c(Beta), ~ mean(.x, na.rm=TRUE))) %>%
         # ungroup()
+
 N <- fmridat %>%
         filter(Cond=='1choice') %>%
         select(Group) %>%
         table()
 
-plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'), 
-                              title = 'Influence of Parkinson\'s disease\non putamen activity',
+plot <- raincloudplot_2Factor(fmridat2, 'Beta', c('Cond','Group'), 
+                              title = 'Influence of Parkinson\'s disease\non left putamen activity',
                               xlab='', ylab='Beta', 
                               xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
                                             paste('PD-On', ' (n=', N[2],')', sep='')),
                               legend_title = '',
                               legend_position = legend_position, legend_labels = c('One','Two','Three'),
-                              color_scheme = 'mako') + 
+                              color_scheme = 'mako', cloud = T) + 
         ylim(-2.5,5)
 y <- 5
 d = 0.45
 segmap <- data.frame(
-        x =    c(1.00, 1.00, 0.80,  2.00,  1.80),
-        xend = c(2.00, 1.00, 1.20,  2.00,  2.20),
+        x =    c(1.00, 1.00, 0.85,  2.00,  1.85),
+        xend = c(2.00, 1.00, 1.15,  2.00,  2.15),
         y =    c(y,    y,    y-d*1, y,     y-d*1),
         yend = c(y,    y-d*1,y-d*1, y-d*1, y-d*1)
 )
@@ -5017,6 +5084,18 @@ plot <- plot +
 print(plot)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HCvsON.tiff',
           plot, dpi=300, device='tiff', base_width = 5)
+
+# fmridat.c <- fmridat %>%
+#         group_by(pseudonym, Group) %>%
+#         summarise(across(c(Beta), ~ mean(.x, na.rm=TRUE))) %>%
+#         ungroup()
+# plot <- raincloudplot_1Factor(data=fmridat.c, y='Beta', groupvar='Group',
+#                               title = 'Influence of Parkinson\'s disease\non putamen activity',
+#                               ylab = 'Beta (mean)', xlab = '',
+#                               xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
+#                                           paste('PD-On', ' (n=', N[2],')', sep='')), provided_summary = 'None')
+# save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HCvsON_agg.tiff',
+#           plot, dpi=300, device='tiff', base_width = 4)
 
 # # Association with response times
 fmridat.rts <- fmridat %>%
@@ -5083,19 +5162,19 @@ N <- fmridat %>%
         select(Group) %>%
         table()
 plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-                              title = 'Influence of Parkinson\'s disease\non MTG activity',
+                              title = 'Influence of Parkinson\'s disease\non right TE1p activity',
                               xlab='', ylab='Beta',
                               xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
                                             paste('PD-On', ' (n=', N[2],')', sep='')),
                               legend_title = '',
                               legend_position = legend_position, legend_labels = c('One','Two','Three'),
                               color_scheme = 'mako') +
-        ylim(-5,5)
+        ylim(-4,5.5)
 y <- 5
 d = 0.6
 segmap <- data.frame(
-        x =    c(1.00, 1.00,  2.00,  0.80,  1.80,  0.80,  1.20, 1.80,  2.20),
-        xend = c(2.00, 1.00,  2.00,  1.20,  2.20,  0.80,  1.20, 1.80,  2.20),
+        x =    c(1.00, 1.00,  2.00,  0.85,  1.85,  0.85,  1.15, 1.85,  2.15),
+        xend = c(2.00, 1.00,  2.00,  1.15,  2.15,  0.85,  1.15, 1.85,  2.15),
         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*2, y-d*2)
 )
@@ -5146,8 +5225,8 @@ plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
 y <- 4.5
 d = 0.6
 segmap <- data.frame(
-        x =    c(0.90, 0.90,  1.90,  0.80,  1.80,  0.80,  1.00, 1.80,  2.00),
-        xend = c(1.90, 0.90,  1.90,  1.00,  2.00,  0.80,  1.00, 1.80,  2.00),
+        x =    c(0.925, 0.925,  1.925,  0.85,  1.85,  0.85,  1.00, 1.85,  2.00),
+        xend = c(1.925, 0.925,  1.925,  1.00,  2.00,  0.85,  1.00, 1.85,  2.00),
         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*2, y-d*2)
 )
@@ -5314,7 +5393,7 @@ Subtypes <- dfClin %>%
                        ParticipantType=='PD_POM') %>%
                 select(pseudonym, Subtype)
 
-# MMP > DM: 3 > 1, PMC
+# MMP > DM: 3 > 1, pmc
 pmc1 <- vois[3]
 csvfile1 <- pmc1
 fmridat1 <- read_csv(csvfile1, show_col_types = FALSE) %>%
@@ -5403,6 +5482,51 @@ fmridat2 <- read_csv(csvfile2, show_col_types = FALSE) %>%
 #           plot, dpi=300, device='tiff', base_height = 12, base_asp = 1.2)
 
 # MMP > DM & MMP > IM: 3 gt 1, PMC
+fmridat <- fmridat1 %>%
+        filter(Group != 'IM') %>%
+        mutate(Group=factor(Group,levels=c('MMP','DM')))
+N <- fmridat %>%
+        filter(Cond=='1choice') %>%
+        select(Group) %>%
+        table()
+
+plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
+                              title = 'Influence of subtypes on \npremotor cortex activity',
+                      xlab='', ylab='Beta',
+                      xticklabs = c(paste('MMP', ' (n=', N[1],')', sep=''),
+                                    paste('DM', ' (n=', N[2],')', sep='')),
+                      legend_title = '',
+                      legend_position = legend_position, legend_labels = c('One','Two','Three'),
+                      color_scheme = 'mako') +
+        ylim(-2,6)
+
+y <- 6
+d = 0.35
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  2.00,  0.85,  0.85,  1.15,  1.85,  1.85,  2.15),
+        xend = c(2.00, 1.00,  2.00,  1.15,  0.85,  1.15,  2.15,  1.85,  2.15),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(1.5),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(plot)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Subtypes_MMPgtDM_INT3gtEXT_PMC.tiff',
+          plot, dpi=300, device='tiff', base_width = 5)
+
+# Alternative without IM
 fmridat <- bind_cols(fmridat1, Beta2=fmridat2$Beta) %>%
         mutate(AvgBeta = (Beta+Beta2)/2)
 N <- fmridat %>%
@@ -5419,13 +5543,13 @@ plot <- raincloudplot_2Factor(fmridat, 'AvgBeta', c('Cond','Group'),
                       legend_title = '',
                       legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-2,7)
+        ylim(-1.5,6)
 
-y <- 7
+y <- 6
 d = 0.35
 segmap <- data.frame(
-        x =    c(1.00, 1.00,  3.00,  0.80,  0.80,  1.20,  2.80,  2.80,  3.20,  2.00, 2.00,  3.00,  1.80,  1.80,  2.20,  2.80,  2.80,  3.20),
-        xend = c(3.00, 1.00,  3.00,  1.20,  0.80,  1.20,  3.20,  2.80,  3.20,  3.00, 2.00,  3.00,  2.20,  1.80,  2.20,  3.20,  2.80,  3.20),
+        x =    c(1.00, 1.00,  3.00,  0.85,  0.85,  1.15,  2.85,  2.85,  3.15,  2.00, 2.00,  3.00,  1.85,  1.85,  2.15,  2.85,  2.85,  3.15),
+        xend = c(3.00, 1.00,  3.00,  1.15,  0.85,  1.15,  3.15,  2.85,  3.15,  3.00, 2.00,  3.00,  2.15,  1.85,  2.15,  3.15,  2.85,  3.15),
         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*3,y-d*3, y-d*3, y-d*4, y-d*4, y-d*4, y-d*4, y-d*4, y-d*4),
         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2, y-d*3,y-d*4, y-d*4, y-d*4, y-d*5, y-d*5, y-d*4, y-d*5, y-d*5)
 )
@@ -5515,7 +5639,7 @@ N <- fmridat.putamen %>%
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
 source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_2Factor.R')
 plot <- raincloudplot_2Factor(fmridat.putamen, 'Beta', c('Cond','Group'),
-                      title = 'Influence of subtypes on\nputamen activity',
+                      title = 'Influence of subtypes on\nleft putamen activity',
                       xlab='', ylab='Beta', 
                       xticklabs = c(paste('MMP', ' (n=', N[1],')', sep=''),
                                     paste('IM', ' (n=', N[2],')', sep=''),
@@ -5562,8 +5686,8 @@ Subtypes <- dfClin %>%
 
 # MMP > DM, mean
 
-prec <- vois[6]
-csvfile <- prec
+poistc <- vois[6]
+csvfile <- poistc
 fmridat <- read_csv(csvfile, show_col_types = FALSE) %>%
         left_join(., Subtypes, by = 'pseudonym') %>%
         select(-scans) %>%
@@ -5584,7 +5708,7 @@ N <- fmridat %>%
         table()
 
 plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-                              title = 'Influence of subtypes on\nmotor cortex activity',
+                              title = 'Influence of subtypes on\nright S1 activity',
                       xlab='', ylab='Beta',
                       xticklabs = c(paste('MMP', ' (n=', N[1],')', sep=''),
                                     paste('IM', ' (n=', N[2],')', sep=''),
@@ -5592,20 +5716,20 @@ plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
                       legend_title = '',
                       legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-3,8)
+        ylim(-2.5,7.5)
 
-y <- 8
+y <- 7.5
 d = 0.7
 segmap <- data.frame(
-        x =    c(1.00, 1.00,  3.00,  0.80, 2.80),
-        xend = c(3.00, 1.00,  3.00,  1.20, 3.20),
+        x =    c(1.00, 1.00,  3.00,  0.85, 2.85),
+        xend = c(3.00, 1.00,  3.00,  1.15, 3.15),
         y =    c(y,    y,     y,     y-d*1, y-d*1),
         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1)
 )
 sigmap <- data.frame(
         x =     c(2),
         y =     c(y),
-        label = c('**')
+        label = c('*')
 )
 plot <- plot + 
         geom_segment(data=segmap,
@@ -5617,7 +5741,7 @@ plot <- plot +
                   inherit.aes = FALSE,
                   size = sigsize)
 print(plot)
-save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Subtypes_MMPgtDM_Mean_Precentral.tiff',
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Subtypes_MMPgtDM_Mean_Postcentral.tiff',
           plot, dpi=300, device='tiff', base_width = 5)
 
 #####
@@ -5630,7 +5754,7 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Subtype
 ##### Group analysis #####
 # fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/HcImpSubtypes_x_ExtInt2Int3Catch_NoOutliers/'
 # vois <- dir(fmri.subtypes, 'VOI.*csv', full.names = TRUE)
-fmri.subtypes <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers/marsbar'
+fmri.subtypes <- 'P:/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcSubtypes_x_ExtInt2Int3Catch_NoOutliers/marsbar'
 vois <- dir(fmri.subtypes, '*csv', full.names = TRUE)
 vois <- vois[!str_detect(vois, '.*/HC_.*(IntExt).*csv')]
 regions <- c('SFG',
@@ -5727,19 +5851,19 @@ N <- fmridat %>%
         select(Group) %>%
         table()
 plot1 <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-                              title = 'Selection-related activity in\nthe inferior parietal cortex',
+                              title = 'Selection-related activity in the\nright inferior parietal cortex',
                       xlab='', ylab='Beta',
                       xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
                                     paste('MMP', ' (n=', N[2],')', sep='')),
                       legend_title = '',
                       legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-5,5)
-y <- 5
+        ylim(-5,4)
+y <- 4
 d = 0.4
 segmap <- data.frame(
-        x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20),
-        xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20),
+        x =    c(1.00, 1.00,  2.00,  0.85,  0.85,  1.15,  1.85,  1.85,  2.15),
+        xend = c(2.00, 1.00,  2.00,  1.15,  0.85,  1.15,  2.15,  1.85,  2.15),
         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
 )
@@ -5761,64 +5885,63 @@ print(plot1)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcSubtypes_MMPgtHC_INT3gtEXT_IPL.tiff',
           plot1, dpi=300, device='tiff', base_width = 5)
 
-# # MMP > HC: 3 > 1, PMC
-# mmpgthc_pmc <- vois[13]
-# csvfile2 <- mmpgthc_pmc
-# fmridat <- read_csv(csvfile2, show_col_types = FALSE) %>%
-#         left_join(., Subtypes, by = 'pseudonym') %>%
-#         select(-scans) %>%
-#         filter(Cond != 'Catch') %>%
-#         mutate(Subtype = as.character(Subtype),
-#                Subtype = if_else(is.na(Subtype),'0_Healthy', Subtype),
-#                Group = factor(Subtype,
-#                               levels = c('0_Healthy', '1_Mild-Motor','2_Intermediate','3_Diffuse-Malignant'),
-#                               labels = c('HC', 'MMP','IM','DM')),
-#                Cond = factor(Cond,
-#                              levels = c('Ext','Int2','Int3'),
-#                              labels = c('1choice','2choice','3choice'))) %>%
-#         rename(Beta = Vals) %>%
-#         na.omit()
-# 
-# N <- fmridat %>%
-#         filter(Cond=='1choice') %>%
-#         select(Group) %>%
-#         table()
-# plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-#                               title = 'PMC\n ',
-#                       xlab='', ylab='Beta',
-#                       xticklabs = c(paste('HC', ' (n=', N[1],')', sep=''),
-#                                     paste('MMP', ' (n=', N[2],')', sep=''),
-#                                     paste('IM', ' (n=', N[3],')', sep=''),
-#                                     paste('DM', ' (n=', N[4],')', sep='')),
-#                       legend_title = '',
-#                       legend_position = legend_position, legend_labels = c('One','Two','Three'),
-#                       color_scheme = 'mako') +
-#         ylim(-2,5)
-# y <- 5
-# d = 0.3
-# segmap <- data.frame(
-#         x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20),
-#         xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20),
-#         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
-#         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
-# )
-# sigmap <- data.frame(
-#         x =     c(1.50),
-#         y =     c(y),
-#         label = c('*')
-# )
-# plot <- plot + 
-#         geom_segment(data=segmap,
-#                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
-#                      inherit.aes = FALSE,
-#                      size = lsize) +
-#         geom_text(data=sigmap, 
-#                   mapping = aes(x=x,y=y,label=label),
-#                   inherit.aes = FALSE,
-#                   size = sigsize)
-# print(plot)
-# save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcSubtypes_MMPgtHC_INT3gtEXT_PMC.tiff',
-#           plot, dpi=300, device='tiff', base_width = 5)
+# # MMP > HC: 3 > 1, MTG
+mmpgthc_mtg <- vois[4]
+csvfile2 <- mmpgthc_mtg
+fmridat <- read_csv(csvfile2, show_col_types = FALSE) %>%
+  left_join(., Subtypes, by = 'pseudonym') %>%
+  select(-scans) %>%
+  filter(Cond != 'Catch') %>%
+  mutate(Subtype = as.character(Subtype),
+         Subtype = if_else(is.na(Subtype),'0_Healthy', Subtype)) %>%
+  filter(Subtype == '0_Healthy' | Subtype == '1_Mild-Motor') %>%
+  mutate(Group = factor(Subtype,
+                        levels = c('0_Healthy', '1_Mild-Motor'),
+                        labels = c('Control', 'MMP')),
+         Cond = factor(Cond,
+                       levels = c('Ext','Int2','Int3'),
+                       labels = c('1choice','2choice','3choice'))) %>%
+  rename(Beta = Vals) %>%
+  na.omit()
+
+N <- fmridat %>%
+        filter(Cond=='1choice') %>%
+        select(Group) %>%
+        table()
+plot1 <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
+                              title = 'Selection-related activity in\nthe right TE1p',
+                      xlab='', ylab='Beta',
+                      xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
+                                    paste('MMP', ' (n=', N[2],')', sep='')),
+                      legend_title = '',
+                      legend_position = legend_position, legend_labels = c('One','Two','Three'),
+                      color_scheme = 'mako') +
+        ylim(-2,3.5)
+y <- 3.5
+d = 0.4
+segmap <- data.frame(
+        x =    c(1.00, 1.00,  2.00,  0.85,  0.85,  1.15,  1.85,  1.85,  2.15),
+        xend = c(2.00, 1.00,  2.00,  1.15,  0.85,  1.15,  2.15,  1.85,  2.15),
+        y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
+        yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(1.50),
+        y =     c(y),
+        label = c('**')
+)
+plot1 <- plot1 + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(plot1)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcSubtypes_MMPgtHC_INT3gtEXT_MTG.tiff',
+          plot1, dpi=300, device='tiff', base_width = 5)
 
 # HC > DM: 3 > 1, PMC
 hcgtdm_pmc <- vois[1]
@@ -5844,26 +5967,26 @@ N <- fmridat %>%
         select(Group) %>%
         table()
 plot2 <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-                              title = 'Selection-related activity in\nthe premotor cortex',
+                              title = 'Selection-related activity in\nthe left premotor cortex',
                       xlab='', ylab='Beta',
                       xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
                                     paste('DM', ' (n=', N[2],')', sep='')),
                       legend_title = '',
                       legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-3,8)
-y <- 8
+        ylim(-3,6.5)
+y <- 6.5
 d = 0.35
 segmap <- data.frame(
-        x =    c(1.00, 1.00,  2.00,  0.80,  0.80,  1.20,  1.80,  1.80,  2.20),
-        xend = c(2.00, 1.00,  2.00,  1.20,  0.80,  1.20,  2.20,  1.80,  2.20),
+        x =    c(1.00, 1.00,  2.00,  0.85,  0.85,  1.15,  1.85,  1.85,  2.15),
+        xend = c(2.00, 1.00,  2.00,  1.15,  0.85,  1.15,  2.15,  1.85,  2.15),
         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
 )
 sigmap <- data.frame(
         x =     c(1.5),
         y =     c(y),
-        label = c('***')
+        label = c('**')
 )
 plot2 <- plot2 + 
         geom_segment(data=segmap,
@@ -5877,65 +6000,6 @@ plot2 <- plot2 +
 print(plot2)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcSubtypes_HCgtDM_INT3gtEXT_PMC.tiff',
           plot2, dpi=300, device='tiff', base_width = 5)
-
-# HC > DM: 3 > 1, lPMC
-# hcgtdm_pmc <- vois[2]
-# csvfile2 <- hcgtdm_pmc
-# fmridat <- read_csv(csvfile2, show_col_types = FALSE) %>%
-#         left_join(., Subtypes, by = 'pseudonym') %>%
-#         select(-scans) %>%
-#         filter(Cond != 'Catch') %>%
-#         mutate(Subtype = as.character(Subtype),
-#                Subtype = if_else(is.na(Subtype),'0_Healthy', Subtype),
-#                Group = factor(Subtype,
-#                               levels = c('0_Healthy', '1_Mild-Motor','2_Intermediate','3_Diffuse-Malignant'),
-#                               labels = c('HC', 'MMP','IM','DM')),
-#                Cond = factor(Cond,
-#                              levels = c('Ext','Int2','Int3'),
-#                              labels = c('1choice','2choice','3choice'))) %>%
-#         rename(Beta = Vals) %>%
-#         na.omit()
-# 
-# N <- fmridat %>%
-#         filter(Cond=='1choice') %>%
-#         select(Group) %>%
-#         table()
-# plot <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-#                               title = 'Task-related activity in the most \naffected premotor cortex',
-#                       xlab='', ylab='Beta',
-#                       xticklabs = c(paste('HC', ' (n=', N[1],')', sep=''),
-#                                     paste('MMP', ' (n=', N[2],')', sep=''),
-#                                     paste('IM', ' (n=', N[3],')', sep=''),
-#                                     paste('DM', ' (n=', N[4],')', sep='')),
-#                       legend_title = '',
-#                       legend_position = legend_position, legend_labels = c('One','Two','Three'),
-#                       color_scheme = 'mako') +
-#         ylim(-3,8)
-# y <- 8
-# d = 0.5
-# segmap <- data.frame(
-#         x =    c(1.00, 1.00,  4.00,  0.80,  0.80,  1.20,  3.80,  3.80,  4.20),
-#         xend = c(4.00, 1.00,  4.00,  1.20,  0.80,  1.20,  4.20,  3.80,  4.20),
-#         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
-#         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*1, y-d*2, y-d*2)
-# )
-# sigmap <- data.frame(
-#         x =     c(2.5),
-#         y =     c(y),
-#         label = c('***')
-# )
-# plot <- plot + 
-#         geom_segment(data=segmap,
-#                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
-#                      inherit.aes = FALSE,
-#                      size = lsize) +
-#         geom_text(data=sigmap, 
-#                   mapping = aes(x=x,y=y,label=label),
-#                   inherit.aes = FALSE,
-#                   size = sigsize)
-# print(plot)
-# save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcSubtypes_HCgtDM_INT3gtEXT_PMC.tiff',
-#           plot, dpi=300, device='tiff')
 
 # IM > HC: 2 > 1, rPutamen
 imgthc_put <- vois[2]
@@ -5961,19 +6025,19 @@ N <- fmridat %>%
         select(Group) %>%
         table()
 plot3 <- raincloudplot_2Factor(fmridat, 'Beta', c('Cond','Group'),
-                              title = 'Selection-related activity in\nthe premotor cortex',
+                              title = 'Selection-related activity in\nthe right putamen',
                       xlab='', ylab='Beta',
                       xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
                                     paste('IM', ' (n=', N[2],')', sep='')),
                       legend_title = '',
                       legend_position = legend_position, legend_labels = c('One','Two','Three'),
                       color_scheme = 'mako') +
-        ylim(-3,5)
-y <- 5
+        ylim(-2.5,4.5)
+y <- 4.5
 d = 0.35
 segmap <- data.frame(
-        x =    c(0.90, 0.90,  1.90,  0.80,  1.80,  0.80,  1.00, 1.80,  2.00),
-        xend = c(1.90, 0.90,  1.90,  1.00,  2.00,  0.80,  1.00, 1.80,  2.00),
+        x =    c(0.925, 0.925,  1.925,  0.85,  1.85,  0.85,  1.00, 1.85,  2.00),
+        xend = c(1.925, 0.925,  1.925,  1.00,  2.00,  0.85,  1.00, 1.85,  2.00),
         y =    c(y,    y,     y,     y-d*1, y-d*1, y-d*1, y-d*1, y-d*1, y-d*1),
         yend = c(y,    y-d*1, y-d*1, y-d*1, y-d*1, y-d*2, y-d*2, y-d*2, y-d*2)
 )
@@ -5994,11 +6058,6 @@ plot3 <- plot3 +
 print(plot3)
 save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcSubtypes_IMgtHC_2gt1_Put.tiff',
           plot3, dpi=300, device='tiff', base_width = 5)
-
-
-common_plot <- ggarrange(plot1, plot2, ncol = 1, nrow = 2, common.legend = FALSE)
-save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_HcSubtypes_MMPgtHC&HCgtDM.tiff',
-          common_plot, dpi=300, device='tiff', base_width = 3)
 
 #####
 
@@ -6040,7 +6099,7 @@ for(v in 1:length(vois)){
                 geom_smooth(aes(color=Subtype), method = 'lm', se = FALSE, lwd = 2,) +
                 ggtitle(basename(paste(csvfile, unique(fmridat$Cond), ':', regions[v], 'r=', round(c$estimate, digits = 3), sep = ' '))) + 
                 theme_cowplot(font_size = 20) +
-                xlab('Bradykinesia (MDS-UPDRS III)')
+                xlab('Bradykinesia severity')
         print(p)
         
 }
@@ -6131,8 +6190,8 @@ plot <- ggplot(fmridat, aes(x=Up3OfBradySum, y=Beta_scaled, color=Region)) +
                                                 '***', sep=''))) +
         ggtitle('Correlation between motor-related\nactivity and bradykinesia') + 
         guides(color=guide_legend(title='', reverse = TRUE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
         xlab('Bradykinesia severity') +
         ylab('Standardized beta') +
@@ -6237,8 +6296,8 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfBradySum, y=Beta_scaled, color=fc
                                                 '', sep=''))) +
         ggtitle('Correlation between selection-related\nactivity and bradykinesia') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
         xlab('Bradykinesia severity') +
         ylab('Standardized beta') + 
@@ -6321,7 +6380,7 @@ for(v in 1:length(vois)){
                 geom_smooth(aes(color=Subtype), method = 'lm', se = FALSE, lwd = 2,) +
                 ggtitle(basename(paste(csvfile, unique(fmridat$Cond), ':', regions[v], 'r=', round(c$estimate, digits = 3), sep = ' '))) + 
                 theme_cowplot(font_size = 20) +
-                xlab('Cognitive impairment (composite measure)')
+                xlab('Cognitive performance (z)')
         print(p)
         
 }
@@ -6410,12 +6469,12 @@ plot <- ggplot(fmridat, aes(x=CognitiveComposite, y=Beta_scaled, color=Region)) 
                                                 '', sep=''),
                                           paste('Precentral', ' (n=', N[1],')',
                                                 '***', sep=''))) +
-        ggtitle('Correlation between motor-related\nactivity and cognitive function') + 
+        ggtitle('Correlation between motor-related\nactivity and cognitive performance') + 
         guides(color=guide_legend(title='', reverse = TRUE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
-        xlab('Cognitive function') +
+        xlab('Cognitive performance (z)') +
         ylab('Standardized beta') +
         ylim(-4,5) + 
   facet_grid(~Region)
@@ -6516,12 +6575,12 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=CognitiveComposite, y=Beta_scaled, col
                                                 '***', sep=''),
                                           paste('Putamen', ' (n=', N[1],')',
                                                 '', sep=''))) +
-        ggtitle('Correlation between selection-related\nactivity and cognitive function') + 
+        ggtitle('Correlation between selection-related\nactivity and cognitive performance') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
-        xlab('Cognitive function') +
+        xlab('Cognitive performance (z)') +
         ylab('Standardized beta') + 
   ylim(-3,6) +
   facet_grid(~Region)
@@ -6617,7 +6676,7 @@ for(v in 1:length(vois)){
                                                regions[v], 'r=', round(c$estimate, digits = 3),
                                                sep = ' '))) + 
                         theme_cowplot(font_size = 20) +
-                        xlab('Cognitive impairment')
+                        xlab('Cognitive performance (z)')
                 print(p)
         }
         
@@ -6778,13 +6837,13 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=Up3OfBradySum, y=Beta_scaled,
         scale_colour_viridis_d(option='mako', begin = 0.1, end = .6, alpha = .8,
                                direction = -1,
                                labels = c(paste('SPL', ' (n=', N[1],')',
-                                                '***', sep=''),
+                                                '**', sep=''),
                                           paste('Putamen', ' (n=', N[1],')',
                                                 '', sep=''))) +
         ggtitle('Correlation between selection-related\nactivity and bradykinesia') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
         xlab('Bradykinesia severity') +
         ylab('Standardized beta') + 
@@ -6852,15 +6911,15 @@ plot <- ggplot(fmridat.PMC_putamen, aes(x=CognitiveComposite, y=Beta_scaled,
         scale_colour_viridis_d(option='mako', begin = 0.1, end = .6, alpha = .8,
                                direction = -1,
                                labels = c(paste('PMC', ' (n=', N[1],')',
-                                                '***', sep=''),
+                                                '**', sep=''),
                                           paste('Putamen', ' (n=', N[1],')',
                                                 '', sep=''))) +
-        ggtitle('Correlation between selection-related\nactivity and cognitive function') + 
+        ggtitle('Correlation between selection-related\nactivity and cognitive performance') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
-        xlab('Cognitive function') +
+        xlab('Cognitive performance (z)') +
         ylab('Standardized beta') + 
   ylim(-3,5) +
   facet_grid(~Region)
@@ -6874,7 +6933,7 @@ save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/Brain_Corr_Br
 
 ## Response times
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
 
 fmri.oncorr1 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Motor_T0_NoOutliers/Mean_ExtInt/marsbar'
 fmri.oncorr2 <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Select2_T0_NoOutliers/Int2gtExt/marsbar'
@@ -7046,8 +7105,8 @@ plot <- ggplot(fmridat, aes(x=Motor, y=Beta_scaled, color=Region)) +
                                                 '***', sep=''))) +
         ggtitle('Correlation between motor-related\nactivity and mean response time') + 
         guides(color=guide_legend(title='', reverse = TRUE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
         xlab('Mean response time (s)') +
         ylab('Standardized beta') +
@@ -7128,8 +7187,8 @@ plot <- ggplot(fmridat.SPL_putamen, aes(x=AS_3gt1, y=Beta_scaled, color=fct_rev(
                                                 '', sep=''))) +
         ggtitle('Correlation between selection-related\nactivity and action selection') + 
         guides(color=guide_legend(title='', reverse = FALSE)) +
-        theme_cowplot(font_size = 16, font_family = 'Calibri') +
-        theme(legend.position = c(0.02,0.9),
+        theme_sjplot2(base_size = 16, base_family = 'Calibri') +
+        theme(legend.position = c(0.25,0.95),
               legend.key.size = unit(0.5,'cm')) +
         xlab('Three > One (response time, s)') +
         ylab('Standardized beta') + 
@@ -7199,6 +7258,12 @@ prep_roi_dat <- function(roi_data, roi_to_cols=TRUE){
 }
 
 # Prep data
+severity <- dfClin %>%
+        filter(ParticipantType == 'PD_POM',
+               TimepointNr == 0) %>%
+        select(pseudonym, Up3OfBradySum, CognitiveComposite)
+
+# Investigating functional results
 vbm_hc.vs.pd <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/HCvsPD/marsbar/roi_data.csv') %>%
   prep_roi_dat(., roi_to_cols=TRUE)
 vbm_hc.vs.pd <- vbm_hc.vs.pd %>%
@@ -7220,12 +7285,25 @@ vbm_subtypes <- vbm_subtypes %>%
 vbm_hc.vs.subtypes <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/HcSubtypes/marsbar/roi_data.csv') %>%
   prep_roi_dat(., roi_to_cols=TRUE)
 vbm_hc.vs.subtypes <- left_join(vbm_hc.vs.subtypes,types,by='pseudonym') %>%
-  relocate(pseudonym, group, Subtype)
+        relocate(pseudonym, group, Subtype)
 vbm_hc.vs.subtypes <- vbm_hc.vs.subtypes %>%
         mutate(group = factor(group,levels = c('HC','PD'),labels = c(0,1)),
                MaskFlip = factor(MaskFlip,levels = c('nf','f'),labels = c(0,1)),
                Subtype = factor(Subtype)) %>%
     filter(Contrast %in% c('MMPgtHC_3gt1','HCgtDM_3gt1','HCgtMMP_Mean','HCgtIM_Mean','HCgtDM_Mean'))
+
+# Whole-brain VBM analysis
+vbm_hcgtpd.wb <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/HCvsPD/marsbar/roi_data_WholeBrain.csv')
+vbm_hcgtpd.wb <- vbm_hcgtpd.wb %>% 
+        rename(vmPFC = x_HCgtPD_Mask_2,
+               occiptemp = x_HCgtPD_Mask_1) %>%
+        left_join(., severity, by = 'pseudonym')
+vbm_subtype.wb <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/Subtypes/marsbar/roi_data_WholeBrain.csv')
+vbm_subtype.wb <- vbm_subtype.wb %>%
+        rename(vmPFC = `MMP_DM_-18_50_-3`)
+vbm_subtype.wb <- left_join(vbm_subtype.wb,types,by='pseudonym') %>%
+        relocate(pseudonym, group, Subtype) %>% 
+        left_join(., severity, by = 'pseudonym')
 
 # Contrasts are selected for correlation analysis based on significant group
 # differences in the VBM analyses below
@@ -7235,37 +7313,7 @@ vbm_pd.for.corr <- vbm_pd.for.corr %>%
         mutate(group = factor(group,levels = c('HC','PD'),labels = c(0,1)),
                MaskFlip = factor(MaskFlip,levels = c('nf','f'),labels = c(0,1))) %>%
     filter(group==1) %>%
-    filter(Contrast %in% c('PDgtHC_3gt1','MMPgtDM_Mean', 'MMPgtHC_3gt1'))
-
-# vbm_pd.for.corr <- read_csv('P:/3024006.02/Analyses/CAT12/stats/VBM_shooting-custom/HCvsPD/roi_data_for_correlations_only.csv') %>%
-#         prep_roi_dat(., roi_to_cols = TRUE) %>%
-#         arrange(pseudonym, group)
-# vbm_pd.for.corr <- vbm_pd.for.corr %>%
-#         mutate(group = factor(group,levels = c('HC','PD'),labels = c(0,1)),
-#                MaskFlip = factor(MaskFlip,levels = c('nf','f'),labels = c(0,1))) %>%
-#         filter(group==1)
-
-
-# # Visualize
-# ggplot(df.HCgtPD_Mean, aes(y = ROI_1, x = group)) + 
-#   geom_boxplot()
-# df.HCgtPD_Mean %>%
-#   pivot_longer(cols = starts_with('ROI_'),
-#                values_to = 'volume',
-#                names_to = 'ROI',
-#                names_prefix = 'ROI_') %>%
-#   ggplot(aes(y = volume, x = ROI, fill = group)) +
-#   geom_boxplot()
-
-# Test
-# ma <- manova(cbind(ROI_1,ROI_2,ROI_3,ROI_4,ROI_5,ROI_6) ~ group, data = df.HCgtPD_Mean)
-# s <- summary(ma)
-# print(s)
-# s.aov <- summary.aov(ma)
-# print(s.aov)
-# em <- emmeans(ma, ~ group)
-# summary(em)
-# emmip(em, ~ group, CIs = TRUE)
+    filter(Contrast %in% c('PDgtHC_3gt1', 'MMPgtDM_Mean', 'MMPgtHC_3gt1'))
 
 # Make a list of subjects that were included in the functional analyses, used later for the VBM comparison
 fmri.onvshc <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/'
@@ -7353,6 +7401,66 @@ for(c in cons){
   
 }
 
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R')
+N <- vbm_hcgtpd.wb  %>% 
+        group_by(pseudonym, group) %>%
+        summarise(pseudonym=first(pseudonym),
+                  group=first(group)) %>%
+        na.omit() %>%
+        ungroup() %>%
+        select(group) %>%
+        table()
+plot <- raincloudplot_1Factor(data=vbm_hcgtpd.wb, y='occiptemp', groupvar='group',
+                           title = 'Influence of Parkinson\'s disease on\noccipito-temporal grey matter volume', ylab = 'Grey matter volume', xlab = '',
+                           xticklabs = c(paste('Control', ' (n=', N[1],')', sep=''),
+                                         paste('PD-On', ' (n=', N[2],')', sep='')),
+                           color_scheme='mako', provided_summary = 'None') +
+        ylim(0.29,0.56)
+y <- 0.56
+d = 0.02
+segmap <- data.frame(
+        x =    c(1.00, 1.00, 2.00),
+        xend = c(2.00, 1.00, 2.00),
+        y =    c(y,    y,    y),
+        yend = c(y,    y-d*1,y-d*1)
+)
+sigmap <- data.frame(
+        x =     c(1.5),
+        y =     c(y),
+        label = c('***')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(plot)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/VBM_WholeBrain_HCvsPD_OccTmp.tiff',
+          plot, dpi=300, device='tiff', base_width = 5)
+
+corrdat <- vbm_hcgtpd.wb %>%
+        mutate(GMV = (occiptemp+vmPFC)/2,
+               Age = Age-mean(Age,na.rm=T),
+               NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T),
+               PrefHand_num=factor(PrefHand_num),
+               TIV = TIV-mean(TIV,na.rm=T),
+               Up3OfBradySum=Up3OfBradySum-mean(Up3OfBradySum,na.rm=T),
+               CognitiveComposite=CognitiveComposite-mean(CognitiveComposite,na.rm=T)) %>%
+        na.omit()
+m <- lm(log(GMV) ~ Up3OfBradySum+CognitiveComposite + Age + NpsEducYears + PrefHand_num + TIV, data = corrdat)
+s <- summary(m)
+print(s)
+anova <- Anova(m, type=3)
+print(anova)
+eta_squared(m) %>% print()
+ggemmeans(m, terms=c('Up3OfBradySum')) %>% plot()
+ggemmeans(m, terms=c('CognitiveComposite')) %>% plot()
+
 ```
 
 ## Subtypes
@@ -7437,6 +7545,67 @@ for(c in cons){
   
 }
 
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/plot_rainclouds.R')
+source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/raincloudplot_1Factor.R')
+N <- vbm_subtype.wb  %>% 
+        group_by(pseudonym, Subtype) %>%
+        summarise(first(pseudonym),
+                  first(group)) %>%
+        na.omit() %>%
+        ungroup() %>%
+        select(Subtype) %>%
+        table()
+plot <- raincloudplot_1Factor(data=vbm_subtype.wb, y='vmPFC', groupvar='Subtype',
+                           title = 'Influence of subtypes on medial\nprefrontal cortex grey matter volume', ylab = 'Grey matter volume', xlab = '',
+                           xticklabs = c(paste('MMP', ' (n=', N[1],')', sep=''),
+                                         paste('IM', ' (n=', N[2],')', sep=''),
+                                         paste('DM', ' (n=', N[3],')', sep='')),
+                           color_scheme='viridis', provided_summary = 'None') +
+        ylim(0.24,0.55)
+y <- 0.55
+d = 0.02
+segmap <- data.frame(
+        x =    c(1.00, 1.00, 3.00),
+        xend = c(3.00, 1.00, 3.00),
+        y =    c(y,    y,    y),
+        yend = c(y,    y-d*1,y-d*1)
+)
+sigmap <- data.frame(
+        x =     c(2),
+        y =     c(y),
+        label = c('*')
+)
+plot <- plot + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(plot)
+save_plot('H:/sysneu/marjoh/Visualization/R_BaselineComparisonFmri/VBM_WholeBrain_Subtypes_mPFC.tiff',
+          plot, dpi=300, device='tiff', base_width = 5)
+
+corrdat <- vbm_subtype.wb %>%
+        mutate(GMV = vmPFC,
+               Age = Age-mean(Age,na.rm=T),
+               NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T),
+               PrefHand_num=factor(PrefHand_num),
+               TIV = TIV-mean(TIV,na.rm=T),
+               Up3OfBradySum=Up3OfBradySum-mean(Up3OfBradySum,na.rm=T),
+               CognitiveComposite=CognitiveComposite-mean(CognitiveComposite,na.rm=T)) %>%
+        na.omit()
+m <- lm(log(GMV) ~ Up3OfBradySum+CognitiveComposite + Age + NpsEducYears + PrefHand_num + TIV, data = corrdat)
+s <- summary(m)
+print(s)
+anova <- Anova(m, type=3)
+print(anova)
+eta_squared(m) %>% print()
+ggemmeans(m, terms=c('Up3OfBradySum')) %>% plot()
+ggemmeans(m, terms=c('CognitiveComposite')) %>% plot()
+
 ```
 
 ## HC vs Subtypes
@@ -7482,7 +7651,7 @@ for(c in cons){
         #   filter(Outlier==1)
         # vbm_test_clean <- vbm_test %>% filter(!(pseudonym %in% outliers$pseudonym))
         
-        m <- lm(log(Avg) ~ Subtype + Age_Dmean + TIV_Dmean, data = vbm_test)
+        m <- lm(log(Avg) ~ Subtype + Age_Dmean + NpsEducYears_Dmean + PrefHand_num + TIV_Dmean, data = vbm_test)
         # summary(m) %>% print()
         Anova(m,type=3) %>% print()
         eta_squared(m, alternative = 'two.sided') %>% kable(.,'pipe', digits = 3) %>% print()
@@ -7673,7 +7842,13 @@ while(counter <= length(cons)){
                 geom_smooth(method='lm') +
                 ggtitle(c)
         
-        g <- ggarrange(g.brady,g.cogcom,nrow=2,ncol=1)
+        m.both <- lm(log(Avg) ~ Up3OfBradySum_Dmean + CognitiveComposite_Dmean + Age_Dmean + NpsEducYears_Dmean + factor(PrefHand_num) + TIV_Dmean, data = vbm_test.clin)
+        s.both <- summary(m.both)
+        print(s.both)
+        Anova(m.both, type=3)  %>% kable(.,'pipe', digits = 3) %>% print()
+        eta_squared(m.both, alternative = 'two.sided') %>% kable(.,'pipe', digits = 3) %>% print()
+        
+        g <- ggarrange(g.brady,g.cogcom,nrow=2,ncol=2)
         print(g)
         
         corrtab.brady$Estimate[counter] <- s.brady$coefficients[2,1]

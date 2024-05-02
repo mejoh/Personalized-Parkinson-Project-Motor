@@ -1,4 +1,4 @@
-generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=paste(bidsdir,'derivatives',sep='/'), force = TRUE, intermediate_output=TRUE){
+generate_motor_task_csv <- function(bidsdir='/project/3022026.01/pep/bids', outputdir=paste(bidsdir,'derivatives',sep='/'), force = TRUE, intermediate_output=TRUE){
     
     library(tidyverse)
     library(tidyjson)
@@ -20,7 +20,7 @@ generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=
     #####
     
     ##### TSV-to-CSV conversion #####
-    source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/convert_motor_tsv_to_csv.R')
+    source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/convert_motor_tsv_to_csv.R')
     searchpattern <- 'task-motor_acq-.*_run-[1-9]_events.tsv'
     subjects <- dir(bidsdir, 'sub-.*')
     for(n in subjects){
@@ -47,7 +47,7 @@ generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=
     #####
     
     ##### Merge files #####
-    source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/merge_csv_to_file.R')
+    source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/merge_csv_to_file.R')
     environments <- c('mri', 'practice')
     for(e in environments){
         searchpattern <- paste('sub.*', e, '.*.tsv2csv', sep='')
@@ -63,12 +63,10 @@ generate_motor_task_csv <- function(bidsdir='P:/3022026.01/pep/bids', outputdir=
     }
     #####
     
-    ##### Manipulate merged csv file #####
+    ##### NOT NECESSARY: Manipulate merged csv file #####
     # Collapse = TRUE will summarize RTs as the median by condition
-    source('M:/scripts/Personalized-Parkinson-Project-Motor/R/functions/manipulate_motor_task_csv.R')
+    source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/manipulate_motor_task_csv.R')
     for(e in environments){
-            searchpattern <- paste('sub.*', e, '.*.tsv2csv', sep='')
-            fps <- dir(paste(tmpdir,sep='/'), searchpattern, full.names = TRUE)
             merged_csv_file <- paste(outputdir, '/merged_motor_task_', e, '_', today(), '.csv', sep='')
             manipulate_motor_task_csv(merged_csv_file, collapse = FALSE)
             manipulate_motor_task_csv(merged_csv_file, collapse = TRUE)

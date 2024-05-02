@@ -1,4 +1,4 @@
-generate_castor_csv <- function(bidsdir='/project/3022026.01/pep/ClinVars', outputdir=paste(bidsdir,'derivatives',sep='/'), force=FALSE, intermediate_output=TRUE){
+generate_castor_csv <- function(bidsdir='/project/3022026.01/pep/ClinVars_10-08-2023', outputdir=paste(bidsdir,'derivatives',sep='/'), force=FALSE, intermediate_output=TRUE){
 
         library(tidyverse)
         library(tidyjson)
