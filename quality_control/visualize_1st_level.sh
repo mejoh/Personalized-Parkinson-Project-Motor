@@ -6,10 +6,10 @@
 ## Gives overview of activation-pattern.        ##
 ##################################################
 
-FMRIPREPdir=/project/3022026.01/pep/bids/derivatives/fmriprep		# Specify directories
-SPMdir=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem
+FMRIPREPdir=/project/3022026.01/pep/bids/derivatives/fmriprep_v23.0.2/motor		# Specify directories
+SPMdir=/project/3024006.02/Analyses/motor_task
 FSLdir=/opt/fsl/6.0.0/etc/luts/renderhot.lut
-QCdir=${SPMdir}/QC_Visit1and2/1st_level
+QCdir=${SPMdir}/QC/1st_level/overlay
 
 cd ${SPMdir}
 mkdir -p ${QCdir}
@@ -25,7 +25,7 @@ for sub in ${input_list[@]}; do
 	for s in ${Sessions[@]}; do
 		Visit=`basename $s`
 		OUTPUTname=spmT_0010_slices		
-		BGimg=${FMRIPREPdir}/${sub}/$Visit/func/*_task-motor_acq-MB6_run-*_space-MNI152NLin6Asym_boldref.nii.gz
+		BGimg=${FMRIPREPdir}/${sub}/$Visit/func/*_task-motor_acq-MB6_run-1_space-MNI152NLin6Asym_boldref.nii.gz
 		OrigSTATSimg=${SPMdir}/${sub}/$Visit/1st_level/spmT_0001.nii		# <<<< Make sure this is the contrast for 'External'!
 
 		if [ -f "${OrigSTATSimg}" ]; then

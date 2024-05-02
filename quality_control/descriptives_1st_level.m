@@ -1,5 +1,6 @@
 % Images to summarize
-ImageList = {'con_0001' 'con_0002' 'con_0003' 'con_0010' 'con_0012' 'con_0013' 'ResMS'};
+ImageList = {'con_0001' 'con_0002' 'con_0003' 'con_0005'...
+    'con_0007' 'con_0010' 'ResMS'};
 % ImageList = {'con_0001'};
 
 % Generate a histogram of image intensities for each subject
@@ -8,8 +9,8 @@ ImageList = {'con_0001' 'con_0002' 'con_0003' 'con_0010' 'con_0012' 'con_0013' '
 for i = 1:numel(ImageList)
     
     img = ImageList{i};
-    ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-    OutputDir = fullfile('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/QC_Visit1and2', img, '/');
+    ANALYSESDir = '/project/3024006.02/Analyses/motor_task';
+    OutputDir = fullfile('/project/3024006.02/Analyses/motor_task/QC/1st_level', img, '/');
     % Start with clean directory
     if ~exist(OutputDir, 'dir')
         mkdir(OutputDir);
