@@ -1,7 +1,6 @@
-% Contrast one group against another
-% Run with matlab/R2020b
+function motor_2ndlevel_4x4RMANOVA_FLEX(exclude_outliers)
 
-function motor_2ndlevel_4x4RMANOVA(exclude_outliers)
+%% Group to comapre against controls
 
 if nargin<1
     exclude_outliers = true;
@@ -11,10 +10,10 @@ end
 
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
-ANALYSESDir = '/project/3024006.02/Analyses/motor_task';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-11-13.csv');
-% baseid = ClinicalConfs.TimepointNr == 0;
-% ClinicalConfs = ClinicalConfs(baseid,:);
+ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/deprecated/ClinVars_select_mri6.csv');
+baseid = ClinicalConfs.TimepointNr == 0;
+ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "HC_PIT";
 g2 = string(ClinicalConfs.ParticipantType) == "PD_POM";
 ClinicalConfs = ClinicalConfs(logical(g1 + g2),:);
@@ -72,7 +71,7 @@ SubInfo = subset_subinfo(SubInfo,Sel);
 tabulate(SubInfo.Type)
 
 % Quality control: outlier exclusion
-Outliers = readtable('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Quality_control/Exclusions.csv');
+Outliers = readtable('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Exclusions.csv');
 % Lenient
 baseid = contains(Outliers.visit, 'Visit1') & Outliers.definitive_exclusions == 1;
 % Conservative
@@ -114,7 +113,7 @@ for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if ClinicalConfs.Misdiagnosis(subid)
+    if ClinicalConfs.non_pd_diagnosis_at_ba_or_fu(subid)
         fprintf('Misdiagnosis as non-PD, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     end
@@ -122,6 +121,7 @@ for n = 1:numel(SubInfo.Sub)
 end
 fprintf('%i subjects have a non-PD diagnosis, excluding these now...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
+
 
 %% Collect events.json and confound files
 
@@ -148,13 +148,11 @@ for n = 1:numel(SubInfo.Sub)
     SubInfo.FD(n) = mean(FrameDisp);
 end
 
-%% Confounders
+%% Age, Gender, 
 
 % Interpolate age and gender
 % SubInfo.Age = zeros(size(SubInfo.Sub));
 % SubInfo.Gender = zeros(size(SubInfo.Sub));
-% SubInfo.Education = zeros(size(SubInfo.Sub));
-% SubInfo.HandDominance = zeros(size(SubInfo.Sub));
 % for n = 1:numel(SubInfo.Sub)
 %     
 %     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
@@ -174,32 +172,36 @@ end
 Sel = true(size(SubInfo.Sub));
 SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = zeros(size(SubInfo.Sub));
-SubInfo.Education = zeros(size(SubInfo.Sub));
-SubInfo.HandDominance = zeros(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.NpsEducYears(subid)) || isnan(ClinicalConfs.RespHandIsDominant_T0(subid))
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA')
         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
-        SubInfo.Education(n) = ClinicalConfs.NpsEducYears(subid);
-        SubInfo.HandDominance(n) = ClinicalConfs.RespHandIsDominant_T0(subid);
     end
     
 end
-fprintf('%i subjects have missing Age/Gender/Education/HandDominance, excluding...\n', length(Sel) - sum(Sel))
+fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
+
+% SubInfo.Gender_num = zeros(size(SubInfo.Gender));
+% for n = 1:numel(SubInfo.Gender)
+%     if strcmp(SubInfo.Gender{n}, 'Male')
+%         SubInfo.Gender_num(n) = 0;
+%     else
+%         SubInfo.Gender_num(n) = 1;
+%     end
+% end
+
 %% Demean covars
-SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
-SubInfo.Age = SubInfo.Age - mean(SubInfo.Age);
-SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
-SubInfo.Education = SubInfo.Education - mean(SubInfo.Education);
-SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
+% SubInfo.Age = SubInfo.Age - mean(SubInfo.Age);
+% SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
+% SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
 
 %% Examine correlation structure between relevant regressors
 
@@ -219,70 +221,80 @@ SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
 %% Assemble inputs
 tabulate(SubInfo.Type)
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};
-Inputs = cell(20,1);
+Inputs = cell(6,1);
 if ~exclude_outliers 
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcSubtypes_x_ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'FLEX_HcSubtypes_x_ExtInt2Int3Catch')};
 else
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcSubtypes_x_ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'FLEX_HcSubtypes_x_ExtInt2Int3Catch_NoOutliers')};
 end
 
 HealthyControl.idx = contains(SubInfo.Type, 'Healthy');
 HealthyControl.Sub = SubInfo.Sub(HealthyControl.idx);
 HealthyControl.Sub = insertBefore(HealthyControl.Sub, 1, 'HC_PIT_');
-Inputs{2,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
-Inputs{6,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
-Inputs{10,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
-Inputs{14,1} = find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-HealthyControl.FD = repmat(SubInfo.FD(HealthyControl.idx),4,1);
-HealthyControl.Age  = repmat(SubInfo.Age(HealthyControl.idx),4,1);
-HealthyControl.Gender  = repmat(SubInfo.Gender(HealthyControl.idx),4,1);
-HealthyControl.Educ  = repmat(SubInfo.Education(HealthyControl.idx),4,1);
-HealthyControl.Hand  = repmat(SubInfo.HandDominance(HealthyControl.idx),4,1);
+HealthyControl.Scan = [find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));...
+    find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));...
+    find_contrast_files(HealthyControl.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses))];
+HealthyControl.FD = repmat(SubInfo.FD(HealthyControl.idx),3,1);
+HealthyControl.Age  = repmat(SubInfo.Age(HealthyControl.idx),3,1);
+HealthyControl.Gender  = repmat(SubInfo.Gender(HealthyControl.idx),3,1);
 
 MildMotor.idx = contains(SubInfo.Type, 'Mild-Motor');
 MildMotor.Sub = SubInfo.Sub(MildMotor.idx);
 MildMotor.Sub = insertBefore(MildMotor.Sub, 1, 'PD_POM_');
-Inputs{3,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
-Inputs{7,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
-Inputs{11,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
-Inputs{15,1} = find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-MildMotor.FD = repmat(SubInfo.FD(MildMotor.idx),4,1);
-MildMotor.Age  = repmat(SubInfo.Age(MildMotor.idx),4,1);
-MildMotor.Gender  = repmat(SubInfo.Gender(MildMotor.idx),4,1);
-MildMotor.Educ  = repmat(SubInfo.Education(MildMotor.idx),4,1);
-MildMotor.Hand  = repmat(SubInfo.HandDominance(MildMotor.idx),4,1);
+MildMotor.Scan = [find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));...
+    find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));...
+    find_contrast_files(MildMotor.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses))];
+MildMotor.FD = repmat(SubInfo.FD(MildMotor.idx),3,1);
+MildMotor.Age  = repmat(SubInfo.Age(MildMotor.idx),3,1);
+MildMotor.Gender  = repmat(SubInfo.Gender(MildMotor.idx),3,1);
 
 Intermediate.idx = contains(SubInfo.Type, 'Intermediate');
 Intermediate.Sub = SubInfo.Sub(Intermediate.idx);
 Intermediate.Sub = insertBefore(Intermediate.Sub, 1, 'PD_POM_');
-Inputs{4,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
-Inputs{8,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
-Inputs{12,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
-Inputs{16,1} = find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-Intermediate.FD = repmat(SubInfo.FD(Intermediate.idx),4,1);
-Intermediate.Age  = repmat(SubInfo.Age(Intermediate.idx),4,1);
-Intermediate.Gender  = repmat(SubInfo.Gender(Intermediate.idx),4,1);
-Intermediate.Educ  = repmat(SubInfo.Education(Intermediate.idx),4,1);
-Intermediate.Hand  = repmat(SubInfo.HandDominance(Intermediate.idx),4,1);
+Intermediate.Scan = [find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));...
+    find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));...
+    find_contrast_files(Intermediate.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses))];
+Intermediate.FD = repmat(SubInfo.FD(Intermediate.idx),3,1);
+Intermediate.Age  = repmat(SubInfo.Age(Intermediate.idx),3,1);
+Intermediate.Gender  = repmat(SubInfo.Gender(Intermediate.idx),3,1);
 
 DiffuseMalignant.idx = contains(SubInfo.Type, 'Diffuse-Malignant');
 DiffuseMalignant.Sub = SubInfo.Sub(DiffuseMalignant.idx);
 DiffuseMalignant.Sub = insertBefore(DiffuseMalignant.Sub, 1, 'PD_POM_');
-Inputs{5,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));
-Inputs{9,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));
-Inputs{13,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses));
-Inputs{17,1} = find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{4}, ses));
-DiffuseMalignant.FD = repmat(SubInfo.FD(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.Age  = repmat(SubInfo.Age(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.Gender  = repmat(SubInfo.Gender(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.Educ  = repmat(SubInfo.Education(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.Hand  = repmat(SubInfo.HandDominance(DiffuseMalignant.idx),4,1);
+DiffuseMalignant.Scan = [find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses));...
+    find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{2}, ses));...
+    find_contrast_files(DiffuseMalignant.Sub, fullfile(ANALYSESDir, GroupFolder, ConList{3}, ses))];
+DiffuseMalignant.FD = repmat(SubInfo.FD(DiffuseMalignant.idx),3,1);
+DiffuseMalignant.Age  = repmat(SubInfo.Age(DiffuseMalignant.idx),3,1);
+DiffuseMalignant.Gender  = repmat(SubInfo.Gender(DiffuseMalignant.idx),3,1);
 
-Inputs{18,1} = [HealthyControl.FD; MildMotor.FD; Intermediate.FD; DiffuseMalignant.FD];
-Inputs{19,1} = [HealthyControl.Age; MildMotor.Age; Intermediate.Age; DiffuseMalignant.Age];
-Inputs{20,1} = [HealthyControl.Gender; MildMotor.Gender; Intermediate.Gender; DiffuseMalignant.Gender];
-Inputs{21,1} = [HealthyControl.Educ; MildMotor.Educ; Intermediate.Educ; DiffuseMalignant.Educ];
-Inputs{22,1} = [HealthyControl.Hand; MildMotor.Hand; Intermediate.Hand; DiffuseMalignant.Hand];
+n1 = numel(HealthyControl.Sub);
+n2 = numel(MildMotor.Sub);
+n3 = numel(Intermediate.Sub);
+n4 = numel(DiffuseMalignant.Sub);
+nt = n1+n2+n3+n4;
+ng = 2;
+nc = 3;
+Inputs{2,1} = [HealthyControl.Scan; MildMotor.Scan; Intermediate.Scan; DiffuseMalignant.Scan];
+Inputs{3,1} = [ones(nt*nc,1),...
+    sort(repmat(1:nt,1,3))',...
+    [repmat(ones(n1,1)',1,3), repmat(ones(n2,1)'*2,1,3), repmat(ones(n3,1)'*3,1,3), repmat(ones(n4,1)'*4,1,3)]',...
+    repmat(1:3,1,nt)'];
+
+Inputs{4,1} = [HealthyControl.FD; MildMotor.FD; Intermediate.FD; DiffuseMalignant.FD];
+Inputs{5,1} = [HealthyControl.Age; MildMotor.Age; Intermediate.Age; DiffuseMalignant.Age];
+Inputs{6,1} = [HealthyControl.Gender; MildMotor.Gender; Intermediate.Gender; DiffuseMalignant.Gender];
+
+% Contrasts
+% n1 = 60;
+% n2 = 138;
+% n3 = 114;
+% n4 = 40;
+% ng = 2;
+% nc = 3;
+% MEg = [1 -1]
+% MEc = [1:nc] - mean(1:nc);
+% Inputs{7,1} = 
 
 %% Run
 

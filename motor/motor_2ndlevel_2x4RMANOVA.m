@@ -7,7 +7,7 @@ function motor_2ndlevel_2x4RMANOVA(Offstate, exclude_outliers)
 
 if nargin<1 || isempty(Offstate)
     Offstate = false;
-    exclude_outliers = true;
+    exclude_outliers = false;
 end
 
 %% Paths
@@ -17,10 +17,15 @@ spm('defaults', 'FMRI');
 
 %% Directories
 
-ses = 'ses-Visit1';
+ses = 'ses-Visit2';
+if strcmp(ses, 'ses-Visit1')
+    dirname = 'Baseline';
+else
+    dirname = 'FollowUp';
+end
 GroupFolder = 'Group';
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-06-19.csv');
+ANALYSESDir = '/project/3024006.02/Analyses/motor_task';
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2024-02-07.csv');
 % baseid = ClinicalConfs.TimepointNr == 0;
 % ClinicalConfs = ClinicalConfs(baseid,:);
 if Offstate
@@ -51,9 +56,10 @@ SubInfo.Sub = extractBetween(Sub, 8, 31);
 SubInfo.Group = extractBetween(Sub, 1, 6);
 
 % Quality control: outlier exclusion
-Outliers = readtable('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Exclusions.csv');
+Outliers = readtable('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Quality_control/Exclusions.csv');
 % Lenient option:
-baseid = contains(Outliers.visit, 'Visit1') & Outliers.definitive_exclusions == 1;
+% baseid = contains(Outliers.visit, 'Visit1') & Outliers.definitive_exclusions == 1;
+baseid = (contains(Outliers.visit, 'Visit2') + contains(Outliers.visit, 'Visit3')) & Outliers.definitive_exclusions == 1;
 % Conservative option: 
 % baseid = contains(Outliers.visit, 'Visit1');
 Outliers = Outliers(baseid,:);
@@ -116,9 +122,9 @@ SubInfo = subset_subinfo(SubInfo, Sel);
 SubInfo.ConfFiles = cell(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     if contains(SubInfo.Group{n}, '_PIT')
-        Session = 'ses-PITVisit1';
+        Session = 'ses-PITVisit2';
     else
-        Session = 'ses-POMVisit1';
+        Session = 'ses-POMVisit3';
     end
 %     SubInfo.ConfFiles{n} = spm_select('FPList', fullfile(ANALYSESDir, SubInfo.Sub{n}, Session), '^.*task-motor_acq-MB6_run-.*_desc-confounds_timeseries3.mat$');
 %     if isempty(SubInfo.ConfFiles{n})
@@ -207,6 +213,18 @@ SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
 % AvgCorrMat = CorrMat / numel(Sub);
 % heatmap(AvgCorrMat)
 
+%% Select a subset
+% % Sel = true(size(SubInfo.Sub,1),1);
+% % % HC
+% % btmhlf = 1:26;
+% % tophlf = 27:52;
+% % % PD
+% % btmhlf = 52:187;
+% % tophlf = 188:size(SubInfo.Sub,1);
+% % idx = tophlf;
+% % Sel(idx) = false;
+% % SubInfo = subset_subinfo(SubInfo, Sel);
+
 %% Assemble inputs
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};
 Inputs = cell(12,1);
@@ -217,13 +235,13 @@ else
 end
 
 if ~istrue(exclude_outliers) && istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOff_x_ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, dirname, 'HcOff_x_ExtInt2Int3Catch')};
 elseif ~istrue(exclude_outliers) && ~istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOn_x_ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, dirname, 'HcOn_x_ExtInt2Int3Catch')};
 elseif istrue(exclude_outliers) && istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOff_x_ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, dirname, 'HcOff_x_ExtInt2Int3Catch_NoOutliers')};
 elseif istrue(exclude_outliers) && ~istrue(Offstate)
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'HcOn_x_ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, dirname, 'HcOn_x_ExtInt2Int3Catch_NoOutliers')};
 end
 
 ExtHc = dir(fullfile(ANALYSESDir, GroupFolder, ConList{1}, ses, 'HC*'));

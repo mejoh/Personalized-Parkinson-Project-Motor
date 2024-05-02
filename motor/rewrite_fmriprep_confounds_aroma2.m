@@ -1,7 +1,13 @@
 % Re-label AROMA confound regressors based on correlation with task regressors
 % Default threshold for re-labelling is 5% explained variance
 
-function rewrite_fmriprep_confounds_aroma2(thr)
+% sessions = {'ses-POMVisit1' 'ses-POMVisit3' 'ses-PITVisit1' 'ses-PITVisit2'};
+sessions = {'ses-POMVisit1' 'ses-POMVisit3' 'ses-PITVisit1' 'ses-PITVisit2'};
+for i = 1:numel(sessions)
+    rewrite_fmriprep_confounds_aroma_fun(0.05, sessions{i})
+end
+
+function rewrite_fmriprep_confounds_aroma_fun(thr, session)
 
 addpath('/home/common/matlab/fieldtrip/qsub');
 addpath('/home/common/matlab/spm12');
@@ -10,11 +16,11 @@ if nargin<1 || isempty(thr)
     thr = 0.05;
 end
 
-session = 'ses-POMVisit1';
+%session = 'ses-PITVisit2';
 BIDSDir  = '/project/3022026.01/pep/bids';
-FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM.*'));
-% Sub = {'sub-POMUC2917FBF8466577F'};
+FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep_v23.0.2/motor');
+Sub = cellstr(spm_select('List', fullfile(FMRIPrep), 'dir', '^sub-POM.*'));
+% Sub = {'sub-POMU00094252BA30B84F'};
 
 % Exclude subjects
 Sel = true(size(Sub,1),1);
@@ -36,14 +42,16 @@ for n = 1:numel(Sub)
             fprintf('Excluding %s %s: lacks fmriprep confound regressors and/or events.tsv file \n', Sub{n}, Visit{v})
             Sel(n) = false;
         end
+        
 %         if  isempty(EventsFile)
 %             fprintf('Excluding %s %s: lacks events tsv file \n', Sub{n}, Visit{v})
 %             Sel(n) = false;
 %         end
-        if ~isempty(Confounds2File{1})
-            fprintf('Excluding %s %s: has already been re-classified \n', Sub{n}, Visit{v})
-            Sel(n) = false;
-        end
+
+%         if ~isempty(Confounds2File{1})
+%             fprintf('Excluding %s %s: has already been re-classified \n', Sub{n}, Visit{v})
+%             Sel(n) = false;
+%         end
 
     end
 end
@@ -76,12 +84,13 @@ for n = 1:NrSub
         Content        = textscan(fid, '%s', 'Delimiter','\n');
         fclose(fid);
 
-        % Re-label AROMA components based on their correlations with task regressors
+        % Re-label AROMA noise components based on their correlations with task regressors
+        % Noise comps above threshold will be re-classified
         fprintf('%s: Estimating correlation between task regressors and motion components\n', Sub{n})
         for m = 1:length(Header)
             if startsWith(Header{m}, 'aroma_')
-                Fitted = fitlm(TaskRegs(:,1:3), confounds.(Header{m}));
-                if Fitted.Rsquared.Ordinary < thr           % Change name of components with R^2 below thereshold to aroma2_. Use only aroma2_ in your model
+                Fitted = fitlm(TaskRegs(:,1:4), confounds.(Header{m}));
+                if Fitted.Rsquared.Adjusted < thr           % Change name of components with R^2 below thereshold to aroma2_. Use only aroma2_ in your model
                     Header{m} = strrep(Header{m}, 'aroma_', 'aroma2_');
                 else
                     fprintf('R^2 (adjusted) = %f for %s\n', Fitted.Rsquared.Adjusted, Header{m})

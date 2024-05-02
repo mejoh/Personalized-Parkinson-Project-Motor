@@ -12,8 +12,8 @@ spm('defaults', 'FMRI');
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};% 'con_0005'};
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-05-31.csv');
+ANALYSESDir = '/project/3024006.02/Analyses/motor_task';
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-06-19.csv');
 % baseid = ClinicalConfs.TimepointNr == 0;
 % ClinicalConfs = ClinicalConfs(baseid,:);
 g1 = string(ClinicalConfs.ParticipantType) == "PD_POM";
@@ -155,6 +155,10 @@ for n = 1:numel(SubInfo.Sub)
     if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.NpsEducYears(subid)) || isnan(ClinicalConfs.RespHandIsDominant_T0(subid))
         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
+%         SubInfo.Age(n) = median(ClinicalConfs.Age,'omitnan');
+%         SubInfo.Gender(n) = median(ClinicalConfs.Gender,'omitnan');
+%         SubInfo.Education(n) = median(ClinicalConfs.NpsEducYears,'omitnan');
+%         SubInfo.HandDominance(n) = median(ClinicalConfs.RespHandIsDominant_T0,'omitnan');
     else
         SubInfo.Age(n) = ClinicalConfs.Age(subid);
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
@@ -163,7 +167,7 @@ for n = 1:numel(SubInfo.Sub)
     end
     
 end
-fprintf('%i subjects have missing Age/Gender, excluding...\n', length(Sel) - sum(Sel))
+fprintf('%i subjects have missing covariates, excluding...\n', length(Sel) - sum(Sel))
 SubInfo = subset_subinfo(SubInfo, Sel);
 
 %% Demean covars

@@ -1,11 +1,12 @@
 % Run after AROMA confounds have been added (otherwise there wont be a regressors2.tsv file
 % Adds tremor regressors to fmriprep confounds file
+
 function add_tremor_regressors_to_confounds()
 
 session = 'ses-POMVisit1';
 BIDSDir  = '/project/3022026.01/pep/bids';
-FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep');
-EMGDir = '/project/3024006.02/Analyses/EMG/motor';
+FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep_v23.0.2/motor');
+EMGDir = '/project/3024006.02/Analyses/BRAIN_2023/fMRI/EMG/motor/';
 % EMGDir = '/project/3024006.02/Analyses/EMG/motor_PIT';
 Prepemg = fullfile(EMGDir, 'processing/prepemg/Regressors/ZSCORED');
 Automaticdir = fullfile(EMGDir, 'automaticdir');
@@ -111,9 +112,9 @@ for n = 1:NrSub
         confounds      = spm_load(ConfoundsFile{1});    % Load confound file
         
         % Tremor files
-%         if(~contains(t, 'PIT'))
-%             t = eraseBetween(Visit{v}, 'ses-','Visit');
-%         end
+        if(~contains(t, 'PIT'))
+            t = eraseBetween(Visit{v}, 'ses-','Visit');
+        end
         TAmp = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*amplitude.mat']);
         TLog = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*log.mat']);
         TPow = spm_select('FPList', Prepemg, [s, '-', t '.*acc.*power.mat']);

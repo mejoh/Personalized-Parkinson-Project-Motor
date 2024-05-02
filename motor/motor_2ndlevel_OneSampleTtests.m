@@ -6,17 +6,17 @@ function motor_2ndlevel_OneSampleTtests(Subscore, exclude_outliers, Subtype)
 % end
 
 if nargin < 1 || isempty(Subscore)
-    Subscore = 'Up3OfBradySum_T0';
+%     Subscore = {'Up3OfBradySum_T0'};
 %     Subscore = 'Up3OnBradySum_T0';
 %     Subscore = 'Up3OfTotal_T0';
 %     Subscore = 'Up3OnTotal_T0';
-%     Subscore = 'MoCASum_T0';
-%     Subscore = 'CognitiveComposite_T0';
-%     Subscore = 'CognitiveComposite_raw_T0';
+%     Subscore = {'z_MoCA__total_T0'};
+%     Subscore = {'z_CognitiveComposite2_T0'};
+%     Subscore = {'CognitiveComposite_T0'};
 %     Subscore = 'Motor_T0';
 %     Subscore = 'Select2_T0';
 %     Subscore = 'Select3_T0';
-%     Subscore = {'Up3OfBradySum_T0' 'CognitiveComposite_T0'};
+    Subscore = {'Up3OfBradySum_T2' 'z_CognitiveComposite_T2'};
 end
 if nargin < 1 || isempty(exclude_outliers)
     exclude_outliers = true;
@@ -33,11 +33,17 @@ spm('defaults', 'FMRI');
 
 %% Directories
 
-ses = 'ses-Visit1';
-sesname = 'ses-POMVisit1';
+ses = 'ses-Visit2';
+sesname = 'ses-POMVisit3';
+if strcmp(ses, 'ses-Visit1')
+    dirname = 'Baseline';
+else
+    dirname = 'FollowUp';
+end
 GroupFolder = 'Group';
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-06-19.csv');
+ANALYSESDir = '/project/3024006.02/Analyses/motor_task';
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2024-02-07.csv');
+% ClinicalConfs = readtable('/project/3024006.02/Analyses/BRAIN_2023/Clin/fmri-confs-taskclin_ses-all_groups-all_2023-06-19.csv');
 % baseid = ClinicalConfs.TimepointNr == 0;
 % ClinicalConfs = ClinicalConfs(baseid,:);
 g2 = string(ClinicalConfs.ParticipantType) == "PD_POM";
@@ -56,11 +62,11 @@ fprintf('Number of subjects processed: %i\n', numel(Sub))
 %     clinscore1=Subscore;
 %     clinscore2='NULL';
 % end
-if contains(Subscore, 'Up3OfBradySum')
-    clinscore1=Subscore;
-    clinscore2=strrep(Subscore,'Up3OfBradySum','CognitiveComposite');
+if numel(Subscore)>1
+    clinscore1=Subscore{1};
+    clinscore2=Subscore{2};
 else
-    clinscore1=Subscore;
+    clinscore1=Subscore{1};
     clinscore2='NULL';
 end
 
@@ -70,9 +76,11 @@ end
 % Colnames = {'pseudonym', 'ParticipantType', 'Subtype_DiagEx3_DisDurSplit', clinscore1, clinscore2...
 %     'Age', 'Gender', 'Misdiagnosis', 'NpsEducYears', 'RespHandIsDominant_T0', 'BMI',...
 %     'SmokingHistory', 'PASE'};
+% Colnames = {'pseudonym', 'ParticipantType', 'Subtype_DiagEx3_DisDurSplit', clinscore1, clinscore2...
+%     'Age', 'Gender', 'Misdiagnosis', 'NpsEducYears', 'RespHandIsDominant_T0', 'BMI',...
+%     'SmokingHistory', 'PASE'};
 Colnames = {'pseudonym', 'ParticipantType', 'Subtype_DiagEx3_DisDurSplit', clinscore1, clinscore2...
-    'Age', 'Gender', 'Misdiagnosis', 'NpsEducYears', 'RespHandIsDominant_T0', 'BMI',...
-    'SmokingHistory', 'PASE', 'Up1Total', 'RBDSQSum', 'BDI2Sum'};
+    'Age', 'Gender', 'Misdiagnosis', 'NpsEducYears', 'RespHandIsDominant_T0'};
 cID = ismember(ClinicalConfs.Properties.VariableNames, Colnames);
 ClinicalConfs = rmmissing(ClinicalConfs(:,cID));
 
@@ -122,9 +130,10 @@ tabulate(SubInfo.Type)
 % tabulate(SubInfo.Type)
 
 % Quality control: outlier exclusion
-Outliers = readtable('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Exclusions.csv');
+Outliers = readtable('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Quality_control/Exclusions.csv');
 % Lenient
-baseid = contains(Outliers.visit, 'Visit1') & Outliers.definitive_exclusions == 1;
+% baseid = contains(Outliers.visit, 'Visit1') & Outliers.definitive_exclusions == 1;
+baseid = (contains(Outliers.visit, 'Visit2') + contains(Outliers.visit, 'Visit3')) & Outliers.definitive_exclusions == 1;
 % Conservative
 % baseid = contains(Outliers.visit, 'Visit1');
 Outliers = Outliers(baseid,:);
@@ -158,6 +167,24 @@ fprintf('%i subjects have a non-PD diagnosis, excluding these now...\n', length(
 tabulate(SubInfo.Type)
 SubInfo = subset_subinfo(SubInfo, Sel);
 
+% Exclusion of non-old subs
+% Sel = true(size(SubInfo.Sub));
+% for n = 1:numel(SubInfo.Sub)
+%     
+%     old_names = load('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Int3gtExt/Inputs.mat');
+%     old_names = extractBetween(old_names.inputs{2,1}, 'PD_POM_', '_ses');
+%     subid = find(contains(old_names, SubInfo.Sub{n}));
+%     
+%     if isempty(subid)
+%         fprintf('%s was not part of old analyses\n', SubInfo.Sub{n})
+%         Sel(n) = false;
+%     end
+%     
+% end
+% fprintf('%i subjects were not part of the old analyses...\n', length(Sel) - sum(Sel))
+% tabulate(SubInfo.Type)
+% SubInfo = subset_subinfo(SubInfo, Sel);
+
 %% Collect events.json and confound files
 
 SubInfo.ConfFiles = cell(size(SubInfo.Sub));
@@ -184,10 +211,10 @@ SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = zeros(size(SubInfo.Sub));
 SubInfo.Education = zeros(size(SubInfo.Sub));
 SubInfo.HandDominance = zeros(size(SubInfo.Sub));
-SubInfo.SmokingHistory = zeros(size(SubInfo.Sub));
-SubInfo.BMI = zeros(size(SubInfo.Sub));
-SubInfo.PASE = zeros(size(SubInfo.Sub));
-SubInfo.Up1Total = zeros(size(SubInfo.Sub));
+% SubInfo.SmokingHistory = zeros(size(SubInfo.Sub));
+% SubInfo.BMI = zeros(size(SubInfo.Sub));
+% SubInfo.PASE = zeros(size(SubInfo.Sub));
+% SubInfo.Up1Total = zeros(size(SubInfo.Sub));
 % SubInfo.RBDSQSum = zeros(size(SubInfo.Sub));
 % SubInfo.BDI2 = zeros(size(SubInfo.Sub));
 SubInfo.Score = zeros(size(SubInfo.Sub));
@@ -206,10 +233,10 @@ for n = 1:numel(SubInfo.Sub)
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
         SubInfo.Education(n) = ClinicalConfs.NpsEducYears(subid);
         SubInfo.HandDominance(n) = ClinicalConfs.RespHandIsDominant_T0(subid);
-        SubInfo.BMI(n) = ClinicalConfs.BMI(subid);
-        SubInfo.SmokingHistory(n) = ClinicalConfs.SmokingHistory(subid);
-        SubInfo.PASE(n) = ClinicalConfs.PASE(subid);
-        SubInfo.Up1Total(n) = ClinicalConfs.Up1Total(subid);
+%         SubInfo.BMI(n) = ClinicalConfs.BMI(subid);
+%         SubInfo.SmokingHistory(n) = ClinicalConfs.SmokingHistory(subid);
+%         SubInfo.PASE(n) = ClinicalConfs.PASE(subid);
+%         SubInfo.Up1Total(n) = ClinicalConfs.Up1Total(subid);
 %         SubInfo.RBDSQSum(n) = ClinicalConfs.RBDSQSum(subid);
 %         SubInfo.BDI2(n) = ClinicalConfs.BDI2Sum(subid);
         cID = ismember(ClinicalConfs.Properties.VariableNames, clinscore1);
@@ -230,10 +257,10 @@ SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
 SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
 SubInfo.Education = SubInfo.Education - mean(SubInfo.Education);
 SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
-SubInfo.BMI = SubInfo.BMI - mean(SubInfo.BMI);
-SubInfo.SmokingHistory = SubInfo.SmokingHistory - mean(SubInfo.SmokingHistory);
-SubInfo.PASE = SubInfo.PASE - mean(SubInfo.PASE);
-SubInfo.Up1Total = SubInfo.Up1Total - mean(SubInfo.Up1Total);
+% SubInfo.BMI = SubInfo.BMI - mean(SubInfo.BMI);
+% SubInfo.SmokingHistory = SubInfo.SmokingHistory - mean(SubInfo.SmokingHistory);
+% SubInfo.PASE = SubInfo.PASE - mean(SubInfo.PASE);
+% SubInfo.Up1Total = SubInfo.Up1Total - mean(SubInfo.Up1Total);
 % SubInfo.RBDSQSum = SubInfo.RBDSQSum - mean(SubInfo.RBDSQSum);
 % SubInfo.BDI2 = SubInfo.BDI2 - mean(SubInfo.BDI2);
 SubInfo.Score = SubInfo.Score - mean(SubInfo.Score);
@@ -254,9 +281,9 @@ end
 
 %% Assemble inputs
 % 'con_0008' 'Int3gtInt2' 
-ConList = {'con_0012' 'con_0013' 'con_0010' 'con_0008'};
-ConNames= {'Int2gtExt' 'Int3gtExt' 'Mean_ExtInt' 'Int3gtInt2'};
-inputs = cell(11, 1);
+ConList = {'con_0011' 'con_0012' 'con_0007' 'con_0010'};
+ConNames= {'Int2gtExt' 'Int3gtExt' 'IntgtExt' 'Mean_ExtInt'};
+inputs = cell(9, 1);
 % if contains(Subscore, 'RawChange')
     JobFile = '/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/motor/motor_2ndlevel_OneSampleTtests_prog_job.m';
 % else
@@ -277,36 +304,36 @@ for c = 1:numel(ConList)
     
     searchnames = insertBefore(SubInfo.Sub, 1, 'PD_POM_');
 %     if contains(Subscore, 'RawChange')
-        inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', ['ReserveControl_', 'ClinCorr-Prog_' Subscore], ConNames{c})};
+        inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, dirname, ['ClinCorr-BA_BradyCogCom'], ConNames{c})};
         inputs{2,1} = find_contrast_files(searchnames, fullfile(ANALYSESDir, GroupFolder, ConList{c}, ses));
         inputs{3,1} = SubInfo.Score;
         inputs{4,1} = SubInfo.Score_BA;
         inputs{5,1} = SubInfo.Age;
         inputs{6,1} = SubInfo.Gender;
-        inputs{7,1} = SubInfo.FD;
-        inputs{8,1} = SubInfo.Education;
-        inputs{9,1} = SubInfo.HandDominance;
-        inputs{10,1} = SubInfo.BMI;
-        inputs{11,1} = SubInfo.SmokingHistory;
-        inputs{12,1} = SubInfo.PASE;
-        inputs{13,1} = SubInfo.Up1Total;
+%         inputs{7,1} = SubInfo.FD;
+        inputs{7,1} = SubInfo.Education;
+        inputs{8,1} = SubInfo.HandDominance;
+%         inputs{10,1} = SubInfo.BMI;
+%         inputs{11,1} = SubInfo.SmokingHistory;
+%         inputs{12,1} = SubInfo.PASE;
+%         inputs{12,1} = SubInfo.Up1Total;
 %         inputs{13,1} = SubInfo.RBDSQSum;
 %         inputs{14,1} = SubInfo.BDI2;
-        inputs{14,1} = Mask;
+        inputs{9,1} = Mask;
 %     else
-%         inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', ['ClinCorr-BA_' Subscore], ConNames{c})};
+%         inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', ['ClinCorr-BA_' Subscore{1}], ConNames{c})};
 %         inputs{2,1} = find_contrast_files(searchnames, fullfile(ANALYSESDir, GroupFolder, ConList{c}, ses));
 %         inputs{3,1} = SubInfo.Score;
 %         inputs{4,1} = SubInfo.Age;
 %         inputs{5,1} = SubInfo.Gender;
-%         inputs{6,1} = SubInfo.FD;
-%         inputs{7,1} = SubInfo.Education;
-%         inputs{8,1} = SubInfo.HandDominance;
-%         inputs{9,1} = Mask;
+% %         inputs{6,1} = SubInfo.FD;
+%         inputs{6,1} = SubInfo.Education;
+%         inputs{7,1} = SubInfo.HandDominance;
+%         inputs{8,1} = Mask;
 %     end
     
     if exclude_outliers
-        inputs{1,1} = insertAfter(inputs{1,1}, Subscore, '_NoOutliers');
+        inputs{1,1} = insertAfter(inputs{1,1}, 'BradyCogCom', '_NoOutliers');
     end
     if ~isempty(Subtype)
         inputs{1,1} = insertBefore(inputs{1,1}, 'ClinCorr', [Subtype '_']);

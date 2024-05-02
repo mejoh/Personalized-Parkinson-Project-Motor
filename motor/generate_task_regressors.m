@@ -8,17 +8,37 @@
 
 function [taskregs] = generate_task_regressors(bidsdir, subject, session)
 
+%% Define inputs
+
+% Scans
+% run = char(extractBetween(EventsTsvFile, 'run-', '_events.tsv'));
+% funcdat = spm_select('FPList', fullfile(bidsdir, 'derivatives/fmriprep', subject, session, 'func'), [subject '_' session '_task-motor_acq-MB6_run-' run '_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
+funcdat = cellstr(spm_select('FPList', fullfile(bidsdir, 'derivatives/fmriprep_v23.0.2/motor', subject, session, 'func'), [subject '_' session '_task-motor_acq-MB6_run-.*_space-MNI152NLin6Asym.*_desc-preproc_bold.nii.gz']));
+funcdat = funcdat{size(funcdat,1)};
+volinfo = ft_read_mri(funcdat);
+% SPM.nscan = volinfo.dim(4);
+SPM.nscan = size(volinfo.anatomy,4);
+
+% Events
 EventsTsvFile = cellstr(spm_select('FPList', fullfile(bidsdir, subject, session, 'beh'), [subject '_' session '_task-motor_acq-MB6_run-.*_events.tsv']));
 if numel(EventsTsvFile) > 1
     fprintf('WARNING: %s %s has %i tsv files. Selecting the last run! \n', subject, session, numel(EventsTsvFile))
 end
 EventsTsvFile = EventsTsvFile{numel(EventsTsvFile)};
-TR = 1;
-StimulusEvents = extract_onsets_and_duration_pm(EventsTsvFile, TR);
+filetext = fileread(strrep(funcdat,'.nii.gz','.json'));
+expr = '[^\n]*RepetitionTime[^\n]*';
+matches = regexp(filetext,expr,'match');
+TR = cell2num_my(extractBetween(matches, ': ', ','));
+expr = '[^\n]*StartTime[^\n]*';
+matches = regexp(filetext,expr,'match');
+stime = cell2num_my(extractBetween(matches, ': ', ','));
+fprintf('%s %s start time: %f\n', subject, session, stime)
+StimulusEvents = extract_onsets_and_duration_pm(EventsTsvFile, TR, stime, false);
 % load(MatFile);
 % load('/project/3024006.01/users/marjoh/test/extract_onsets_and_duration/sub-POMUBC2FF1B37472E0BC_ses-POMVisit1_task-motor_acq-MB6_run-1_events.mat');
 % refMat = load('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/sub-POMUBC2FF1B37472E0BC/ses-POMVisit1/sub-POMUBC2FF1B37472E0BC_ses-POMVisit1_task-motor_acq-MB6_run-1_events.mat');
 % refSpm = load('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/sub-POMUBC2FF1B37472E0BC/ses-POMVisit1/1st_level/SPM.mat');
+
 %% Define basis functions
 SPM.xY.RT = TR;                                      %repetition time (TR)
 SPM.xBF.UNITS = 'secs'; 
@@ -31,15 +51,6 @@ SPM.xBF.Volterra = 1;
 SPM.xBF.dt = SPM.xY.RT/SPM.xBF.T;                   %time bin length {seconds}
 SPM.xBF = spm_get_bf(SPM.xBF);
 
-%% Define inputs
-% Scans
-% run = char(extractBetween(EventsTsvFile, 'run-', '_events.tsv'));
-% funcdat = spm_select('FPList', fullfile(bidsdir, 'derivatives/fmriprep', subject, session, 'func'), [subject '_' session '_task-motor_acq-MB6_run-' run '_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
-funcdat = cellstr(spm_select('FPList', fullfile(bidsdir, 'derivatives/fmriprep', subject, session, 'func'), [subject '_' session '_task-motor_acq-MB6_run-.*_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']));
-funcdat = funcdat{size(funcdat,1)};
-volinfo = ft_read_mri(funcdat);
-% SPM.nscan = volinfo.dim(4);
-SPM.nscan = size(volinfo.anatomy,4);
 % Stimulus input structure
 SPM.Sess.U = [];
 P.name = 'none';

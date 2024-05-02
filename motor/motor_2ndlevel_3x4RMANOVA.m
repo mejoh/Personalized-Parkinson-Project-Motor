@@ -3,8 +3,6 @@
 
 function motor_2ndlevel_3x4RMANOVA(exclude_outliers)
 
-%% Group to comapre against controls
-
 if nargin<1
     exclude_outliers = true;
 end
@@ -13,8 +11,8 @@ end
 
 ses = 'ses-Visit1';
 GroupFolder = 'Group';
-ANALYSESDir = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
-ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-06-19.csv');
+ANALYSESDir = '/project/3024006.02/Analyses/motor_task';
+ClinicalConfs = readtable('/project/3024006.02/Data/matlab/fmri-confs-taskclin_ses-all_groups-all_2023-11-13.csv');
 % baseid = ClinicalConfs.TimepointNr == 0;
 % ClinicalConfs = ClinicalConfs(baseid,:);
 g2 = string(ClinicalConfs.ParticipantType) == "PD_POM";
@@ -70,7 +68,7 @@ end
 SubInfo = subset_subinfo(SubInfo,Sel);
 
 % Quality control: outlier exclusion
-Outliers = readtable('/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Exclusions.csv');
+Outliers = readtable('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Quality_control/Exclusions.csv');
 % Lenient
 baseid = contains(Outliers.visit, 'Visit1') & Outliers.definitive_exclusions == 1;
 % Conservative
@@ -170,15 +168,15 @@ SubInfo.Age = zeros(size(SubInfo.Sub));
 SubInfo.Gender = zeros(size(SubInfo.Sub));
 SubInfo.Education = zeros(size(SubInfo.Sub));
 SubInfo.HandDominance = zeros(size(SubInfo.Sub));
-SubInfo.SmokingHistory = zeros(size(SubInfo.Sub));
-SubInfo.BMI = zeros(size(SubInfo.Sub));
-SubInfo.PASE = zeros(size(SubInfo.Sub));
-SubInfo.Up1Total = zeros(size(SubInfo.Sub));
+% SubInfo.SmokingHistory = zeros(size(SubInfo.Sub));
+% SubInfo.BMI = zeros(size(SubInfo.Sub));
+% SubInfo.PASE = zeros(size(SubInfo.Sub));
+% SubInfo.Up1Total = zeros(size(SubInfo.Sub));
 for n = 1:numel(SubInfo.Sub)
     
     subid = find(contains(ClinicalConfs.pseudonym, SubInfo.Sub{n}));
     
-    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.NpsEducYears(subid)) || isnan(ClinicalConfs.RespHandIsDominant_T0(subid)) || isnan(ClinicalConfs.SmokingHistory(subid)) || isnan(ClinicalConfs.BMI(subid)) || isnan(ClinicalConfs.PASE(subid)) || isnan(ClinicalConfs.Up1Total(subid))
+    if isempty(subid) || isnan(ClinicalConfs.Age(subid)) || strcmp(ClinicalConfs.Gender(subid), 'NA') || isnan(ClinicalConfs.NpsEducYears(subid)) || isnan(ClinicalConfs.RespHandIsDominant_T0(subid))% || isnan(ClinicalConfs.SmokingHistory(subid)) || isnan(ClinicalConfs.BMI(subid)) || isnan(ClinicalConfs.PASE(subid)) || isnan(ClinicalConfs.Up1Total(subid))
         fprintf('Missing values, excluding %s...\n', SubInfo.Sub{n})
         Sel(n) = false;
     else
@@ -186,10 +184,10 @@ for n = 1:numel(SubInfo.Sub)
         SubInfo.Gender(n) = ClinicalConfs.Gender(subid);
         SubInfo.Education(n) = ClinicalConfs.NpsEducYears(subid);
         SubInfo.HandDominance(n) = ClinicalConfs.RespHandIsDominant_T0(subid);
-        SubInfo.SmokingHistory(n) = ClinicalConfs.SmokingHistory(subid);
-        SubInfo.BMI(n) = ClinicalConfs.BMI(subid);
-        SubInfo.PASE(n) = ClinicalConfs.PASE(subid);
-        SubInfo.Up1Total(n) = ClinicalConfs.Up1Total(subid);
+%         SubInfo.SmokingHistory(n) = ClinicalConfs.SmokingHistory(subid);
+%         SubInfo.BMI(n) = ClinicalConfs.BMI(subid);
+%         SubInfo.PASE(n) = ClinicalConfs.PASE(subid);
+%         SubInfo.Up1Total(n) = ClinicalConfs.Up1Total(subid);
     end
     
 end
@@ -202,10 +200,10 @@ SubInfo.Gender = SubInfo.Gender - mean(SubInfo.Gender);
 SubInfo.FD = SubInfo.FD - mean(SubInfo.FD);
 SubInfo.Education = SubInfo.Education - mean(SubInfo.Education);
 SubInfo.HandDominance = SubInfo.HandDominance - mean(SubInfo.HandDominance);
-SubInfo.BMI = SubInfo.BMI - mean(SubInfo.BMI);
-SubInfo.SmokingHistory = SubInfo.SmokingHistory - mean(SubInfo.SmokingHistory);
-SubInfo.PASE = SubInfo.PASE - mean(SubInfo.PASE);
-SubInfo.Up1Total = SubInfo.Up1Total - mean(SubInfo.Up1Total);
+% SubInfo.BMI = SubInfo.BMI - mean(SubInfo.BMI);
+% SubInfo.SmokingHistory = SubInfo.SmokingHistory - mean(SubInfo.SmokingHistory);
+% SubInfo.PASE = SubInfo.PASE - mean(SubInfo.PASE);
+% SubInfo.Up1Total = SubInfo.Up1Total - mean(SubInfo.Up1Total);
 
 %% Examine correlation structure between relevant regressors
 
@@ -225,11 +223,11 @@ SubInfo.Up1Total = SubInfo.Up1Total - mean(SubInfo.Up1Total);
 %% Assemble inputs
 tabulate(SubInfo.Type)
 ConList = {'con_0001' 'con_0002' 'con_0003' 'con_0004'};
-Inputs = cell(12,1);
+Inputs = cell(21,1);
 if ~exclude_outliers 
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'ReserveControl_Subtypes_x_ExtInt2Int3Catch')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'Subtypes_x_ExtInt2Int3Catch')};
 else
-    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'ReserveControl_Subtypes_x_ExtInt2Int3Catch_NoOutliers')};
+    Inputs{1,1} = {fullfile(ANALYSESDir, GroupFolder, 'Baseline', 'Subtypes_x_ExtInt2Int3Catch_NoOutliers')};
 end
 
 MildMotor.idx = contains(SubInfo.Type, 'Mild-Motor');
@@ -244,10 +242,10 @@ MildMotor.Age  = repmat(SubInfo.Age(MildMotor.idx),4,1);
 MildMotor.Gender  = repmat(SubInfo.Gender(MildMotor.idx),4,1);
 MildMotor.Educ  = repmat(SubInfo.Education(MildMotor.idx),4,1);
 MildMotor.Hand  = repmat(SubInfo.HandDominance(MildMotor.idx),4,1);
-MildMotor.BMI  = repmat(SubInfo.BMI(MildMotor.idx),4,1);
-MildMotor.SmokingHistory  = repmat(SubInfo.SmokingHistory(MildMotor.idx),4,1);
-MildMotor.PASE  = repmat(SubInfo.PASE(MildMotor.idx),4,1);
-MildMotor.Up1Total  = repmat(SubInfo.Up1Total(MildMotor.idx),4,1);
+% MildMotor.BMI  = repmat(SubInfo.BMI(MildMotor.idx),4,1);
+% MildMotor.SmokingHistory  = repmat(SubInfo.SmokingHistory(MildMotor.idx),4,1);
+% MildMotor.PASE  = repmat(SubInfo.PASE(MildMotor.idx),4,1);
+% MildMotor.Up1Total  = repmat(SubInfo.Up1Total(MildMotor.idx),4,1);
 
 Intermediate.idx = contains(SubInfo.Type, 'Intermediate');
 Intermediate.Sub = SubInfo.Sub(Intermediate.idx);
@@ -261,10 +259,10 @@ Intermediate.Age  = repmat(SubInfo.Age(Intermediate.idx),4,1);
 Intermediate.Gender  = repmat(SubInfo.Gender(Intermediate.idx),4,1);
 Intermediate.Educ  = repmat(SubInfo.Education(Intermediate.idx),4,1);
 Intermediate.Hand  = repmat(SubInfo.HandDominance(Intermediate.idx),4,1);
-Intermediate.BMI  = repmat(SubInfo.BMI(Intermediate.idx),4,1);
-Intermediate.SmokingHistory  = repmat(SubInfo.SmokingHistory(Intermediate.idx),4,1);
-Intermediate.PASE  = repmat(SubInfo.PASE(Intermediate.idx),4,1);
-Intermediate.Up1Total  = repmat(SubInfo.Up1Total(Intermediate.idx),4,1);
+% Intermediate.BMI  = repmat(SubInfo.BMI(Intermediate.idx),4,1);
+% Intermediate.SmokingHistory  = repmat(SubInfo.SmokingHistory(Intermediate.idx),4,1);
+% Intermediate.PASE  = repmat(SubInfo.PASE(Intermediate.idx),4,1);
+% Intermediate.Up1Total  = repmat(SubInfo.Up1Total(Intermediate.idx),4,1);
 
 DiffuseMalignant.idx = contains(SubInfo.Type, 'Diffuse-Malignant');
 DiffuseMalignant.Sub = SubInfo.Sub(DiffuseMalignant.idx);
@@ -278,20 +276,20 @@ DiffuseMalignant.Age  = repmat(SubInfo.Age(DiffuseMalignant.idx),4,1);
 DiffuseMalignant.Gender  = repmat(SubInfo.Gender(DiffuseMalignant.idx),4,1);
 DiffuseMalignant.Educ  = repmat(SubInfo.Education(DiffuseMalignant.idx),4,1);
 DiffuseMalignant.Hand  = repmat(SubInfo.HandDominance(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.BMI  = repmat(SubInfo.BMI(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.SmokingHistory  = repmat(SubInfo.SmokingHistory(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.PASE  = repmat(SubInfo.PASE(DiffuseMalignant.idx),4,1);
-DiffuseMalignant.Up1Total  = repmat(SubInfo.Up1Total(DiffuseMalignant.idx),4,1);
+% DiffuseMalignant.BMI  = repmat(SubInfo.BMI(DiffuseMalignant.idx),4,1);
+% DiffuseMalignant.SmokingHistory  = repmat(SubInfo.SmokingHistory(DiffuseMalignant.idx),4,1);
+% DiffuseMalignant.PASE  = repmat(SubInfo.PASE(DiffuseMalignant.idx),4,1);
+% DiffuseMalignant.Up1Total  = repmat(SubInfo.Up1Total(DiffuseMalignant.idx),4,1);
 
 Inputs{14,1} = [MildMotor.FD; Intermediate.FD; DiffuseMalignant.FD];
 Inputs{15,1} = [MildMotor.Age; Intermediate.Age; DiffuseMalignant.Age];
 Inputs{16,1} = [MildMotor.Gender; Intermediate.Gender; DiffuseMalignant.Gender];
 Inputs{17,1} = [MildMotor.Educ; Intermediate.Educ; DiffuseMalignant.Educ];
 Inputs{18,1} = [MildMotor.Hand; Intermediate.Hand; DiffuseMalignant.Hand];
-Inputs{19,1} = [MildMotor.BMI; Intermediate.BMI; DiffuseMalignant.BMI];
-Inputs{20,1} = [MildMotor.SmokingHistory; Intermediate.SmokingHistory; DiffuseMalignant.SmokingHistory];
-Inputs{21,1} = [MildMotor.PASE; Intermediate.PASE; DiffuseMalignant.PASE];
-Inputs{22,1} = [MildMotor.Up1Total; Intermediate.Up1Total; DiffuseMalignant.Up1Total];
+% Inputs{19,1} = [MildMotor.BMI; Intermediate.BMI; DiffuseMalignant.BMI];
+% Inputs{20,1} = [MildMotor.SmokingHistory; Intermediate.SmokingHistory; DiffuseMalignant.SmokingHistory];
+% Inputs{21,1} = [MildMotor.PASE; Intermediate.PASE; DiffuseMalignant.PASE];
+% Inputs{21,1} = [MildMotor.Up1Total; Intermediate.Up1Total; DiffuseMalignant.Up1Total];
 
 %% Run
 

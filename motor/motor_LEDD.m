@@ -5,8 +5,8 @@ clear
 addpath('/home/sysneu/marjoh/scripts/FromJorryt')
 fConversionTable = '/project/3022026.01/scripts/jortic/LEDD_conversion_factors.xlsx';
 cConversionTable = readtable(fConversionTable);
-OutputFolder = '/project/3022026.01/pep/ClinVars4/derivatives/LEDD';
-dClinVars = '/project/3022026.01/pep/ClinVars4/';
+OutputFolder = '/project/3022026.01/pep/ClinVars_10-08-2023/derivatives/LEDD';
+dClinVars = '/project/3022026.01/pep/ClinVars_10-08-2023/';
 cSubs = cellstr(spm_select('List', dClinVars, 'dir', 'sub-.*'));
 
 if exist(OutputFolder, 'dir')
