@@ -14,7 +14,7 @@ gl.loadimage('C:/Program Files/MRIcroGL/MRIcroGL_windows_20190902/Resources/stan
 #gl.orthoviewmm(-27,-46,3)
 
 # Set mosaic
-gl.mosaic("A L+ H 0 26 30 34 38; 42 46 50 54; 58 62 66 70; S X R 0");
+gl.mosaic("A L+ H 0 26 30 34 38; 42 46 50 54; 58 62 66 70");
 
 # Smooth interpolation of overlay 
 gl.overlayloadsmooth(0)
@@ -23,9 +23,9 @@ gl.overlayloadsmooth(0)
 gl.sharpen()
 
 # Open overlay
-gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_CognitiveComposite_T0_NoOutliers/Int3gtExt/x_Pos_3gt1.nii')
-gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Int3gtExt/x_Neg_3gt1.nii')
-gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/Brad_CogCom_Overlap_3gt1.nii.gz')
+gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_CognitiveComposite_T0_NoOutliers/Int2gtExt/x_Pos_2gt1.nii')
+gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr-BA_Up3OfBradySum_T0_NoOutliers/Int2gtExt/x_Neg_2gt1.nii')
+gl.overlayload('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/Brad_CogCom_Overlap_2gt1.nii.gz')
 
 # Set overlay display parameters; 1 indicates 1st overlay
 gl.colorname(1,"1red")
@@ -50,4 +50,4 @@ gl.shadername('Standard')
 gl.shaderquality1to10(10)
 
 # Save the image 
-gl.savebmp('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr_CogComp_and_Brady_3gt1.nii')
+gl.savebmp('P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Baseline/ClinCorr_CogComp_and_Brady_2gt1.nii')
