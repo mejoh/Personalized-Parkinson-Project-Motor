@@ -4,8 +4,8 @@ library(tidyverse)
 # dPEP_HomeQuest <- 'P:/3022026.01/pep/download2/'
 # dPEP_Visit <- 'P:/3022026.01/pep/download2/'
 # dPEP_COVID <- 'P:/3022026.01/pep/download2/'
-dPEP <- '/project/3022026.01/pep/download_19-01-2023/'
-dClinVars <- '/project/3022026.01/pep/ClinVars'
+dPEP <- '/project/3022026.01/pep/download_2023_07_25/'
+dClinVars <- '/project/3022026.01/pep/ClinVars_10-08-2023'
 
 # Clean out output directory
 force = FALSE
@@ -29,7 +29,7 @@ if(dir.exists(dClinVars) & force == TRUE){
 # Subjects_COVID <- dContents_Visit[idx_COVID]
 
 dContents <- dir(dPEP)
-idx <- grep('^[0-9A-Z]', dContents)
+idx <- grep('^POM', dContents)
 Subjects <- dContents[idx]
 
 # Subjects = unique(c(Subjects_HomeQuest, Subjects_Visit, Subjects_COVID))
@@ -51,7 +51,7 @@ for(Sub in Subjects){
         
         # Find pseudonym
         dSub <- paste(dPEP, Sub, sep='')
-        pseudonym <- paste('sub-POMU', substr(Sub,1,16), sep='')
+        pseudonym <- paste0('sub-', Sub)
         
         # Check if pseudonym has been bidsd already
         spath <- paste(dClinVars,pseudonym,sep='/')
@@ -69,36 +69,42 @@ for(Sub in Subjects){
         for(f in all_files){
                 fname <- basename(f)
                 # Determine which folder to put a file in based on its name
-                if(str_detect(fname, 'HomeQuestionnaires1') & !str_detect(fname, 'PIT')){
+                if(str_detect(fname, 'Castor.HomeQuestionnaires1') & !str_detect(fname, 'PIT')){
                         subfolder <- 'POMHomeQuestionnaires1'
-                }else if(str_detect(fname, 'HomeQuestionnaires2') & !str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'Castor.HomeQuestionnaires2') & !str_detect(fname, 'PIT')){
                         subfolder <- 'POMHomeQuestionnaires2'
-                }else if(str_detect(fname, 'HomeQuestionnaires3') & !str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'Castor.HomeQuestionnaires3') & !str_detect(fname, 'PIT')){
                         subfolder <- 'POMHomeQuestionnaires3'
-                }else if(str_detect(fname, 'HomeQuestionnaires.Visit1') & str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'Castor.HomeQuestionnaires.Visit1') & str_detect(fname, 'PIT')){
                         subfolder <- 'PITHomeQuestionnaires1'
-                }else if(str_detect(fname, 'HomeQuestionnaires.Visit2') & str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'Castor.HomeQuestionnaires.Visit2') & str_detect(fname, 'PIT')){
                         subfolder <- 'PITHomeQuestionnaires2'
-                }else if(str_detect(fname, 'Visit1') & !str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'Castor.Visit1') & !str_detect(fname, 'PIT')){
                         subfolder <- 'POMVisit1'
-                }else if(str_detect(fname, 'Visit2') & !str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'Castor.Visit2') & !str_detect(fname, 'PIT')){
                         subfolder <- 'POMVisit2'
-                }else if(str_detect(fname, 'Visit3') & !str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'Castor.Visit3') & !str_detect(fname, 'PIT')){
                         subfolder <- 'POMVisit3'
-                }else if(str_detect(fname, 'Visit_1') & str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'PIT.Castor.Visit.Visit_1')){
                         subfolder <- 'PITVisit1'
-                }else if(str_detect(fname, 'Visit_2') & str_detect(fname, 'PIT')){
+                }else if(str_detect(fname, 'PIT.Castor.Visit.Visit_2')){
                         subfolder <- 'PITVisit2'
-                }else if(str_detect(fname, 'COVID') & str_detect(fname, 'PackBasic')){
+                }else if(str_detect(fname, 'COVID.') & str_detect(fname, 'PackBasic')){
                         subfolder <- 'COVIDbasic'
-                }else if(str_detect(fname, 'COVID') & str_detect(fname, 'PackFinal')){
+                }else if(str_detect(fname, 'COVID.') & str_detect(fname, 'PackFinal')){
                         subfolder <- 'COVIDfinal'
-                }else if(str_detect(fname, 'COVID') & str_detect(fname, 'PackWeek1')){
+                }else if(str_detect(fname, 'COVID.') & str_detect(fname, 'PackWeek1')){
                         subfolder <- 'COVIDweek1'
-                }else if(str_detect(fname, 'COVID') & str_detect(fname, 'PackWeek2')){
+                }else if(str_detect(fname, 'COVID.') & str_detect(fname, 'PackWeek2')){
                         subfolder <- 'COVIDweek2'
-                }else if(str_detect(fname, 'COVID') & str_detect(fname, 'CovPackDaily')){
+                }else if(str_detect(fname, 'COVID.') & str_detect(fname, 'CovPackDaily')){
                         subfolder <- 'COVIDdaily'
+                }else if(str_detect(fname, 'DD_InflammationMarkers') & str_detect(fname, 'Visit1')){
+                        subfolder <- 'POMVisit1'
+                }else if(str_detect(fname, 'DD_InflammationMarkers') & str_detect(fname, 'Visit2')){
+                        subfolder <- 'POMVisit2'
+                }else if(str_detect(fname, 'DD_InflammationMarkers') & str_detect(fname, 'Visit3')){
+                        subfolder <- 'POMVisit3'
                 }
                 
                 destination <- paste(dClinVars, '/', pseudonym, '/ses-', subfolder, sep = '')

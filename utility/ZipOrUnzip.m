@@ -1,7 +1,8 @@
+% Compress contrast images in 1st-level analyses
+
 function ZipOrUnzip()
 
-
-dAna = '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem';
+dAna = '/project/3024006.02/Analyses/motor_task';
 Sub = cellstr(spm_select('List', fullfile(dAna), 'dir', '^sub-POM.*'));
 % pat = '^ssub.*task-motor_acq-MB6.*preproc_bold.nii.*';
 pat = '^beta_0.*.nii.*';

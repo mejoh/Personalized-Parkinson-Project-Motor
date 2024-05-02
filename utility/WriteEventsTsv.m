@@ -19,18 +19,18 @@
 %% Collect existing log files and define output .tsv file
 % project = '3024006.01';
 % visit = 'ses-PITVisit2';
-% project = '3022026.01';
-% visit = 'ses-POMVisit3';
-project = '3024010.01';
-visit = 'ses-mri01';
+project = '3022026.01';
+visit = 'ses-POMVisit3';
+% project = '3024010.01';
+% visit = 'ses-mri01';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
-BIDSDir  = fullfile(Root, 'bids');
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-0.*'));
+BIDSDir  = fullfile(Root, 'bids2');
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM3.*'));
 % BIDS     = spm_BIDS(BIDSDir);
 
 % Run = {'1', '2'}; 
-Run = {'1', '2', '3'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
+Run = {'1'};       % 2 runs is the maximum at the time this is written. Check regularly whether this holds.
 for r = 1:length(Run)
 %   Sub      = spm_BIDS(BIDS, 'subjects', 'task','motor', 'run', Run{r});
 %   NSub     = numel(Sub);
@@ -73,7 +73,7 @@ JsonOutputFiles = cell(NSub,1);
 Group = cell(NSub,1);
 RespondingHand = cell(NSub,1);
 NPulses = cell(NSub,1);
-ExtCorrResp = cell(NSub,1);
+NChoice1Hits = cell(NSub,1);
 
 % Collect log files, also determine handedness and group.
   for n = 1:NSub
@@ -96,7 +96,9 @@ ExtCorrResp = cell(NSub,1);
         RespondingHand{n} = 'Right';
     end
         
-    if strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, [Sub{n}], visit, 'dwi'), 'dir')
+    if strcmp(project, '3024006.01')  && strcmp(visit, 'ses-PITVisit2')
+        Group{n} = 'HC_PIT';
+    elseif strcmp(project, '3024006.01')  && exist(fullfile(BIDSDir, [Sub{n}], visit, 'dwi'), 'dir')
         Group{n} = 'HC_PIT';
     elseif strcmp(project, '3024006.01')  && ~exist(fullfile(BIDSDir, [Sub{n}], visit, 'dwi'), 'dir')
         Group{n} = 'PD_PIT';
@@ -140,7 +142,7 @@ NEvents = numel(Events);
     NTrials = numel(Trials{1});                         % Number of trials
     
     % Calculate ratio of correct external responses to total number of trials
-    ExtCorrResp{a} = length(Trials{1,1}(logical(strcmp(Trials{1,2}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))) / 60;
+    NChoice1Hits{a} = length(Trials{1,1}(logical(strcmp(Trials{1,2}, 'Ext') .* strcmp(Trials{1,9}, 'Hit')))) / 60;
     
     fixation.onsets = Trials{3} * TimeScaleCust - T0;       % Onsets
     cue.onsets = Trials{4} * TimeScaleCust - T0;
@@ -151,6 +153,10 @@ NEvents = numel(Events);
     response.durations = ([Trials{3}(2:length(fixation.onsets)); 0] - Trials{5}) * TimeScaleCust;
 
     response.response_time = Trials{6} * TimeScaleCust;     % Reaction_time
+    
+    Trials{2}(strcmp(Trials{2},'Ext')) = {'NChoice1'};     % More informative trial labels
+    Trials{2}(strcmp(Trials{2},'Int2')) = {'NChoice2'};
+    Trials{2}(strcmp(Trials{2},'Int3')) = {'NChoice3'};
     
     %% Read default log file and generate pulse trigger, instruction, and rest events
     Type		= 3;									% Column number containg event type
@@ -179,17 +185,17 @@ NEvents = numel(Events);
     rest.durations = {'20', '20'};
     
     %% Write json file
-    Json = struct('Group', Group{a}, 'RespondingHand', RespondingHand{a}, 'NPulses', NPulses{a}, 'ExtCorrResp', ExtCorrResp{a});
+    Json = struct('Group', Group{a}, 'RespondingHand', RespondingHand{a}, 'NPulses', NPulses{a}, 'NChoice1Hits', NChoice1Hits{a});
     Json.task_description = struct('LongName', 'Short description of the motor task', 'Description', 'Fixate on the cross presented in the middle of the screen. Four circles will be presented, each corresponding to a specific finger on the responding hand. Filled circles indicate correct responses. If only one circle is filled, press the corresponding response button. If multiple circles are filled, choose one and press the corresponding response button. Respond as quickly and accurately as possible.');
     Json.Group = struct('Value', Group{a}, 'LongName', 'Group', 'Description', 'Denotes the grouping of a participant', 'Levels', struct('PD_PIT', 'Patients from the Parkinson In Toom study', 'PD_POM', 'Patients from the Parkinson Op Maat study', 'HC_PIT', 'Healthy controls from the Parkinson In Toom study'));
     Json.RespondingHand = struct('Value', RespondingHand{a}, 'LongName', 'Responding hand', 'Description', 'Hand used for pressing response button. For patients, this also denotes the most affected side', 'Levels', struct('Left', 'Left hand', 'Right', 'Right hand'));
     Json.NPulses = struct('Value', NPulses{a}, 'LongName', 'Number of pulses', 'Description', 'Pulses recorded while Presentation is running the task. Scanning is manually stopped once the task is finished. As a result, images will usually contain more volumes than the number of pulses that are recorded by Presentation.');
-    Json.ExtCorrResp = struct('Value', ExtCorrResp{a}, 'LongName', 'External correct responses', 'Description', 'Ratio of correct responses relative to the total number of trials registered for the external condition. Value < 0.25 Indicates pattern of random responses');
+    Json.NChoice1Hits = struct('Value', NChoice1Hits{a}, 'LongName', 'Correct responses on one-choice trials', 'Description', 'Ratio of correct responses relative to the total number of trials registered for the one-choice condition. Value < 0.25 Indicates pattern of random responses');
     Json.onset = struct('LongName', 'Event onset', 'Description', 'Denotes onset of a specific event relative to acquisition of first scanner pulse (T0)', 'Units', 'seconds');
     Json.duration = struct('LongName', 'Event duration', 'Description', 'Denotes duration of a specific event', 'Units', 'seconds');
     Json.trial_number = struct('LongName', 'Trial number', 'Description', 'Denotes trial number (1 through 132) of a specific event');
     Json.event_type = struct('LongName', 'Event type', 'Description', 'Denotes the type of a specific event', 'Levels', struct('Instructions', 'Instructions presented at the start of the task', 'ShortRest', '4 second presentation of a fixation cross', 'LongRest', '20 second presentation of a fixation cross', 'fixation', 'Denotes presentation of a fixation crosses between trials', 'cue', 'Denotes presentation of a cue', 'response', 'Denotes detection of a response'));
-    Json.trial_type = struct('LongName', 'Trial type', 'Description', 'Trial types denote conditions in task', 'Levels', struct('Ext', 'External, one choice', 'Int2', 'Internal, two choices', 'Int3', 'Internal, three choices'));
+    Json.trial_type = struct('LongName', 'Trial type', 'Description', 'Trial types denote conditions in task', 'Levels', struct('NChoice1', 'One choice', 'NChoice2', 'Two choices', 'NChoice3', 'Three choices'));
     Json.response_time = struct('LongName', 'Response time', 'Description', 'Denotes reaction time (i.e. Response onset - Cue onset) for a specific trial', 'Units', 'seconds');
 %     Json.button_pressed = struct('LongName', 'Button pressed', 'Description', 'Button pressed in response to a specific cue', 'Levels', struct('Zero', 'No response detected (Miss)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
     Json.button_pressed = struct('LongName', 'Button pressed', 'Description', 'Button pressed in response to a specific cue', 'Levels', struct('Zero', 'No response detected (Miss)', 'One', 'Index finger', 'Two', 'Middle finger', 'Three', 'Ring finger', 'Four', 'Pinky finger'));
@@ -279,21 +285,21 @@ NEvents = numel(Events);
         end
     end
     for n = 1:NTrials*NEvents       % Ext trials where button_pressed == 0 (Misses incorrectly labeled as Incorrect)
-        if strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'Ext') && (button_pressed{n} == 0)
+        if strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'NChoice1') && (button_pressed{n} == 0)
             correct_response{n-2} = 'Miss';     % Correct response is changed to miss for fixation, cue, and response
             correct_response{n-1} = 'Miss';
             correct_response{n} = 'Miss';
             duration{n-1} = '2';     % Cue duration to max
             onset{n} = sprintf(formatSpec, str2double(onset{n - 1}) + 1); % NOTE! Temporary assignment of onset to enable sorting. Should actually be n/a.
             duration{n} = 'n/a';
-        elseif strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'Ext') && strcmp(correct_response{n}, 'Miss') % Just in case...
+        elseif strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'NChoice1') && strcmp(correct_response{n}, 'Miss') % Just in case...
             duration{n-1} = '2';     % Cue duration to max
             onset{n} = sprintf(formatSpec, str2double(onset{n - 1}) + 1); % NOTE! Temporary assignment of onset to enable sorting. Should actually be n/a.
             duration{n} = 'n/a';
         end
     end
     for n = 1:NTrials*NEvents       % Int2/3 trials where correct_response == 'Miss'
-        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'Int2') || strcmp(trial_type{n}, 'Int3')) && strcmp(correct_response{n}, 'Miss')
+        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'NChoice2') || strcmp(trial_type{n}, 'NChoice3')) && strcmp(correct_response{n}, 'Miss')
             duration{n-1} = '2';     % Cue duration to max
             onset{n} = sprintf(formatSpec, str2double(onset{n - 1}) + 1); % NOTE! Temporary assignment of onset to enable sorting. Should actually be n/a.
             duration{n} = 'n/a';
@@ -357,7 +363,7 @@ NEvents = numel(Events);
         if strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'Catch') && strcmp(correct_response{n}, 'Hit')
             onset{n} = 'n/a';
         end
-        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'Ext') || strcmp(trial_type{n}, 'Int2') || strcmp(trial_type{n}, 'Int3')) && strcmp(correct_response{n}, 'Miss')
+        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'NChoice1') || strcmp(trial_type{n}, 'NChoice2') || strcmp(trial_type{n}, 'NChoice3')) && strcmp(correct_response{n}, 'Miss')
             onset{n} = 'n/a';
         end
     end

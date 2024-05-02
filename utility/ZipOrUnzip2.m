@@ -1,3 +1,5 @@
+% Compress contrast images to be used in group comparisons
+
 function ZipOrUnzip2(zip)
 
 if nargin<1

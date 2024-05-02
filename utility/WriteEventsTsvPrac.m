@@ -8,8 +8,8 @@ project = '3022026.01';
 visit = 'ses-POMVisit3';
 Root = strcat('/project/', project);
 RAWDir   = fullfile(Root, 'raw');
-BIDSDir  = fullfile(Root, 'bids');
-Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM3FM.*'));
+BIDSDir  = fullfile(Root, 'bids2');
+Sub = cellstr(spm_select('List', fullfile(BIDSDir), 'dir', '^sub-POM3.*'));
 % BIDS     = spm_BIDS(BIDSDir);
 
   % Exclude participants with missing log files
@@ -27,7 +27,7 @@ for n = 1:numel(Sub)
         continue
     end
     
-    PracLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac4_logfile\.txt$']);
+    PracLog    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac1_logfile\.txt$']);
     TaskLog = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '.*MotorTaskEv.*\.log$']);
     if size(PracLog,1) ~= 1 || size(TaskLog,1) < 1
 		Sel(n) = false;
@@ -54,8 +54,8 @@ for n = 1:NSub
         MotorBehavDir = MotorBehavDir(length(MotorBehavDir));
     end
     
-    PracLog{n}    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac4_logfile\.txt$']);
-    OutputFiles{n} = fullfile(BIDSDir, ['sub-' s], visit, 'beh', ['sub-' s '_' visit '_task-motor_acq-practice_run-4_events.tsv']);
+    PracLog{n}    = spm_select('FPList', fullfile(MotorBehavDir.folder, MotorBehavDir.name), [s '_(p|P)rac1_logfile\.txt$']);
+    OutputFiles{n} = fullfile(BIDSDir, ['sub-' s], visit, 'beh', ['sub-' s '_' visit '_task-motor_acq-practice_run-1_events.tsv']);
   
 end
 
@@ -99,6 +99,10 @@ for a = 1:NSub
     response.durations = ([Trials{3}(2:length(fixation.onsets)); 0] - Trials{5}) * TimeScaleCust;
 
     response.response_time = Trials{6} * TimeScaleCust;     % Reaction_time
+    
+    Trials{2}(strcmp(Trials{2},'Ext')) = {'NChoice1'};     % More informative trial labels
+    Trials{2}(strcmp(Trials{2},'Int2')) = {'NChoice2'};
+    Trials{2}(strcmp(Trials{2},'Int3')) = {'NChoice3'};
     
  %% Separate trials into separate 'Fixation', 'Cue', and 'Response' events, follows reference above
     onset = cell(NTrials*NEvents,1);                   % Preallocate
@@ -164,21 +168,21 @@ for a = 1:NSub
         end
     end
     for n = 1:NTrials*NEvents       % Ext trials where button_pressed == 0 (Misses incorrectly labeled as Incorrect)
-        if strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'Ext') && (button_pressed{n} == 0)
+        if strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'NChoice1') && (button_pressed{n} == 0)
             correct_response{n-2} = 'Miss';     % Correct response is changed to miss for fixation, cue, and response
             correct_response{n-1} = 'Miss';
             correct_response{n} = 'Miss';
             duration{n-1} = '2';     % Cue duration to max
             onset{n} = sprintf(formatSpec, str2double(onset{n - 1}) + 1); % NOTE! Temporary assignment of onset to enable sorting. Should actually be n/a.
             duration{n} = 'n/a';
-        elseif strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'Ext') && strcmp(correct_response{n}, 'Miss') % Just in case...
+        elseif strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'NChoice1') && strcmp(correct_response{n}, 'Miss') % Just in case...
             duration{n-1} = '2';     % Cue duration to max
             onset{n} = sprintf(formatSpec, str2double(onset{n - 1}) + 1); % NOTE! Temporary assignment of onset to enable sorting. Should actually be n/a.
             duration{n} = 'n/a';
         end
     end
     for n = 1:NTrials*NEvents       % Int2/3 trials where correct_response == 'Miss'
-        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'Int2') || strcmp(trial_type{n}, 'Int3')) && strcmp(correct_response{n}, 'Miss')
+        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'NChoice2') || strcmp(trial_type{n}, 'NChoice3')) && strcmp(correct_response{n}, 'Miss')
             duration{n-1} = '2';     % Cue duration to max
             onset{n} = sprintf(formatSpec, str2double(onset{n - 1}) + 1); % NOTE! Temporary assignment of onset to enable sorting. Should actually be n/a.
             duration{n} = 'n/a';
@@ -193,7 +197,7 @@ for a = 1:NSub
         if strcmp(event_type{n}, 'response') && strcmp(trial_type{n}, 'Catch') && strcmp(correct_response{n}, 'Hit')
             onset{n} = 'n/a';
         end
-        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'Ext') || strcmp(trial_type{n}, 'Int2') || strcmp(trial_type{n}, 'Int3')) && strcmp(correct_response{n}, 'Miss')
+        if strcmp(event_type{n}, 'response') && (strcmp(trial_type{n}, 'NChoice1') || strcmp(trial_type{n}, 'NChoice2') || strcmp(trial_type{n}, 'NChoice3')) && strcmp(correct_response{n}, 'Miss')
             onset{n} = 'n/a';
         end
     end
