@@ -1,4 +1,4 @@
-dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI'){
+dataTable_3dLMEr_single <- function(con='con_0007.nii', outputDir='/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI'){
   
     # con <- 'con_0010.nii'
     # outputDir <- '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal'
@@ -18,27 +18,41 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     tic()
     
     ##### Load subjects with 1st-level results #####
-    dAna <- '/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem'
+    dAna <- '/project/3024006.02/Analyses/motor_task'
     Subs <- dir(dAna, pattern = 'sub-.*')
     
     ##### Load clinical data and select subtype variable #####
     # DiagEx1 = Baseline diagnosis - DiagEx2 = Follow-up diagnosis - DiagEx3 = Both
-    dfClinVars <- read_csv('/project/3022026.01/pep/ClinVars4/derivatives/merged_manipulated_2022-09-28.csv') %>%
-        rename(Subtype1 = Subtype_DiagEx3_DisDurSplit,
-               Subtype2 = Subtype_Imputed_DiagEx3_DisDurSplit,
-               Subtype3 = Subtype_DiagEx3_DisDurSplit.MCI) %>%
-        mutate(Subtype1 = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype1),
-               Subtype1 = if_else(is.na(Subtype1),'4_Undefined',Subtype1)) %>%
-        mutate(Subtype2 = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype2),
-               Subtype2 = if_else(is.na(Subtype2),'4_Undefined',Subtype2)) %>%
-        mutate(Subtype3 = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype3),
-               Subtype3 = if_else(is.na(Subtype3),'4_Undefined',Subtype3))
+    dfClinVars <- read_csv('/project/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2023-10-18.csv') %>%
+        rename(Subtype = Subtype_DiagEx3_DisDurSplit.MCI_z) %>%
+        mutate(Subtype = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype),
+               Subtype = if_else(is.na(Subtype),'4_Undefined',Subtype))
+    
+    ##### Load task performance data (needed for responding hand) #####
+    dfTaskVars <- read_csv('/project/3022026.01/pep/bids/derivatives/manipulated_collapsed_merged_motor_task_mri_2023-09-15.csv') %>%
+      group_by(pseudonym,Group,Timepoint) %>%
+      summarise(across(everything(), ~first(.x))) %>%
+      ungroup() %>%
+      filter(Group != 'PD_PIT') %>%
+      mutate(TimepointNr = if_else(str_detect(Timepoint,'Visit1'), 0, 1),
+             RespondingHand = if_else(RespondingHand=='Right',0,1)) %>%
+      select(pseudonym,Group,TimepointNr,RespondingHand) %>%
+      pivot_wider(id_cols = c('pseudonym','Group'),
+                  names_from = TimepointNr,
+                  values_from = RespondingHand,
+                  names_prefix = 'T') %>%
+      mutate(T0 = if_else(is.na(T0),T1,T0),
+             T1 = if_else(is.na(T1),T0,T1),
+             RespHand = T0*T1,
+             RespHand = if_else(RespHand==0,'Right','Left'))
     
     ##### Initialize data frame #####
-    df.all <- tibble(Subj=character(), Visit=character(), Group=character(), TimepointNr=numeric(), WeeksToFollowUp=numeric(),
-                     Subtype1=character(), Subtype2=character(), Subtype3=character(), Age=numeric(), Sex=character(), 
-                     YearSinceDiag=numeric(), Up3Total=numeric(), BradyRigScore=numeric(), BradyScore=numeric(), 
-                     RigScore=numeric(), InputFile=character(), InputFile2=character(), voxelwiseBA=character())
+    df.all <- tibble(Subj=character(), Visit=character(), Group=character(), TimepointNr=numeric(), YearsToFollowUp=numeric(),
+                     Subtype=character(), Age=numeric(), Sex=character(), YearsSinceDiag=numeric(), NpsEducYears=numeric(),
+                     RespHandIsDominant=numeric(),LEDD=numeric(),
+                     Up3Total=numeric(), BradyRigScore=numeric(), BradyScore=numeric(),RigScore=numeric(),
+                     z_MoCA=numeric(),raw_MoCA=numeric(),z_CognitiveComposite=numeric(),
+                     InputFile=character(), InputFile2=character(), voxelwiseBA=character())
     
     ##### Write one row for each subject's visits #####
     for(n in 1:length(Subs)){
@@ -63,13 +77,14 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
             }else{
                 tmp <- Visits[1]
             }
-            Subtype1 <- dat %>% filter(Timepoint==tmp) %>% select(Subtype1) %>% as.character()
-            Subtype2 <- dat %>% filter(Timepoint==tmp) %>% select(Subtype2) %>% as.character()
-            Subtype3 <- dat %>% filter(Timepoint==tmp) %>% select(Subtype3) %>% as.character()
+            Subtype <- dat %>% filter(Timepoint==Visits[1]) %>% select(Subtype) %>% as.character() # From baseline
             Age <- dat %>% filter(Timepoint==tmp) %>% select(Age) %>% as.numeric()
             Sex <- dat %>% filter(Timepoint==tmp) %>% select(Gender) %>% as.character()
-            MonthSinceDiag <- dat %>% filter(Timepoint==tmp) %>% select(MonthSinceDiag) %>% as.numeric()
-            YearSinceDiag <- MonthSinceDiag/12
+            YearsSinceDiag <- dat %>% filter(Timepoint==tmp) %>% select(YearsSinceDiag) %>% as.numeric()
+            NpsEducYears <- dat %>% filter(Timepoint==tmp) %>% select(NpsEducYears) %>% as.numeric()
+            PrefHand <- dat %>% filter(Timepoint==tmp) %>% select(PrefHand) %>% as.character()
+            RespHand <- dfTaskVars %>% filter(pseudonym==Subj) %>% select(RespHand) %>% as.character()
+            RespHandIsDominant <- if_else(PrefHand==RespHand,1,0)
             ##### Define timepoint (integer) #####
             TimepointNr <- dat %>% filter(Timepoint==Visit) %>% select(TimepointNr) %>% as.numeric()
             ##### FIX: Missing Visit3 demographics are filled in based on visit label #####
@@ -77,12 +92,20 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
                 TimepointNr = 2
             }
             ##### Define weeks to follow-up #####
-            WeeksToFollowUp <- dat %>% filter(Timepoint==Visit) %>% select(WeeksToFollowUp) %>% as.numeric()
+            YearsToFollowUp <- dat %>% filter(Timepoint==Visit) %>% select(YearsToFollowUp) %>% as.numeric()
             ##### Define MDS-UPDRS III bradykinetic-rigid severity #####
-            Up3Total <- dat %>% filter(Timepoint==Visit) %>% select(Up3OfTotal) %>% as.numeric()
-            BradyScore <- dat %>% filter(Timepoint==Visit) %>% select(Up3OfBradySum) %>% as.numeric()
-            RigScore <- dat %>% filter(Timepoint==Visit) %>% select(Up3OfRigiditySum) %>% as.numeric()
-            BradyRigScore <- dat %>% filter(Timepoint==Visit) %>% select(Up3OfAppendicularSum) %>% as.numeric()
+            Up3Total <- dat %>% filter(Timepoint==Visit) %>% select(Up3OnTotal) %>% as.numeric()
+            BradyScore <- dat %>% filter(Timepoint==Visit) %>% select(Up3OnBradySum) %>% as.numeric()
+            RigScore <- dat %>% filter(Timepoint==Visit) %>% select(Up3OnRigiditySum) %>% as.numeric()
+            BradyRigScore <- dat %>% filter(Timepoint==Visit) %>% select(Up3OnAppendicularSum) %>% as.numeric()
+            ##### MoCA #####
+            z_MoCA <- dat %>% filter(Timepoint==Visit) %>% select(z_MoCA__total) %>% as.numeric()
+            raw_MoCA <- dat %>% filter(Timepoint==Visit) %>% select(MoCASum) %>% as.numeric()
+            if(str_detect(Visit,'ses-POMVisit3') & is.na(raw_MoCA)){
+              z_MoCA <- NA
+            }
+            ##### Cognitive composite #####
+            z_CognitiveComposite <- dat %>% filter(Timepoint==Visit) %>% select(z_CognitiveComposite) %>% as.numeric()
             ##### Define Mean FD (from fmriprep covars that were used at 1st-level) #####
             # MeanFD = compute_mean_covar(Subj, Visit, dAna='/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem', measure='framewise_displacement')
             ##### DEPRECATED: Define accuarcy  #####
@@ -93,6 +116,8 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
             #   str_replace('/project/', '/project/')
             # Flipped cons (need to do something about these visit ids not corresponding between studies...)
             # Note that these contrasts have already undergone exclusions in motor_copycontrasts.m
+            ##### LEDD
+            LEDD <- dat %>% filter(Timepoint==Visit) %>% select(LEDD) %>% as.numeric()
             Visit_re <- Visit %>% str_replace('Visit3','Visit2') %>% str_replace('P[A-Z][A-Z]', '')
             dCon <- file.path(dAna, 'Group', sub('.nii','',con), Visit_re)
             ptn <- paste(Subj, Visit, sep='_')
@@ -118,18 +143,20 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
                 voxelwiseBA <- NA
             }
             
-            df.sub <- tibble(Subj=Subj, Visit=Visit, Group=Group, TimepointNr=TimepointNr, WeeksToFollowUp=WeeksToFollowUp,
-                             Subtype1=Subtype1, Subtype2=Subtype2, Subtype3=Subtype3, Age=Age, Sex=Sex, YearSinceDiag=YearSinceDiag,
+            df.sub <- tibble(Subj=Subj, Visit=Visit, Group=Group, TimepointNr=TimepointNr, YearsToFollowUp=YearsToFollowUp,
+                             Subtype=Subtype, Age=Age, Sex=Sex, YearsSinceDiag=YearsSinceDiag,NpsEducYears=NpsEducYears,
+                             RespHandIsDominant=RespHandIsDominant,LEDD=LEDD,
                              Up3Total=Up3Total, BradyRigScore=BradyRigScore, BradyScore=BradyScore, RigScore=RigScore,
+                             z_MoCA=z_MoCA, raw_MoCA=raw_MoCA, z_CognitiveComposite=z_CognitiveComposite, 
                              InputFile=InputFile, InputFile2=InputFile2, voxelwiseBA=voxelwiseBA)
             df.all <- bind_rows(df.all, df.sub)
             
         }
     }
     
-    ##### FIX: 3 patients with T2 fmri data does not appear to have castor data. These can be fixed easily #####
-    df.all <- df.all %>%
-        mutate(TimepointNr = if_else(is.na(TimepointNr), 2, TimepointNr))
+    ##### DEPRECATED FIX: 3 patients with T2 fmri data does not appear to have castor data. These can be fixed easily #####
+    # df.all <- df.all %>%
+    #     mutate(TimepointNr = if_else(is.na(TimepointNr), 2, TimepointNr))
     
     ##### FIX: TimepointNr and exclude PD_PIT #####
     df.all <- df.all %>%
@@ -139,22 +166,21 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     
     ##### Arrange ####
     df.all <- df.all %>%
-        arrange(Group, Subtype1, Subj, TimepointNr)
+        arrange(Group, Subtype, Subj, TimepointNr)
     
     ##### Check numbers #####
     df.all %>%
-        select(TimepointNr, Subtype1) %>%
+        select(TimepointNr, Subtype) %>%
         table() %>%
         print()
     
-    # ##### Check WeeksToFollowUp #####
+    # ##### Check YearsToFollowUp #####
     df.all %>%
         group_by(Group,TimepointNr) %>%
-        select(Group, TimepointNr, WeeksToFollowUp) %>%
-        summarise(N=sum(is.na(WeeksToFollowUp))) %>% print()
+        select(Group, TimepointNr, YearsToFollowUp) %>%
+        summarise(N=sum(is.na(YearsToFollowUp))) %>% print()
     df.all <- df.all %>%
-        mutate(YearsToFollowUp=WeeksToFollowUp/4/12,
-               YearsToFollowUp=if_else(is.na(YearsToFollowUp) & TimepointNr=='T1', 2.3, YearsToFollowUp))
+        mutate(YearsToFollowUp=if_else(is.na(YearsToFollowUp) & TimepointNr=='T1', 2.3, YearsToFollowUp))
     # df.all %>%
     #     filter(TimepointNr=='T1') %>%
     #     ggplot(aes(y=YearsToFollowUp,x=Subtype1)) +
@@ -180,14 +206,17 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     ##### Define tables per question of interest #####
     # Effect of PD
     df.disease <- df.all
-    vars.disease <- c('Subj', 'Group', 'Subtype1', 'TimepointNr', 'YearsToFollowUp', 'Age', 'YearSinceDiag', 'Sex', 'InputFile', 'InputFile2', 'voxelwiseBA')
+    vars.disease <- c('Subj', 'Group', 'Subtype', 'TimepointNr', 'YearsToFollowUp', 'Age', 'YearsSinceDiag',
+                      'NpsEducYears','RespHandIsDominant', 'Sex', 'InputFile', 'InputFile2', 'voxelwiseBA')
     df.disease <- df.disease %>%
         select(any_of(vars.disease))
     # Association with disease severity
     df.severity <- df.all %>%
         filter(Group == 'PD_POM') %>%
-        mutate(ClinScore=BradyScore)
-    vars.severity <- c('Subj', 'ClinScore', 'TimepointNr', 'Age', 'Sex', 'YearSinceDiag', 'InputFile', 'InputFile2', 'voxelwiseBA')
+        mutate(ClinScore_brady=BradyScore,
+               ClinScore_cog=z_MoCA)
+    vars.severity <- c('Subj', 'ClinScore_brady', 'ClinScore_cog', 'TimepointNr', 'Age', 'Sex', 'YearsSinceDiag',
+                       'NpsEducYears','RespHandIsDominant','LEDD', 'InputFile', 'InputFile2', 'voxelwiseBA')
     df.severity <- df.severity %>%
         select(any_of(vars.severity))
     
@@ -222,34 +251,42 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     #     rename(ClinScore.imp1 = ClinScore)
     
     df.severity.imp <- df.severity %>%
-        select(Subj, ClinScore, TimepointNr, Age, Sex, YearSinceDiag) %>%
-        mutate(Sex = factor(Sex))
+        select(Subj, ClinScore_brady, ClinScore_cog, TimepointNr, Age, Sex, YearsSinceDiag, NpsEducYears, RespHandIsDominant, LEDD) %>%
+        mutate(Sex = factor(Sex),
+               RespHandIsDominant = factor(RespHandIsDominant))
     md.pattern(df.severity.imp)
     isna <- apply(df.severity.imp, 2, is.na) %>% colSums()
     cat(paste('\n ', 'Percentage missing values\n', sep=''))
     missing_perc <- round(isna/nrow(df.severity.imp), digits = 3)*100
     print(missing_perc)
     imputed <- df.severity.imp %>% 
-        mice(m=round(5*missing_perc[names(missing_perc)=='ClinScore']), 
+        mice(m=round(5*missing_perc[names(missing_perc)=='ClinScore_brady']), 
              maxit = 10, 
              method='pmm', 
              seed=157, 
              print=FALSE)
     summary(imputed)
-    print(stripplot(imputed, formula('ClinScore ~ TimepointNr',sep='')),
+    print(stripplot(imputed, formula('ClinScore_brady ~ TimepointNr',sep='')),
+          pch = 19, xlab = "Imputation number")
+    print(stripplot(imputed, formula('ClinScore_cog ~ TimepointNr',sep='')),
           pch = 19, xlab = "Imputation number")
     df.severity.imp <- imputed %>%
       complete() %>%
       tibble() %>%
-      select(Subj, TimepointNr, ClinScore, YearSinceDiag) %>%
-      rename(ClinScore.imp = ClinScore,
-             YearSinceDiag.imp = YearSinceDiag) %>%
+      select(Subj, TimepointNr, ClinScore_brady, ClinScore_cog, YearsSinceDiag, NpsEducYears, LEDD) %>%
+      rename(ClinScore_brady_imp = ClinScore_brady,
+             ClinScore_cog_imp = ClinScore_cog,
+             YearsSinceDiag.imp = YearsSinceDiag,
+             NpsEducYears.imp = NpsEducYears,
+             LEDD_imp = LEDD) %>%
       group_by(Subj) %>%
-      mutate(YearSinceDiag.imp = first(YearSinceDiag.imp)) %>%
+      mutate(YearsSinceDiag.imp = first(YearsSinceDiag.imp),
+             NpsEducYears.imp = first(NpsEducYears.imp)) %>%
       ungroup()
     
     df.severity <- left_join(df.severity, df.severity.imp, by=c('Subj','TimepointNr')) %>%
-        relocate(Subj, ClinScore, ClinScore.imp, TimepointNr, Age, Sex, YearSinceDiag, YearSinceDiag.imp)
+        relocate(Subj, ClinScore_brady, ClinScore_brady_imp, ClinScore_cog, ClinScore_cog_imp, TimepointNr, Age, Sex, YearsSinceDiag,
+                 YearsSinceDiag.imp, NpsEducYears, NpsEducYears.imp, RespHandIsDominant, LEDD, LEDD_imp)
     
     # #### Disagreggation of within and between subject variability. Demeaning should be done in AFNI by setting appropriate values for qVarCenters #####
     # # NOTE: 
@@ -292,15 +329,20 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     df.severity <- df.severity %>%
       isolate(d = .,
               by = 'Subj',
-              value = c('ClinScore','ClinScore.imp'),
+              value = c('ClinScore_brady','ClinScore_brady_imp', 'ClinScore_cog', 'ClinScore_cog_imp', 'LEDD', 'LEDD_imp'),
               which = 'both') %>%
-      mutate(ClinScore.imp_cbxcw = ClinScore.imp_cb*ClinScore.imp_cw) %>%
-      mutate(across(where(is.numeric), round, digits=5))
+      mutate(ClinScore_brady_cbxcw = ClinScore_brady_cb*ClinScore_brady_cw,
+             ClinScore_brady_imp_cbxcw = ClinScore_brady_imp_cb*ClinScore_brady_imp_cw,
+             ClinScore_cog_cbxcw = ClinScore_cog_cb*ClinScore_cog_cw,
+             ClinScore_cog_imp_cbxcw = ClinScore_cog_imp_cb*ClinScore_cog_imp_cw,
+             LEDD_cbxcw = LEDD_cb*LEDD_cw,
+             LEDD_imp_cbxcw = LEDD_imp_cb*LEDD_imp_cw) %>%
+      mutate(across(where(is.numeric), \(x) round(x, digits = 5)))
     
     ##### Add time to follow-up to age so that it can be used as continuous measure of time
     df.disease <- df.disease %>%
-        mutate(Age.timevar=if_else(TimepointNr=='T1',Age+YearsToFollowUp,Age)) %>%
-      mutate(across(where(is.numeric), round, digits=5))
+      mutate(Age.timevar=if_else(TimepointNr=='T1',Age+YearsToFollowUp,Age)) %>%
+      mutate(across(where(is.numeric), \(x) round(x, digits=5)))
     
     ##### NOT APPROPRIATE: Add polynomials for Age and ClinScore #####
     # df.disease <- df.disease %>%
@@ -320,72 +362,88 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     avg_timetofu <- df.disease %>% summarise(mean(YearsToFollowUp)) %>% as.numeric()
     cat('Average years to follow-up (group analysis):', avg_timetofu,'\n')
     
-    avg_clinscore_at_ba <- df.severity %>% summarise(mean(ClinScore,na.rm=TRUE)) %>% as.numeric()
-    cat('Average ClinScore:', avg_clinscore_at_ba,'\n')
-    avg_clinscore_at_ba <- df.severity %>% summarise(mean(ClinScore.imp,na.rm=TRUE)) %>% as.numeric()
-    cat('Average ClinScore.im/project', avg_clinscore_at_ba,'\n')
-    avg_age_at_ba <- df.severity %>% summarise(mean(Age)) %>% as.numeric()
+    avg_clinscore_at_ba <- df.severity %>% summarise(mean(ClinScore_brady,na.rm=TRUE)) %>% as.numeric()
+    cat('Average ClinScore_brady:', avg_clinscore_at_ba,'\n')
+    avg_clinscore_at_ba <- df.severity %>% summarise(mean(ClinScore_brady_imp,na.rm=TRUE)) %>% as.numeric()
+    cat('Average ClinScore_brady_imp', avg_clinscore_at_ba,'\n')
+    avg_clinscore_at_ba <- df.severity %>% summarise(mean(ClinScore_cog,na.rm=TRUE)) %>% as.numeric()
+    cat('Average ClinScore_cog:', avg_clinscore_at_ba,'\n')
+    avg_clinscore_at_ba <- df.severity %>% summarise(mean(ClinScore_cog_imp,na.rm=TRUE)) %>% as.numeric()
+    cat('Average ClinScore_cog_imp', avg_clinscore_at_ba,'\n')
+    avg_clinscore_at_ba <- df.severity %>% summarise(mean(LEDD,na.rm=TRUE)) %>% as.numeric()
+    cat('Average LEDD:', avg_clinscore_at_ba,'\n')
+    avg_clinscore_at_ba <- df.severity %>% summarise(mean(LEDD_imp,na.rm=TRUE)) %>% as.numeric()
+    cat('Average LEDD_imp', avg_clinscore_at_ba,'\n')
+    avg_age_at_ba <- df.severity %>% filter(TimepointNr=='T0') %>% summarise(mean(Age)) %>% as.numeric()
     cat('Average age at baseline (correlation analysis):', avg_age_at_ba,'\n')
     
     ##### Select variables to be used in 3dLMEr #####
     # Is there a differential effect of PD on changes in brain activity?
-    vars.disease <- c('Subj', 'Group', 'Subtype1', 'TimepointNr', 'YearsToFollowUp', 'Age.timevar', 'Age', 'Sex', 'InputFile')
+    vars.disease <- c('Subj', 'Group', 'Subtype', 'TimepointNr', 'YearsToFollowUp', 'Age.timevar', 'Age', 'Sex',
+                      'NpsEducYears', 'RespHandIsDominant', 'InputFile')
     df.disease.s <- df.disease %>%
         select(any_of(vars.disease)) %>%
         na.omit()
     df.disease.s %>% select(TimepointNr,Group) %>% table() %>% print()
     outputName.disease <- str_replace(outputName, 'dataTable', 'disease_dataTable')
     
-    vars.disease <- c('Subj', 'Group', 'Subtype1', 'TimepointNr', 'YearsToFollowUp', 'Age.timevar', 'Age', 'Sex', 'YearSinceDiag', 'InputFile')
+    vars.disease <- c('Subj', 'Group', 'Subtype', 'TimepointNr', 'YearsToFollowUp', 'Age.timevar', 'Age', 'Sex',
+                      'NpsEducYears','RespHandIsDominant','YearsSinceDiag', 'InputFile')
     df.disease.s_type <- df.disease %>%
       select(any_of(vars.disease)) %>%
       na.omit()
-    df.disease.s_type %>% select(TimepointNr,Subtype1) %>% table() %>% print()
+    df.disease.s_type %>% select(TimepointNr,Subtype) %>% table() %>% print()
     
     df.disease.HCvsMMP <- df.disease.s %>%
-        filter(Subtype1 == '0_Healthy' | Subtype1 == '1_Mild-Motor') %>%
-        mutate(Subtype1 = if_else(Subtype1=='0_Healthy','G1','G2'))
+        filter(Subtype == '0_Healthy' | Subtype == '1_Mild-Motor') %>%
+        mutate(Subtype = if_else(Subtype=='0_Healthy','G1','G2'))
     cat('G1=HC, G2=MMP\n')
-    df.disease.HCvsMMP %>% select(TimepointNr,Subtype1) %>% table() %>% print()
+    df.disease.HCvsMMP %>% select(TimepointNr,Subtype) %>% table() %>% print()
     outputName.disease.HCvsMMP <- str_replace(outputName, 'dataTable', 'disease_HCvsMMP_dataTable')
     
     df.disease.HCvsIM <- df.disease.s %>%
-        filter(Subtype1 == '0_Healthy' | Subtype1 == '2_Intermediate') %>%
-        mutate(Subtype1 = if_else(Subtype1=='0_Healthy','G1','G2'))
+        filter(Subtype == '0_Healthy' | Subtype == '2_Intermediate') %>%
+        mutate(Subtype = if_else(Subtype=='0_Healthy','G1','G2'))
     cat('G1=HC, G2=IM\n')
-    df.disease.HCvsIM %>% select(TimepointNr,Subtype1) %>% table() %>% print()
+    df.disease.HCvsIM %>% select(TimepointNr,Subtype) %>% table() %>% print()
     outputName.disease.HCvsIM <- str_replace(outputName, 'dataTable', 'disease_HCvsIM_dataTable')
     
     df.disease.HCvsDM <- df.disease.s %>%
-        filter(Subtype1 == '0_Healthy' | Subtype1 == '3_Diffuse-Malignant') %>%
-        mutate(Subtype1 = if_else(Subtype1=='0_Healthy','G1','G2'))
+        filter(Subtype == '0_Healthy' | Subtype == '3_Diffuse-Malignant') %>%
+        mutate(Subtype = if_else(Subtype=='0_Healthy','G1','G2'))
     cat('G1=HC, G2=DM\n')
-    df.disease.HCvsDM %>% select(TimepointNr,Subtype1) %>% table() %>% print()
+    df.disease.HCvsDM %>% select(TimepointNr,Subtype) %>% table() %>% print()
     outputName.disease.HCvsDM <- str_replace(outputName, 'dataTable', 'disease_HCvsDM_dataTable')
     
     df.disease.MMPvsIM <- df.disease.s_type %>%
-        filter(Subtype1 == '1_Mild-Motor' | Subtype1 == '2_Intermediate') %>%
-        mutate(Subtype1 = if_else(Subtype1=='1_Mild-Motor','G1','G2'))
+        filter(Subtype == '1_Mild-Motor' | Subtype == '2_Intermediate') %>%
+        mutate(Subtype = if_else(Subtype=='1_Mild-Motor','G1','G2'))
     cat('G1=MMP, G2=IM\n')
-    df.disease.MMPvsIM %>% select(TimepointNr,Subtype1) %>% table() %>% print()
+    df.disease.MMPvsIM %>% select(TimepointNr,Subtype) %>% table() %>% print()
     outputName.disease.MMPvsIM <- str_replace(outputName, 'dataTable', 'disease_MMPvsIM_dataTable')
     
     df.disease.MMPvsDM <- df.disease.s_type %>%
-        filter(Subtype1 == '1_Mild-Motor' | Subtype1 == '3_Diffuse-Malignant') %>%
-        mutate(Subtype1 = if_else(Subtype1=='1_Mild-Motor','G1','G2'))
+        filter(Subtype == '1_Mild-Motor' | Subtype == '3_Diffuse-Malignant') %>%
+        mutate(Subtype = if_else(Subtype=='1_Mild-Motor','G1','G2'))
     cat('G1=MMP, G2=DM\n')
-    df.disease.MMPvsDM %>% select(TimepointNr,Subtype1) %>% table() %>% print()
+    df.disease.MMPvsDM %>% select(TimepointNr,Subtype) %>% table() %>% print()
     outputName.disease.MMPvsDM <- str_replace(outputName, 'dataTable', 'disease_MMPvsDM_dataTable')
     
     df.disease.IMvsDM <- df.disease.s_type %>%
-        filter(Subtype1 == '2_Intermediate' | Subtype1 == '3_Diffuse-Malignant') %>%
-        mutate(Subtype1 = if_else(Subtype1=='2_Intermediate','G1','G2'))
+        filter(Subtype == '2_Intermediate' | Subtype == '3_Diffuse-Malignant') %>%
+        mutate(Subtype = if_else(Subtype=='2_Intermediate','G1','G2'))
     cat('G1=IM, G2=DM\n')
-    df.disease.IMvsDM %>% select(TimepointNr,Subtype1) %>% table() %>% print()
+    df.disease.IMvsDM %>% select(TimepointNr,Subtype) %>% table() %>% print()
     outputName.disease.IMvsDM <- str_replace(outputName, 'dataTable', 'disease_IMvsDM_dataTable')
     
     # Is there an association between symptom progression and changes in brain activity?
-    vars.severity <- c('Subj', 'TimepointNr', 'ClinScore.imp', 'ClinScore.imp_cb', 'ClinScore.imp_cw', 'ClinScore.imp_cbxcw', 'Age', 'Sex', 'YearSinceDiag.imp', 'InputFile')#, 'InputFile2')
+    vars.severity <- c('Subj', 'TimepointNr', 
+                       'ClinScore_brady', 'ClinScore_brady_cb', 'ClinScore_brady_cw', 'ClinScore_brady_cbxcw',
+                       'ClinScore_brady_imp', 'ClinScore_brady_imp_cb', 'ClinScore_brady_imp_cw', 'ClinScore_brady_imp_cbxcw',
+                       'ClinScore_cog', 'ClinScore_cog_cb', 'ClinScore_cog_cw', 'ClinScore_cog_cbxcw',
+                       'ClinScore_cog_imp', 'ClinScore_cog_imp_cb', 'ClinScore_cog_imp_cw', 'ClinScore_cog_imp_cbxcw',
+                       'LEDD','LEDD_cb','LEDD_cw','LEDD_cbxcw','LEDD_imp','LEDD_imp_cb','LEDD_imp_cw','LEDD_imp_cbxcw',
+                       'Age', 'Sex', 'YearsSinceDiag.imp','NpsEducYears.imp','RespHandIsDominant', 'InputFile')#, 'InputFile2')
     df.severity.s <- df.severity %>%
         select(any_of(vars.severity)) %>%
         na.omit() #%>%
@@ -428,7 +486,7 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     ##### Write alternative input files (deltas) #####
     df.disease.delta <- df.disease %>%
         filter(TimepointNr=='T0') %>%
-        select(Subj, Group, Subtype1, Age, Sex, voxelwiseBA, InputFile2) %>%
+        select(Subj, Group, Subtype, Age, Sex, NpsEducYears, RespHandIsDominant, voxelwiseBA, InputFile2) %>%
         na.omit() %>%
         rename(InputFile = InputFile2) %>%
         arrange(Group,Subj)
@@ -437,28 +495,42 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
     cat('Average age for delta group analysis:', mean(df.disease.delta$Age),'\n')
     
     df.severity.delta <- df.severity %>%
-        pivot_wider(id_cols = c('Subj','Age','Sex','YearSinceDiag.imp','voxelwiseBA','InputFile2'),
-                    names_from = TimepointNr,
-                    values_from = ClinScore.imp) %>%
-        mutate(ClinScore.BA=T0,
-               ClinScore.FU=T1,
-               ClinScore.delta=T1-T0,
-               ClinScore.deltaxBA=ClinScore.delta*ClinScore.BA) 
+        pivot_wider(id_cols = c('Subj','Age','Sex','YearsSinceDiag.imp','NpsEducYears','RespHandIsDominant','voxelwiseBA','InputFile2'),
+                    names_from = 'TimepointNr',
+                    values_from = c('ClinScore_brady_imp','ClinScore_cog_imp','LEDD_imp')) %>%
+        mutate(ClinScore_brady.BA=ClinScore_brady_imp_T0,
+               ClinScore_brady.FU=ClinScore_brady_imp_T1,
+               ClinScore_brady.delta=ClinScore_brady_imp_T1-ClinScore_brady_imp_T0,
+               ClinScore_brady.deltaxBA=ClinScore_brady.delta*ClinScore_brady.BA,
+               ClinScore_cog.BA=ClinScore_cog_imp_T0,
+               ClinScore_cog.FU=ClinScore_cog_imp_T1,
+               ClinScore_cog.delta=ClinScore_cog_imp_T1-ClinScore_cog_imp_T0,
+               ClinScore_cog.deltaxBA=ClinScore_cog.delta*ClinScore_cog.BA,
+               LEDD.BA=LEDD_imp_T0,
+               LEDD.FU=LEDD_imp_T1,
+               LEDD.delta=LEDD_imp_T1-LEDD_imp_T0,
+               LEDD.deltaxBA=LEDD.delta*LEDD.BA) 
     # subs_without_delta <- df.severity.delta %>% 
     #     filter(is.na(ClinScore.delta) & !is.na(InputFile2))
     df.severity.delta <- df.severity.delta %>%
-        select(Subj,ClinScore.delta,ClinScore.BA,ClinScore.FU,Age,Sex,YearSinceDiag.imp,voxelwiseBA,InputFile2) %>%
+        select(Subj,ClinScore_brady.delta,ClinScore_brady.BA,ClinScore_brady.FU,
+               ClinScore_cog.delta,ClinScore_cog.BA,ClinScore_cog.FU,
+               LEDD.delta,LEDD.BA,LEDD.FU,
+               Age,Sex,NpsEducYears,RespHandIsDominant,YearsSinceDiag.imp,voxelwiseBA,InputFile2) %>%
         rename(InputFile = InputFile2) %>%
         na.omit() %>%
         arrange(Subj)
-    m <- lm(ClinScore.FU ~ ClinScore.BA, data=df.severity.delta)
-    df.severity.delta <- bind_cols(df.severity.delta, ClinScore.delta.resid = resid(m)) %>%
-        relocate(Subj, ClinScore.delta, ClinScore.delta.resid)
+    # df.severity.delta <- bind_cols(df.severity.delta, ClinScore.delta.resid = resid(m)) %>%
+    #     relocate(Subj, ClinScore.delta, ClinScore.delta.resid)
     outputName.severity.delta <- str_replace(outputName, 'dataTable', 'severity-delta_dataTable')
     write_delim(df.severity.delta, outputName.severity.delta, delim = '\t')
     cat('Average age for delta correlation analysis:', mean(df.severity.delta$Age),'\n')
-    cat('Average delta for delta correlation analysis:', mean(df.severity.delta$ClinScore.delta),'\n')
-    cat('Average baseline for delta correlation analysis:', mean(df.severity.delta$ClinScore.BA),'\n')
+    cat('Average bradykinesia delta for delta correlation analysis:', mean(df.severity.delta$ClinScore_brady.delta),'\n')
+    cat('Average bradykinesia baseline for delta correlation analysis:', mean(df.severity.delta$ClinScore_brady.BA),'\n')
+    cat('Average moca delta for delta correlation analysis:', mean(df.severity.delta$ClinScore_cog.delta),'\n')
+    cat('Average moca baseline for delta correlation analysis:', mean(df.severity.delta$ClinScore_cog.BA),'\n')
+    cat('Average LEDD delta for delta correlation analysis:', mean(df.severity.delta$ClinScore_cog.delta),'\n')
+    cat('Average LEDD baseline for delta correlation analysis:', mean(df.severity.delta$ClinScore_cog.BA),'\n')
     
     ##### Write covars for 3dttest++ #####
     df.BAcov.disease <- df.disease.delta %>%
@@ -466,7 +538,7 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
                Subj = basename(InputFile),
                Subj = str_sub(Subj,16),
                Subj = str_remove(Subj, '.nii')) %>%
-        select(Subj, Age, Sex, voxelwiseBA)
+        select(Subj, Age, Sex,NpsEducYears,RespHandIsDominant, voxelwiseBA)
     outputName.disease.BAcov <- str_replace(outputName, 'dataTable', 'disease-BAcov_dataTable')
     write_delim(df.BAcov.disease, outputName.disease.BAcov, delim = '\t')
     
@@ -475,10 +547,21 @@ dataTable_3dLMEr_single <- function(con='con_0010.nii', outputDir='/project/3024
                Subj = basename(InputFile),
                Subj = str_sub(Subj,16),
                Subj = str_remove(Subj, '.nii')) %>%
-        select(Subj, ClinScore.BA, ClinScore.delta, Age, Sex, YearSinceDiag.imp, voxelwiseBA) %>%
+        select(Subj, ClinScore_brady.BA, ClinScore_brady.delta, ClinScore_cog.BA, ClinScore_cog.delta, LEDD.BA, LEDD.delta,
+               Age, Sex, YearsSinceDiag.imp, NpsEducYears,RespHandIsDominant, voxelwiseBA) %>%
         arrange(Subj)
     outputName.severity.delta <- str_replace(outputName, 'dataTable', 'severity-BAcov_dataTable')
     write_delim(df.BAcov.severity, outputName.severity.delta, delim = '\t')
+    
+    df.BAcov.severity_brady <- df.BAcov.severity %>% select(-c(ClinScore_cog.BA, ClinScore_cog.delta, LEDD.BA, LEDD.delta))
+    outputName.severity.delta_brady <- str_replace(outputName, 'dataTable', 'severity-BAcov_brady_dataTable')
+    write_delim(df.BAcov.severity_brady, outputName.severity.delta_brady, delim = '\t')
+    df.BAcov.severity_moca <- df.BAcov.severity %>% select(-c(ClinScore_brady.BA, ClinScore_brady.delta, LEDD.BA, LEDD.delta))
+    outputName.severity.delta_moca <- str_replace(outputName, 'dataTable', 'severity-BAcov_moca_dataTable')
+    write_delim(df.BAcov.severity_moca, outputName.severity.delta_moca, delim = '\t')
+    df.BAcov.severity_ledd <- df.BAcov.severity %>% select(-c(ClinScore_brady.BA, ClinScore_brady.delta, ClinScore_cog.BA, ClinScore_cog.delta))
+    outputName.severity.delta_ledd <- str_replace(outputName, 'dataTable', 'severity-BAcov_ledd_dataTable')
+    write_delim(df.BAcov.severity_ledd, outputName.severity.delta_ledd, delim = '\t')
     
     tic() %>% print()
   

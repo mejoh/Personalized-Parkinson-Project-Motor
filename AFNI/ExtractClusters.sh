@@ -21,42 +21,45 @@ rm ${PREFIX}*${EFFECT}*.BRIK ${PREFIX}*${EFFECT}*.HEAD
 
 pref_map=${PREFIX}_${EFFECT}_idxmask
 pref_dat=${PREFIX}_${EFFECT}_FWEcorr-stat
+pref_dat2=${PREFIX}_${EFFECT}_NOcorr-stat
 clusters=${PREFIX}_${EFFECT}_clusters.txt
 
   if [ $TYPE == Z ] || [ $TYPE == T ]; then
-	# Two-tailed Z-stat thresholding
-	3dClusterize \
-	  -pref_map ${pref_map} \
-	  -pref_dat ${pref_dat} \
-	  -mask ../mask.nii.gz \
-	  -nosum \
-	  -1Dformat \
-	  -inset ../${PREFIX}+tlrc.HEAD \
-	  -idat ${COEF} \
-	  -ithr ${STAT} \
-	  -NN 2 \
-	  -clust_nvox ${CLUST_NVOX} \
-	  -bisided p=0.001 \
-	  > ${clusters}
+		# Two-tailed Z-stat thresholding
+		PTHR=0.001
   elif [ $TYPE == Chisq ] || [ $TYPE == F ]; then
-    # Two-tailed F-stat threhsolding
-	# F/Chisq-values are exclusively positive
-	# p/0.001 provides us with an appropriate two-tailed threshold
-	# This can be confirmed by using the AFNI GUI
-	3dClusterize \
-	  -pref_map ${pref_map} \
-	  -pref_dat ${pref_dat} \
-	  -mask ../mask.nii.gz \
-	  -nosum \
-	  -1Dformat \
-	  -inset ../${PREFIX}+tlrc.HEAD \
-	  -idat ${COEF} \
-	  -ithr ${STAT} \
-	  -NN 2 \
-	  -clust_nvox ${CLUST_NVOX} \
-	  -1sided RIGHT_TAIL p=0.0001 \
-	  > ${clusters}  
+		# Two-tailed F-stat threhsolding
+		# F/Chisq-values are exclusively positive
+		# p/0.001 provides us with an appropriate two-tailed threshold
+		# This can be confirmed by using the AFNI GUI
+		PTHR=0.0001
   fi
+	
+3dClusterize \
+	-pref_map ${pref_map} \
+	-pref_dat ${pref_dat} \
+	-mask ../mask.nii* \
+	-nosum \
+	-1Dformat \
+	-inset ../${PREFIX}+tlrc.HEAD \
+	-idat ${COEF} \
+	-ithr ${STAT} \
+	-NN 2 \
+	-clust_nvox ${CLUST_NVOX} \
+	-bisided p=0.001 \
+	> ${clusters}
+	
+3dClusterize \
+	-pref_dat ${pref_dat2} \
+	-mask ../mask.nii* \
+	-nosum \
+	-1Dformat \
+	-inset ../${PREFIX}+tlrc.HEAD \
+	-idat ${COEF} \
+	-ithr ${STAT}  \
+	-NN 2 \
+	-clust_nvox 1 \
+	-bisided -0.0001 0.0001
 
 
 if [ -f "${pref_map}+tlrc.HEAD" ]; then
@@ -74,9 +77,9 @@ if [ -f "${pref_map}+tlrc.HEAD" ]; then
 	# 3drefit -space TLRC ${pref_map}+tlrc.
 
 	3dAFNItoNIFTI ${pref_map}+tlrc
-	3dAFNItoNIFTI ${pref_map}+tlrc
+	# 3dAFNItoNIFTI ${pref_map}+tlrc
 	3dAFNItoNIFTI ${pref_dat}+tlrc
-	3dAFNItoNIFTI ${pref_dat}+tlrc
+	3dAFNItoNIFTI ${pref_dat2}+tlrc
 	
 	# Alternatively, check peak coordinates
 	# Here, there is no need to convert between coordinate systems

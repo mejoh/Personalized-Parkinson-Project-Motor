@@ -19,13 +19,13 @@ dStats =  fullfile(dir, 'stats');
 
 % Find cluster index masks
 % Exit if none are found
-Masks = spm_select('FPList',dStats, [con '.*idxmask.nii']);
+Masks = spm_select('FPList',dStats, [con '.*_idxmask.nii']);
 if size(Masks,1) > 0
-    msg = ['Masks found for search pattern ' [con '.*idxmask.nii'] '\n'];
+    msg = ['Masks found for search pattern ' [con '.*_idxmask.nii'] '\n'];
     fprintf(msg)
-    Masks = cellstr(spm_select('FPList',dStats, [con '.*idxmask.nii']));  % Find cluster index masks
+    Masks = cellstr(spm_select('FPList',dStats, [con '.*_idxmask.nii']));  % Find cluster index masks
 else
-    msg = ['No masks found for search pattern ' [con '.*idxmask.nii'] ', moving on...\n'];
+    msg = ['No masks found for search pattern ' [con '.*_idxmask.nii'] ', moving on...\n'];
     fprintf(msg)
     return
 end
@@ -38,9 +38,11 @@ if(contains(dir,'3dttest++'))
         msg = strcat('Error: More than one dataTable found in ', dir);
         error(msg)
     end
-    opts = delimitedTextImportOptions("NumVariables", 7);
+    opts = delimitedTextImportOptions("NumVariables", 11);
     opts.VariableNamesLine = 1;
-    opts.VariableTypes = ["char", "double", "double", "double", "double", "double", "char"];
+    opts.VariableTypes = ["char", "double", "double", "double", "double",...
+        "double", "double", "double", "double", "double",...
+        "char"];
     opts.DataLines = [2 Inf];
     opts.Delimiter = {'\t'};
     dataTable = readtable(fname_dataTable,opts);     % input table
@@ -63,7 +65,7 @@ elseif(contains(dir,'3dLME_MMPvsDM') || contains(dir,'3dLME_HCvsMMP') || contain
     spm_file_merge(dataTable.InputFile, fullfile(dStats, '4d_Cons'))    % Concatenate 1st-level contrasts
     ConcatImg = spm_select('FPList', dStats, '4d_Cons.nii');
 elseif(contains(dir,'3dLME_disease'))
-    tname = 'con_combined_disease_dataTable.txt';
+    tname = 'con_combined_disease_dataTable2.txt';
     fname_dataTable = spm_select('FPList', dir, tname);
     if(size(fname_dataTable,1)>1)
         msg = strcat('Error: More than one dataTable found in ', dir);

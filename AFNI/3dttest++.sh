@@ -4,7 +4,7 @@
 # creation date: Thu Jan 12 09:55:18 2023
 
 #QSUB
-#CON=(con_0010 con_0012 con_0013); ROI=(1 2 3); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dttest_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=04:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++.sh; done; done
+#CON=(con_0010 con_0007); ROI=(2 0); for con in ${CON[@]}; do for roi in ${ROI[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dttest_${con}_${roi} -v R=${roi},C=${con} -l 'nodes=1:ppn=32,walltime=10:00:00,mem=65gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dttest++.sh; done; done
 
 # R=1
 # C=con_0010
@@ -19,40 +19,33 @@ export OMP_NUM_THREADS=32
 module unload afni; module load afni/2022
 module unload R; module load R/4.1.0
 
-dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI
+dOutput=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI
 
-covars=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease-BAcov_dataTable.txt
+covars=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/${con}_disease-BAcov_dataTable.txt
 
-dirA=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/${con}/ses-Diff
+dirA=/project/3024006.02/Analyses/motor_task/Group/${con}/ses-Diff
 
 # Define mask
 if [ $ROI -eq 1 ]; then
 
 	# ROI analysis
-	echo "ROI analysis - BG and parietal"
-	dOutput=$dOutput/ROI/BG_Parietal
-  mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_BG-dysfunc_and_parietal-comp_and_striatum_dil.nii.gz
+	echo "ROI analysis - Partial"
+	dOutput=$dOutput/ROI/Masked_partial
+  mask=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/bi_partial_clincorr_bg_mask_cropped.nii
 
 elif [ $ROI -eq 2 ]; then
 
 	# ROI analysis
-	echo "ROI analysis - BG"
-	dOutput=$dOutput/ROI/BG
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_HCgtPD_Mean_Mask_bilat_and_striatum-dil.nii.gz
-
-elif [ $ROI -eq 3 ]; then
-
-	# ROI analysis
-	echo "ROI analysis - Parietal"
-	dOutput=$dOutput/ROI/Parietal
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_Neg_ClinCorr_bilat-dil-dil.nii.gz
+	echo "ROI analysis - Full"
+	dOutput=$dOutput/ROI/Masked_full
+	mask=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/bi_full_clincorr_bg_mask_cropped.nii
 
 elif [ $ROI -eq 0 ]; then
 
 	# Whole-brain analysis
 	echo "Whole-brain analysis"
 	dOutput=$dOutput/WholeBrain
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin.nii.gz
+	mask=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/wd/tpl-MNI152NLin6Asym_desc-brain_mask.nii
 
 fi
 
@@ -60,9 +53,9 @@ fi
 results_dir=$dOutput/3dttest++
 mkdir -p $results_dir
 cd $results_dir
-cp $mask $(pwd)/mask.nii.gz
+cp $mask $(pwd)/mask.nii
 cp $covars $(pwd)/${con}_covars.txt
-rm ${con}_PDvsHC*
+rm ${con}_Group2*
 
 # ------------------------- process the data -------------------------
 
@@ -73,10 +66,9 @@ rm ${con}_PDvsHC*
 		  #-resid ${con}_Group2_resid.nii												\
 
 3dttest++ -prefix ${con}_Group2 -BminusA                                          \
+			-resid ${con}_Group2_resid	\
 		  -covariates ${covars}															\
 		  -Clustsim	32																	\
-		  -ETAC 32																		\
-		  -ETAC_opt NN=2:sid=2:pthr=0.01/0.001/10:name:TestA							\
           -mask $mask                                                                \
           -setA HC                                                                        \
              002A9E62F2779ACD_ses-PITVisitDiff_${con}L2Rswap                            \
@@ -108,6 +100,9 @@ rm ${con}_PDvsHC*
                                                                                           \
              262EE6FF7428DA75_ses-PITVisitDiff_${con}L2Rswap                            \
           "$dirA/HC_PIT_sub-POMU262EE6FF7428DA75_ses-PITVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
+             2C21E1BA295A20F8_ses-PITVisitDiff_${con}                                   \
+          "$dirA/HC_PIT_sub-POMU2C21E1BA295A20F8_ses-PITVisitDiff_${con}.nii[0]"        \
                                                                                           \
              2C50E1FD5087059B_ses-PITVisitDiff_${con}                                   \
           "$dirA/HC_PIT_sub-POMU2C50E1FD5087059B_ses-PITVisitDiff_${con}.nii[0]"        \
@@ -238,6 +233,9 @@ rm ${con}_PDvsHC*
                                                                                           \
              00094252BA30B84F_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU00094252BA30B84F_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             006B60CAD86CA615_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU006B60CAD86CA615_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
              00A6F1FC997C42C6_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU00A6F1FC997C42C6_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
@@ -374,6 +372,12 @@ rm ${con}_PDvsHC*
              260D83F38C26283C_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU260D83F38C26283C_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             262FEA7204DF67EC_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU262FEA7204DF67EC_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             26BDF3AC72A04667_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU26BDF3AC72A04667_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
              26E8AE13D9BC972B_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU26E8AE13D9BC972B_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
@@ -388,6 +392,9 @@ rm ${con}_PDvsHC*
                                                                                           \
              2C88568084E2F0F2_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU2C88568084E2F0F2_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             2C8C9FCE637E30F0_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU2C8C9FCE637E30F0_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              2CDEB06F355EE49D_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU2CDEB06F355EE49D_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
@@ -452,6 +459,9 @@ rm ${con}_PDvsHC*
              465A8D6824D777B9_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU465A8D6824D777B9_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
+             46665E6522017A63_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU46665E6522017A63_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              4676B34286BA2D6E_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU4676B34286BA2D6E_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -463,6 +473,12 @@ rm ${con}_PDvsHC*
                                                                                           \
              4A3F2DBF783717C2_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU4A3F2DBF783717C2_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
+             4A7727F13B26E411_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU4A7727F13B26E411_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
+             4A8CEC1F6CA99BD1_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU4A8CEC1F6CA99BD1_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
              4AD7E84C7EE45A54_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU4AD7E84C7EE45A54_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
@@ -515,6 +531,9 @@ rm ${con}_PDvsHC*
              58B6CDD53AD4049C_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU58B6CDD53AD4049C_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             5A89E8278728E2E9_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU5A89E8278728E2E9_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              5C25F24BD734C250_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU5C25F24BD734C250_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -560,6 +579,9 @@ rm ${con}_PDvsHC*
              6AB50AF4C627380A_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU6AB50AF4C627380A_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             6C1DAE7AA87DA5CC_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU6C1DAE7AA87DA5CC_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
              6E2895037F9D639D_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU6E2895037F9D639D_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
@@ -584,9 +606,6 @@ rm ${con}_PDvsHC*
              72DEC6BF23AC40D6_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU72DEC6BF23AC40D6_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
-             7615B16FBF519FAD_ses-POMVisitDiff_${con}L2Rswap                            \
-          "$dirA/PD_POM_sub-POMU7615B16FBF519FAD_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
-                                                                                          \
              761CA0228C6BA0F4_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU761CA0228C6BA0F4_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -595,6 +614,9 @@ rm ${con}_PDvsHC*
                                                                                           \
              7830F3139B54A581_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU7830F3139B54A581_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             78F3163BDCBF97A5_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU78F3163BDCBF97A5_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              78FC9EC1D822238D_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU78FC9EC1D822238D_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -638,6 +660,9 @@ rm ${con}_PDvsHC*
              861E5F5DB4D75868_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMU861E5F5DB4D75868_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             862289F885891BCF_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMU862289F885891BCF_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              86B05D739B8524A5_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU86B05D739B8524A5_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -655,6 +680,9 @@ rm ${con}_PDvsHC*
                                                                                           \
              8AFE70EE7887EE3E_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU8AFE70EE7887EE3E_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             8CEAFADC879496D0_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMU8CEAFADC879496D0_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
              8EBDD19EC83F31B7_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMU8EBDD19EC83F31B7_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -758,9 +786,6 @@ rm ${con}_PDvsHC*
              BA677232DD4D27FD_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUBA677232DD4D27FD_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
-             BA958B8183C9F612_ses-POMVisitDiff_${con}                                   \
-          "$dirA/PD_POM_sub-POMUBA958B8183C9F612_ses-POMVisitDiff_${con}.nii[0]"        \
-                                                                                          \
              BA95A9F6A41E872C_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMUBA95A9F6A41E872C_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
@@ -818,8 +843,14 @@ rm ${con}_PDvsHC*
              C86C6B41DE5A61DB_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMUC86C6B41DE5A61DB_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
+             C8B65146DF203125_ses-POMVisitDiff_${con}                                   \
+          "$dirA/PD_POM_sub-POMUC8B65146DF203125_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
              C8E6043E4D2C90CA_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUC8E6043E4D2C90CA_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             CA6A9EC3637FBF91_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMUCA6A9EC3637FBF91_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              CAC0EDBAB573E7C8_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUCAC0EDBAB573E7C8_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -926,6 +957,9 @@ rm ${con}_PDvsHC*
              EE16EA86913A5BEC_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUEE16EA86913A5BEC_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
+             EEB7307F823DB346_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMUEEB7307F823DB346_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
              EED344D99F59534D_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUEED344D99F59534D_ses-POMVisitDiff_${con}.nii[0]"        \
                                                                                           \
@@ -940,6 +974,9 @@ rm ${con}_PDvsHC*
                                                                                           \
              F0972E8CD008365F_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUF0972E8CD008365F_ses-POMVisitDiff_${con}.nii[0]"        \
+                                                                                          \
+             F417B143C03C31D2_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMUF417B143C03C31D2_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              F425DA29DA955CA4_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUF425DA29DA955CA4_ses-POMVisitDiff_${con}.nii[0]"        \
@@ -961,6 +998,9 @@ rm ${con}_PDvsHC*
                                                                                           \
              F8EBD4A1FA1E13A4_ses-POMVisitDiff_${con}L2Rswap                            \
           "$dirA/PD_POM_sub-POMUF8EBD4A1FA1E13A4_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
+                                                                                          \
+             F8F061F3DE9669A7_ses-POMVisitDiff_${con}L2Rswap                            \
+          "$dirA/PD_POM_sub-POMUF8F061F3DE9669A7_ses-POMVisitDiff_${con}L2Rswap.nii[0]" \
                                                                                           \
              FAB8E98269745B2E_ses-POMVisitDiff_${con}                                   \
           "$dirA/PD_POM_sub-POMUFAB8E98269745B2E_ses-POMVisitDiff_${con}.nii[0]"        \

@@ -1,8 +1,8 @@
 library(tidyverse)
 
 ##### Disease #####
-fname <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/con_combined_disease_dataTable.txt'
-outdir <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/neuropointillist/disease'
+fname <- '/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/con_combined_disease_dataTable2.txt'
+outdir <- '/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Neuropointilist'
 
 df <- read_tsv(fname) %>%
   rename(idnum = Subj)  # idnum is internal to npoint
@@ -12,7 +12,7 @@ df <- read_tsv(fname) %>%
 # If there are multiple conditions, then we need to collapse across conditions
 # Time-varying, condition-static
 covars <- df %>%
-  select(idnum,Group,TimepointNr,Age.gmc,MeanFD.gmc,Sex) %>%
+  select(idnum,Group,TimepointNr,Age,Sex,NpsEducYears,RespHandIsDominant) %>%
   group_by(idnum, TimepointNr) %>%
   filter(row_number()==1) %>%
   ungroup()
@@ -43,19 +43,18 @@ setlabels.T1 <- df %>%
 write_csv(setlabels.T1, file.path(outdir, 'setlabels2.csv'))
 
 ##### Severity #####
-fname <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/con_combined_severity-poly2_dataTable.txt'
-outdir <- 'P:/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/neuropointillist/severity'
+fname <- '/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/con_combined_severity_dataTable2.txt'
+outdir <- '/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Neuropointilist'
 
 df <- read_tsv(fname) %>%
-  rename(idnum = Subj) %>%
-  mutate(TimepointNr=if_else(str_detect(InputFile,'ses-Visit1'), 'T0', 'T1')) # idnum is internal to npoint
+  rename(idnum = Subj)
 
 covars <- df %>%
-  select(idnum, TimepointNr,ClinScore.poly1,ClinScore.poly2,Age.gmc,MeanFD.gmc,Sex) %>%
+  select(idnum,TimepointNr,ClinScore.imp,Age,Sex,NpsEducYears.imp,RespHandIsDominant,YearSinceDiag.imp) %>%
   group_by(idnum, TimepointNr) %>%
   filter(row_number()==1) %>%
-  ungroup() %>%
-  select(-TimepointNr)
+  ungroup() #%>%
+  #select(-TimepointNr)
 write_csv(covars, file.path(outdir, 'covars.csv'))
 
 # Setfilenames
@@ -72,10 +71,10 @@ write_csv(setfilename.T1, file.path(outdir, 'setfilenames2.txt'), col_names = FA
 
 setlabels.T0 <- df %>%
   filter(TimepointNr=='T0') %>%
-  select(idnum,ClinScore.poly1,ClinScore.poly2,trial_type)
+  select(idnum,ClinScore.imp,trial_type)
 write_csv(setlabels.T0, file.path(outdir, 'setlabels1.csv'))
 setlabels.T1 <- df %>%
   filter(TimepointNr=='T1') %>%
-  select(idnum,ClinScore.poly1,ClinScore.poly2,trial_type)
+  select(idnum,ClinScore.imp,trial_type)
 write_csv(setlabels.T1, file.path(outdir, 'setlabels2.csv'))
 

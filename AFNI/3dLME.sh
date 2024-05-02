@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_test -l 'nodes=1:ppn=32,walltime=06:00:00,mem=90gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh
+#qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_test -l 'nodes=1:ppn=32,walltime=06:00:00,mem=90gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh
 
-#ROI=(1 2 3); GC=(0 1); for roi in ${ROI[@]}; do for gc in ${GC[@]}; do qsub -o /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -e /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/logs -N 3dLME_${roi}${gc} -v R=${roi},G=${gc} -l 'nodes=1:ppn=32,walltime=07:00:00,mem=85gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh; done; done
+#ROI=(2 0); GC=(1 0); for roi in ${ROI[@]}; do for gc in ${GC[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_${roi}${gc} -v R=${roi},G=${gc} -l 'nodes=1:ppn=32,walltime=07:00:00,mem=85gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh; done; done
 
-# R=1
+# R=2
 # G=0
 # P=1
 
@@ -18,37 +18,30 @@ module unload afni; module load afni/2022
 module unload R; module load R/4.1.0
 njobs=32
 
-dOutput=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI
+dOutput=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI
 con=con_combined
 
 # Define mask
 if [ $ROI -eq 1 ]; then
 
 	# ROI analysis
-	echo "ROI analysis - BG and parietal"
-	dOutput=$dOutput/ROI/BG_Parietal
-  mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_BG-dysfunc_and_parietal-comp_and_striatum_dil.nii.gz
+	echo "ROI analysis - Partial"
+	dOutput=$dOutput/ROI/Masked_partial
+  mask=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/bi_partial_clincorr_bg_mask_cropped.nii
 
 elif [ $ROI -eq 2 ]; then
 
 	# ROI analysis
-	echo "ROI analysis - BG"
-	dOutput=$dOutput/ROI/BG
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_HCgtPD_Mean_Mask_bilat_and_striatum-dil.nii.gz
-
-elif [ $ROI -eq 3 ]; then
-
-	# ROI analysis
-	echo "ROI analysis - Parietal"
-	dOutput=$dOutput/ROI/Parietal
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/a_Neg_ClinCorr_bilat-dil-dil.nii.gz
+	echo "ROI analysis - Full"
+	dOutput=$dOutput/ROI/Masked_full
+	mask=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/bi_full_clincorr_bg_mask_cropped.nii
 
 elif [ $ROI -eq 0 ]; then
 
 	# Whole-brain analysis
 	echo "Whole-brain analysis"
 	dOutput=$dOutput/WholeBrain
-	mask=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/Masks/3dLME_4dConsMask_bin.nii.gz
+	mask=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/wd/tpl-MNI152NLin6Asym_desc-brain_mask.nii
 
 fi
 
@@ -60,54 +53,108 @@ if [ $GroupComparison -eq 1 ]; then
 	echo "TimepointNr: Linear"
 	dOutput=$dOutput/3dLME_disease
 	mkdir -p $dOutput
-	dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_disease_dataTable.txt
+	dataTable=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/${con}_disease_dataTable2.txt
 	cd $dOutput
-	cp $mask $(pwd)/mask.nii.gz
+	cp $mask $(pwd)/mask.nii
 	cp $dataTable $(pwd)
 	rm ${con}*.BRIK ${con}*.HEAD
 	
 	# -resid ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3_resid.nii \
 
+	# /opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3 -jobs $njobs \
+	# -resid ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3_resid \
+	# -mask $mask \
+	# -model '1+Group*TimepointNr*trial_type+Age+Sex+NpsEducYears+RespHandIsDominant+(1|Subj)' \
+	# -qVars 'Age,NpsEducYears' \
+	# -gltCode Group_by_Time_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c TimepointNr : -1*T0 1*T1' \
+	# -gltCode Group_by_Time_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c TimepointNr : -1*T0 1*T1' \
+	# -gltCode Group_by_Time_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c TimepointNr : -1*T0 1*T1' \
+	# -gltCode Group_by_Time_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : -1*T0 1*T1' \
+	# -gltCode Group_by_Time 'Group : -1*HC_PIT 1*PD_POM TimepointNr : -1*T0 1*T1' \
+	# -gltCode HC_by_Time 'Group : 1*HC_PIT TimepointNr : -1*T0 1*T1' \
+	# -gltCode PD_by_Time 'Group : 1*PD_POM TimepointNr : -1*T0 1*T1' \
+	# -gltCode Group_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c' \
+	# -gltCode Group_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c' \
+	# -gltCode Group_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c' \
+	# -gltCode Group_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
+	# -gltCode Group_by_Type2gt1_BA 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c TimepointNr : 1*T0' \
+	# -gltCode Group_by_Type3gt1_BA 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c TimepointNr : 1*T0' \
+	# -gltCode Group_by_Type3gt2_BA 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c TimepointNr : 1*T0' \
+	# -gltCode Group_by_Type23gt1_BA 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T0' \
+	# -gltCode Group_by_Type2gt1_FU 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c TimepointNr : 1*T1' \
+	# -gltCode Group_by_Type3gt1_FU 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c TimepointNr : 1*T1' \
+	# -gltCode Group_by_Type3gt2_FU 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c TimepointNr : 1*T1' \
+	# -gltCode Group_by_Type23gt1_FU 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T1' \
+	# -gltCode HC_by_Type2gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*2c' \
+	# -gltCode HC_by_Type3gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*3c' \
+	# -gltCode HC_by_Type3gt2 'Group : 1*HC_PIT trial_type : -1*2c 1*3c' \
+	# -gltCode HC_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c' \
+	# -gltCode HC_by_Type2gt1_BA 'Group : 1*HC_PIT trial_type : -1*1c 1*2c TimepointNr : 1*T0' \
+	# -gltCode HC_by_Type3gt1_BA 'Group : 1*HC_PIT trial_type : -1*1c 1*3c TimepointNr : 1*T0' \
+	# -gltCode HC_by_Type3gt2_BA 'Group : 1*HC_PIT trial_type : -1*2c 1*3c TimepointNr : 1*T0' \
+	# -gltCode HC_by_Type23gt1_BA 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T0' \
+	# -gltCode HC_by_Type2gt1_FU 'Group : 1*HC_PIT trial_type : -1*1c 1*2c TimepointNr : 1*T1' \
+	# -gltCode HC_by_Type3gt1_FU 'Group : 1*HC_PIT trial_type : -1*1c 1*3c TimepointNr : 1*T1' \
+	# -gltCode HC_by_Type3gt2_FU 'Group : 1*HC_PIT trial_type : -1*2c 1*3c TimepointNr : 1*T1' \
+	# -gltCode HC_by_Type23gt1_FU 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T1' \
+	# -gltCode PD_by_Type2gt1 'Group : 1*PD_POM trial_type : -1*1c 1*2c' \
+	# -gltCode PD_by_Type3gt1 'Group : 1*PD_POM trial_type : -1*1c 1*3c' \
+	# -gltCode PD_by_Type3gt2 'Group : 1*PD_POM trial_type : -1*2c 1*3c' \
+	# -gltCode PD_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
+	# -gltCode PD_by_Type2gt1_BA 'Group : 1*PD_POM trial_type : -1*1c 1*2c TimepointNr : 1*T0' \
+	# -gltCode PD_by_Type3gt1_BA 'Group : 1*PD_POM trial_type : -1*1c 1*3c TimepointNr : 1*T0' \
+	# -gltCode PD_by_Type3gt2_BA 'Group : 1*PD_POM trial_type : -1*2c 1*3c TimepointNr : 1*T0' \
+	# -gltCode PD_by_Type23gt1_BA 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T0' \
+	# -gltCode PD_by_Type2gt1_FU 'Group : 1*PD_POM trial_type : -1*1c 1*2c TimepointNr : 1*T1' \
+	# -gltCode PD_by_Type3gt1_FU 'Group : 1*PD_POM trial_type : -1*1c 1*3c TimepointNr : 1*T1' \
+	# -gltCode PD_by_Type3gt2_FU 'Group : 1*PD_POM trial_type : -1*2c 1*3c TimepointNr : 1*T1' \
+	# -gltCode PD_by_Type23gt1_FU 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T1' \
+	# -gltCode Group 'Group : -1*HC_PIT 1*PD_POM' \
+	# -gltCode Group_BA 'Group : -1*HC_PIT 1*PD_POM TimepointNr : 1*T0' \
+	# -gltCode Group_FU 'Group : -1*HC_PIT 1*PD_POM TimepointNr : 1*T1' \
+	# -gltCode Time 'TimepointNr : -1*T0 1*T1' \
+	# -gltCode Type2gt1 'trial_type : -1*1c 1*2c' \
+	# -gltCode Type2gt1_BA 'trial_type : -1*1c 1*2c TimepointNr : 1*T0' \
+	# -gltCode Type2gt1_FU 'trial_type : -1*1c 1*2c TimepointNr : 1*T1' \
+	# -gltCode Type3gt1 'trial_type : -1*1c 1*3c' \
+	# -gltCode Type3gt1_BA 'trial_type : -1*1c 1*3c TimepointNr : 1*T0' \
+	# -gltCode Type3gt1_FU 'trial_type : -1*1c 1*3c TimepointNr : 1*T1' \
+	# -gltCode Type3gt2 'trial_type : -1*2c 1*3c' \
+	# -gltCode Type3gt2_BA 'trial_type : -1*2c 1*3c TimepointNr : 1*T0' \
+	# -gltCode Type3gt2_FU 'trial_type : -1*2c 1*3c TimepointNr : 1*T1' \
+	# -gltCode Type23gt1 'trial_type : -1*1c 0.5*2c 0.5*3c' \
+	# -gltCode Type23gt1_BA 'trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T0' \
+	# -gltCode Type23gt1_FU 'trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T1' \
+	# -dataTable \
+	# `cat $dataTable`
+	
 	/opt/afni/2022/3dLMEr -prefix ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3 -jobs $njobs \
 	-resid ${dOutput}/${con}_Group2_x_TimepointNr2_x_Type3_resid \
 	-mask $mask \
-	-model '1+Group*TimepointNr*trial_type+Age+Sex+(1+TimepointNr|Subj)' \
-	-qVars 'Age' \
-	-gltCode Group_by_Time_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c TimepointNr : -1*T0 1*T1' \
-	-gltCode Group_by_Time_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c TimepointNr : -1*T0 1*T1' \
-	-gltCode Group_by_Time_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c TimepointNr : -1*T0 1*T1' \
-	-gltCode Group_by_Time_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : -1*T0 1*T1' \
+	-model '1+Group*TimepointNr*trial_type+Age+Sex+NpsEducYears+RespHandIsDominant+(1+TimepointNr|Subj)' \
+	-qVars 'Age,NpsEducYears' \
+	-gltCode Group_by_Time_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*23c TimepointNr : -1*T0 1*T1' \
+	-gltCode HC_by_Time_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*23c TimepointNr : -1*T0 1*T1' \
+	-gltCode PD_by_Time_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 1*23c TimepointNr : -1*T0 1*T1' \
 	-gltCode Group_by_Time 'Group : -1*HC_PIT 1*PD_POM TimepointNr : -1*T0 1*T1' \
 	-gltCode HC_by_Time 'Group : 1*HC_PIT TimepointNr : -1*T0 1*T1' \
 	-gltCode PD_by_Time 'Group : 1*PD_POM TimepointNr : -1*T0 1*T1' \
-	-gltCode Group_by_Type2gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*2c' \
-	-gltCode Group_by_Type3gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*3c' \
-	-gltCode Group_by_Type3gt2 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*2c 1*3c' \
-	-gltCode Group_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
-	-gltCode HC_by_Type2gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*2c' \
-	-gltCode HC_by_Type3gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*3c' \
-	-gltCode HC_by_Type3gt2 'Group : 1*HC_PIT trial_type : -1*2c 1*3c' \
-	-gltCode HC_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 0.5*2c 0.5*3c' \
-	-gltCode PD_by_Type2gt1 'Group : 1*PD_POM trial_type : -1*1c 1*2c' \
-	-gltCode PD_by_Type3gt1 'Group : 1*PD_POM trial_type : -1*1c 1*3c' \
-	-gltCode PD_by_Type3gt2 'Group : 1*PD_POM trial_type : -1*2c 1*3c' \
-	-gltCode PD_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 0.5*2c 0.5*3c' \
+	-gltCode Group_by_Type23gt1 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*23c' \
+	-gltCode HC_by_Type23gt1 'Group : 1*HC_PIT trial_type : -1*1c 1*23c' \
+	-gltCode PD_by_Type23gt1 'Group : 1*PD_POM trial_type : -1*1c 1*23c' \
+	-gltCode Group_by_Type23gt1_BA 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*23c TimepointNr : 1*T0' \
+	-gltCode HC_by_Type23gt1_BA 'Group : 1*HC_PIT trial_type : -1*1c 1*23c TimepointNr : 1*T0' \
+	-gltCode PD_by_Type23gt1_BA 'Group : 1*PD_POM trial_type : -1*1c 1*23c TimepointNr : 1*T0' \
+	-gltCode Group_by_Type23gt1_FU 'Group : -1*HC_PIT 1*PD_POM trial_type : -1*1c 1*23c TimepointNr : 1*T1' \
+	-gltCode HC_by_Type23gt1_FU 'Group : 1*HC_PIT trial_type : -1*1c 1*23c TimepointNr : 1*T1' \
+	-gltCode PD_by_Type23gt1_FU 'Group : 1*PD_POM trial_type : -1*1c 1*23c TimepointNr : 1*T1' \
 	-gltCode Group 'Group : -1*HC_PIT 1*PD_POM' \
 	-gltCode Group_BA 'Group : -1*HC_PIT 1*PD_POM TimepointNr : 1*T0' \
 	-gltCode Group_FU 'Group : -1*HC_PIT 1*PD_POM TimepointNr : 1*T1' \
 	-gltCode Time 'TimepointNr : -1*T0 1*T1' \
-	-gltCode Type2gt1 'trial_type : -1*1c 1*2c' \
-	-gltCode Type2gt1_BA 'trial_type : -1*1c 1*2c TimepointNr : 1*T0' \
-	-gltCode Type2gt1_FU 'trial_type : -1*1c 1*2c TimepointNr : 1*T1' \
-	-gltCode Type3gt1 'trial_type : -1*1c 1*3c' \
-	-gltCode Type3gt1_BA 'trial_type : -1*1c 1*3c TimepointNr : 1*T0' \
-	-gltCode Type3gt1_FU 'trial_type : -1*1c 1*3c TimepointNr : 1*T1' \
-	-gltCode Type3gt2 'trial_type : -1*2c 1*3c' \
-	-gltCode Type3gt2_BA 'trial_type : -1*2c 1*3c TimepointNr : 1*T0' \
-	-gltCode Type3gt2_FU 'trial_type : -1*2c 1*3c TimepointNr : 1*T1' \
-	-gltCode Type23gt1 'trial_type : -1*1c 0.5*2c 0.5*3c' \
-	-gltCode Type23gt1_BA 'trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T0' \
-	-gltCode Type23gt1_FU 'trial_type : -1*1c 0.5*2c 0.5*3c TimepointNr : 1*T1' \
+	-gltCode Type23gt1 'trial_type : -1*1c 1*23c' \
+	-gltCode Type23gt1_BA 'trial_type : -1*1c 1*23c TimepointNr : 1*T0' \
+	-gltCode Type23gt1_FU 'trial_type : -1*1c 1*23c TimepointNr : 1*T1' \
 	-dataTable \
 	`cat $dataTable`
 
@@ -118,37 +165,53 @@ elif [ $GroupComparison -eq 0 ]; then
 	echo "Severity: Linear"
 	dOutput=$dOutput/3dLME_severity
 	mkdir -p $dOutput
-	dataTable=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/${con}_severity_dataTable.txt
+	dataTable=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/${con}_severity_dataTable2.txt
 	cd $dOutput
-	cp $mask $(pwd)/mask.nii.gz
+	cp $mask $(pwd)/mask.nii
 	cp $dataTable $(pwd)
 	rm ${con}*.BRIK ${con}*.HEAD
 
+	# /opt/afni/2022/3dLMEr -prefix $dOutput/${con}_Severity2_x_Type3 -jobs $njobs \
+	# -resid $dOutput/${con}_Severity2_x_Type3_resid \
+	# -mask $mask \
+	# -model '1+ClinScore.imp_cb*trial_type+ClinScore.imp_cw*trial_type+ClinScore.imp_cbxcw*trial_type+Age+Sex+YearSinceDiag.imp+NpsEducYears.imp+RespHandIsDominant+(1|Subj)' \
+	# -qVars 'ClinScore.imp_cb,ClinScore.imp_cw,ClinScore.imp_cbxcw,Age,YearSinceDiag.imp,NpsEducYears.imp' \
+	# -gltCode Type2gt1_by_Cb_by_Cw 'trial_type : -1*1c 1*2c ClinScore.imp_cbxcw :' \
+	# -gltCode Type3gt1_by_Cb_by_Cw 'trial_type : -1*1c 1*3c ClinScore.imp_cbxcw :' \
+	# -gltCode Type23gt1_by_Cb_by_Cw 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cbxcw :' \
+	# -gltCode Mean_by_Cb_by_Cw 'ClinScore.imp_cbxcw :' \
+	# -gltCode Type2gt1_by_Severity_cb 'trial_type : -1*1c 1*2c ClinScore.imp_cb :' \
+	# -gltCode Type3gt1_by_Severity_cb 'trial_type : -1*1c 1*3c ClinScore.imp_cb :' \
+	# -gltCode Type3gt2_by_Severity_cb 'trial_type : -1*2c 1*3c ClinScore.imp_cb :' \
+	# -gltCode Type23gt1_by_Severity_cb 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cb :' \
+	# -gltCode Mean_by_Severity_cb 'ClinScore.imp_cb :' \
+	# -gltCode Type2gt1_by_Severity_cw 'trial_type : -1*1c 1*2c ClinScore.imp_cw :' \
+	# -gltCode Type3gt1_by_Severity_cw 'trial_type : -1*1c 1*3c ClinScore.imp_cw :' \
+	# -gltCode Type3gt2_by_Severity_cw 'trial_type : -1*2c 1*3c ClinScore.imp_cw :' \
+	# -gltCode Type23gt1_by_Severity_cw 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cw :' \
+	# -gltCode Mean_by_Severity_cw 'ClinScore.imp_cw :' \
+	# -gltCode Type1_by_Severity_cb 'trial_type : 1*1c ClinScore.imp_cb :' \
+	# -gltCode Type2_by_Severity_cb 'trial_type : 1*2c ClinScore.imp_cb :' \
+	# -gltCode Type3_by_Severity_cb 'trial_type : 1*3c ClinScore.imp_cb :' \
+	# -gltCode Type1_by_Severity_cw 'trial_type : 1*1c ClinScore.imp_cw :' \
+	# -gltCode Type2_by_Severity_cw 'trial_type : 1*2c ClinScore.imp_cw :' \
+	# -gltCode Type3_by_Severity_cw 'trial_type : 1*3c ClinScore.imp_cw :' \
+	# -dataTable \
+	# `cat $dataTable`
+	
 	/opt/afni/2022/3dLMEr -prefix $dOutput/${con}_Severity2_x_Type3 -jobs $njobs \
 	-resid $dOutput/${con}_Severity2_x_Type3_resid \
 	-mask $mask \
-	-model '1+ClinScore.imp_cb*trial_type+ClinScore.imp_cw*trial_type+ClinScore.imp_cbxcw*trial_type+Age+Sex+YearSinceDiag.imp+(1+ClinScore.imp_cw|Subj)' \
-	-qVars 'ClinScore.imp_cb,ClinScore.imp_cw,ClinScore.imp_cbxcw,Age,YearSinceDiag.imp' \
-	-gltCode Type2gt1_by_Cb_by_Cw 'trial_type : -1*1c 1*2c ClinScore.imp_cbxcw :' \
-	-gltCode Type3gt1_by_Cb_by_Cw 'trial_type : -1*1c 1*3c ClinScore.imp_cbxcw :' \
-	-gltCode Type23gt1_by_Cb_by_Cw 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cbxcw :' \
-	-gltCode Mean_by_Cb_by_Cw 'ClinScore.imp_cbxcw :' \
-	-gltCode Type2gt1_by_Severity_cb 'trial_type : -1*1c 1*2c ClinScore.imp_cb :' \
-	-gltCode Type3gt1_by_Severity_cb 'trial_type : -1*1c 1*3c ClinScore.imp_cb :' \
-	-gltCode Type3gt2_by_Severity_cb 'trial_type : -1*2c 1*3c ClinScore.imp_cb :' \
-	-gltCode Type23gt1_by_Severity_cb 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cb :' \
-	-gltCode Mean_by_Severity_cb 'ClinScore.imp_cb :' \
-	-gltCode Type2gt1_by_Severity_cw 'trial_type : -1*1c 1*2c ClinScore.imp_cw :' \
-	-gltCode Type3gt1_by_Severity_cw 'trial_type : -1*1c 1*3c ClinScore.imp_cw :' \
-	-gltCode Type3gt2_by_Severity_cw 'trial_type : -1*2c 1*3c ClinScore.imp_cw :' \
-	-gltCode Type23gt1_by_Severity_cw 'trial_type : -1*1c 0.5*2c 0.5*3c ClinScore.imp_cw :' \
-	-gltCode Mean_by_Severity_cw 'ClinScore.imp_cw :' \
-	-gltCode Type1_by_Severity_cb 'trial_type : 1*1c ClinScore.imp_cb :' \
-	-gltCode Type2_by_Severity_cb 'trial_type : 1*2c ClinScore.imp_cb :' \
-	-gltCode Type3_by_Severity_cb 'trial_type : 1*3c ClinScore.imp_cb :' \
-	-gltCode Type1_by_Severity_cw 'trial_type : 1*1c ClinScore.imp_cw :' \
-	-gltCode Type2_by_Severity_cw 'trial_type : 1*2c ClinScore.imp_cw :' \
-	-gltCode Type3_by_Severity_cw 'trial_type : 1*3c ClinScore.imp_cw :' \
+	-model '1+ClinScore_brady_cb*trial_type+ClinScore_brady_cw*trial_type+ClinScore_cog_cb*trial_type+ClinScore_cog_cw*trial_type+Age+Sex+YearsSinceDiag.imp+NpsEducYears.imp+RespHandIsDominant+(1|Subj)' \
+	-qVars 'ClinScore_brady_cb,ClinScore_brady_cw,ClinScore_cog_cb,ClinScore_cog_cw,Age,YearsSinceDiag.imp,NpsEducYears.imp' \
+	-gltCode Type23gt1_by_Brady_cb 'trial_type : -1*1c 1*23c ClinScore_brady_cb :' \
+	-gltCode Mean_by_Brady_cb 'ClinScore_brady_cb :' \
+	-gltCode Type23gt1_by_Brady_cw 'trial_type : -1*1c 1*23c ClinScore_brady_cw :' \
+	-gltCode Mean_by_Brady_cw 'ClinScore_brady_cw :' \
+	-gltCode Type23gt1_by_Moca_cb 'trial_type : -1*1c 1*23c ClinScore_cog_cb :' \
+	-gltCode Mean_by_Moca_cb 'ClinScore_cog_cb :' \
+	-gltCode Type23gt1_by_Moca_cw 'trial_type : -1*1c 1*23c ClinScore_cog_cw :' \
+	-gltCode Mean_by_Moca_cw 'ClinScore_cog_cw :' \
 	-dataTable \
 	`cat $dataTable`
 
