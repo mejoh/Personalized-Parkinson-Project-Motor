@@ -1,73 +1,81 @@
 #!/bin/bash
 
-# This script will copy multiple sessions for patients and controls
-# The script is split into doing complete cases and single session to 
+# Copy multiple sessions for patients and controls
+# The script is split into doing complete cases and single sessions to 
 # avoid including OFF-state patients. 
 
+prepend_hc=""
+prepend_pd=""
 bidsdir="/project/3022026.01/pep/bids"
-outdir="/project/3024006.02/Analyses/FreeSurfer_v7.3.2/inputs/"
-qcdir="/project/3024006.02/Analyses/FreeSurfer_v7.3.2/qc/t1refs"
-
+outdir="/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/inputs"
+qcdir="/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/qc/t1refs/"
 cd $bidsdir 
-#subs=`ls -d sub-POMU*`
-#subs=`ls -d sub-POMU000*` #test on 26 subjects 
-# Eleni's list of subjects
-#subs=(sub-POMU0002C991F61D84B4 sub-POMU00094252BA30B84F sub-POMU00A6F1FC997C42C6 sub-POMU04AD481098C79AF2 sub-POMU0CCCA6B887698DA6 sub-POMU0E19B895DF700AB0 sub-POMU100B8EB93AAE67A7 sub-POMU103DF05F26F3F240 sub-POMU1AF190923B4BD2D0 sub-POMU1C34E1FD03D68AC7 sub-POMU1EBB37488F2B1529 sub-POMU1EC01A53575D7104 sub-POMU24710476D1CC49B2 sub-POMU303662D04260BDB2 sub-POMU3213FF895A391B8E sub-POMU3227A783C83B9916 sub-POMU32A3C60CF70B22F5 sub-POMU34C531D4E1BB04B1 sub-POMU40A846C18C7D2997 sub-POMU4CC057B13DBB2927 sub-POMU50E23EE8D323511D sub-POMU5433A8F50C28EED0 sub-POMU54517F441B7ABA25 sub-POMU56AB3BB417CE7A94 sub-POMU58B6CDD53AD4049C sub-POMU5A41F2B445A5BFD6 sub-POMU5C6D29ADEA24E379 sub-POMU6009A5A4295DA773 sub-POMU623C1216D7130AB3 sub-POMU6A421CB95A963ECF sub-POMU6AB50AF4C627380A sub-POMU6ABBE6F2F8478911 sub-POMU6C1DAE7AA87DA5CC sub-POMU7615B16FBF519FAD sub-POMU76C145E4A8272745 sub-POMU76C82747175BEDCA sub-POMU7842A231D1D8252C sub-POMU78F3163BDCBF97A5 sub-POMU7E7448F5C57F585A sub-POMU80C7D6A96AA13388 sub-POMU820443CEE295DFEC sub-POMU862289F885891BCF sub-POMU86B05D739B8524A5 sub-POMU86B947749A70E997 sub-POMU8A34CEE519A04260 sub-POMU8A6F766544B02956 sub-POMU8CEAFADC879496D0 sub-POMU90251C339D9FEADE sub-POMU90AC899A723858BF sub-POMU942853AA5F620FD8 sub-POMU94BBDCE4059E40BB sub-POMU9863B183F9A78086 sub-POMU9A08794D78B1E1A0 sub-POMU9EC53CA5C45A05C4 sub-POMUA051F95E9544F0E9 sub-POMUA88F01FA3CE739C6 sub-POMUAADBCC3DF8BC5C38 sub-POMUAAE674364AB971CC sub-POMUAC2513F0E5E32349 sub-POMUB095BA226B76557A sub-POMUB0A6FB4D3AF0D3B5 sub-POMUB24789880E112F8F sub-POMUB2DCE5473F9AE647 sub-POMUB40A0FE7D18B3074 sub-POMUB6BC0C89F872CBED sub-POMUB6C25D2D687A941C sub-POMUBC2FF1B37472E0BC sub-POMUC041B6C233F649EF sub-POMUC2917FBF8466577F sub-POMUC2B9BDB672CFBB53 sub-POMUC449B70F434BE59C sub-POMUC4526BFEA3F9DAA5 sub-POMUC807A64CCB3307BA sub-POMUC86C6B41DE5A61DB sub-POMUCAC0EDBAB573E7C8 sub-POMUCADA13597E19F3EF sub-POMUCC10A738FB6A82D8 sub-POMUCC9B68541F5DA80C sub-POMUCEA7C3EA1F43B994 sub-POMUCEDF084716D7ACA2 sub-POMUD03A248AEB7001CF sub-POMUD4D25F6957298ADB sub-POMUD4F57C78CB909834 sub-POMUD64B6EA8F3427DD1 sub-POMUD8BFFBFC180F0CBA sub-POMUDEAB9CA08B9E4867 sub-POMUE29FE452ACD18D1E sub-POMUE664379C5E29F377 sub-POMUEAE92BBCD628CC94 sub-POMUF6090205311F4DB9 sub-POMUF655D0BE9213C22B sub-POMUF802ADB98AD8C232 sub-POMUF83D2E4BD665A11E sub-POMUFA4047305C39340B sub-POMUFAB8E98269745B2E sub-POMUFE8CFD50D9A1714E sub-POMU085C98CE3CB8B59B sub-POMU0A0E753F20F6332D sub-POMU0C9C8D543994FEDC sub-POMU1AE17DD408EE8BBD sub-POMU1C52DA1EA585BF34 sub-POMU1CF55A8FB405D10A sub-POMU20E3ED60D71C4BDB sub-POMU249688DEF580F9F8 sub-POMU2A338E7EB76FE047 sub-POMU2C88568084E2F0F2 sub-POMU3A4A4F94D24346DF sub-POMU3C2A2F759C62AEEA sub-POMU3C5E5B8DECFCAE89 sub-POMU4A7727F13B26E411 sub-POMU4A8CEC1F6CA99BD1 sub-POMU64478D91BE4381AC sub-POMU66F1AF44563E6F13 sub-POMU6E2895037F9D639D sub-POMU70547323D99309AD sub-POMU706F74F4EACBB3E1 sub-POMU70D4A075E5621333 sub-POMU8AE661BB10DB160B sub-POMU8C052B18FE95AAC3 sub-POMU8C2AE2C0FAD3C020 sub-POMUC81B8DDB39787089 sub-POMUD2870200E030B451 sub-POMUD288CB7C2273AD34 sub-POMUDEC90EA2FF4B337C sub-POMUE29DA962ECB898F2 sub-POMUE49FF489B8076A3E sub-POMUE818297B259EB2AB sub-POMUF69ADAA4CB4CE8EF sub-POMUF8C5A88ADC866F24)
-
+#subs=`cat /project/3024006.02/templates/template_50HC50PD/list.txt`
+subs=`ls -d sub-POMU*` 
 
 for s in ${subs[@]}; do
 
-	pd1=${bidsdir}/${s}/ses-POMVisit1/anat/${s}_ses-POMVisit1_acq-MPRAGE_rec-norm_run-1_T1w.nii.gz
-	pd2=${bidsdir}/${s}/ses-POMVisit3/anat/${s}_ses-POMVisit3_acq-MPRAGE_rec-norm_run-1_T1w.nii.gz
-	hc1=${bidsdir}/${s}/ses-PITVisit1/anat/${s}_ses-PITVisit1_acq-MPRAGE_rec-norm_run-1_T1w.nii.gz
-	hc2=${bidsdir}/${s}/ses-PITVisit2/anat/${s}_ses-PITVisit2_acq-MPRAGE_rec-norm_run-1_T1w.nii.gz
+	echo "Processing ${s}"
+
+	pd1=${bidsdir}/${s}/ses-POMVisit1/anat/${s}_ses-POMVisit1_acq-MPRAGE_run-1_T1w.nii.gz
+	pd2=${bidsdir}/${s}/ses-POMVisit3/anat/${s}_ses-POMVisit3_acq-MPRAGE_run-1_T1w.nii.gz
+	hc1=${bidsdir}/${s}/ses-PITVisit1/anat/${s}_ses-PITVisit1_acq-MPRAGE_run-1_T1w.nii.gz
+	hc2=${bidsdir}/${s}/ses-PITVisit2/anat/${s}_ses-PITVisit2_acq-MPRAGE_run-1_T1w.nii.gz
 	
 	# Complete PD cases
 	if [[ (-f $pd1 && -f $pd2 && ! -f $hc2) ]]; then
 		
-		mkdir -p ${outdir}/PD_${s}
-		cp $pd1 ${outdir}/PD_${s}/PD_${s}_t1_T1w.nii.gz
-		cp $pd2 ${outdir}/PD_${s}/PD_${s}_t2_T1w.nii.gz
-		slices ${outdir}/PD_${s}/PD_${s}_t1_T1w.nii.gz -o ${qcdir}/PD_${s}_t1_T1ref.gif
-		slices ${outdir}/PD_${s}/PD_${s}_t2_T1w.nii.gz -o ${qcdir}/PD_${s}_t2_T1ref.gif
+		echo "PD: complete case, copying both visits"
+		mkdir -p ${outdir}/${prepend_pd}${s}
+		cp $pd1 ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t1_T1w.nii.gz
+		cp $pd2 ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t2_T1w.nii.gz
+		# slices ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t1_T1w.nii.gz -o ${qcdir}/${prepend_pd}${s}_t1_T1ref.gif
+		# slices ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t2_T1w.nii.gz -o ${qcdir}/${prepend_pd}${s}_t2_T1ref.gif
 	
 	# PD visit 1 only
 	elif [[ (-f $pd1 && ! -f $pd2 && ! -f $hc2) ]]; then
 	
-		mkdir -p ${outdir}/PD_${s}
-		cp $pd1 ${outdir}/PD_${s}/PD_${s}_t1_T1w.nii.gz
-		slices ${outdir}/PD_${s}/PD_${s}_t1_T1w.nii.gz -o ${qcdir}/PD_${s}_t1_T1ref.gif
+		echo "PD: incomplete case, copying visit 1"
+		mkdir -p ${outdir}/${prepend_pd}${s}
+		cp $pd1 ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t1_T1w.nii.gz
+		# slices ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t1_T1w.nii.gz -o ${qcdir}/${prepend_pd}${s}_t1_T1ref.gif
 	
 	# PD visit 2 only
 	elif [[ (! -f $pd1 && -f $pd2 && ! -f $hc2) ]]; then
 	
-		mkdir -p ${outdir}/PD_${s}
-		cp $pd2 ${outdir}/PD_${s}/PD_${s}_t2_T1w.nii.gz
-		slices ${outdir}/PD_${s}/PD_${s}_t2_T1w.nii.gz -o ${qcdir}/PD_${s}_t2_T1ref.gif
+		echo "PD: incomplete case, copying visit 2"
+		mkdir -p ${outdir}/${prepend_pd}${s}
+		cp $pd2 ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t2_T1w.nii.gz
+		# slices ${outdir}/${prepend_pd}${s}/${prepend_pd}${s}_t2_T1w.nii.gz -o ${qcdir}/${prepend_pd}${s}_t2_T1ref.gif
 		
 	# Complete HC cases	
 	elif [[ (-f $hc1 && -f $hc2) ]]; then
 	
-		mkdir -p ${outdir}/HC_${s}
-		cp $hc1 ${outdir}/HC_${s}/HC_${s}_t1_T1w.nii.gz
-		cp $hc2 ${outdir}/HC_${s}/HC_${s}_t2_T1w.nii.gz
-		slices ${outdir}/HC_${s}/HC_${s}_t1_T1w.nii.gz -o ${qcdir}/HC_${s}_t1_T1ref.gif
-		slices ${outdir}/HC_${s}/HC_${s}_t2_T1w.nii.gz -o ${qcdir}/HC_${s}_t2_T1ref.gif
+		echo "HC: complete case, copying both visits"
+		mkdir -p ${outdir}/${prepend_hc}${s}
+		cp $hc1 ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t1_T1w.nii.gz
+		cp $hc2 ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t2_T1w.nii.gz
+		# slices ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t1_T1w.nii.gz -o ${qcdir}/${prepend_hc}${s}_t1_T1ref.gif
+		# slices ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t2_T1w.nii.gz -o ${qcdir}/${prepend_hc}${s}_t2_T1ref.gif
 		
 	# HC visit 1 only	
 	elif [[ (-f $hc1 && ! -f $pd1 && ! -f $pd2) ]]; then
 	
-		mkdir -p ${outdir}/HC_${s}
-		cp $hc1 ${outdir}/HC_${s}/HC_${s}_t1_T1w.nii.gz
-		slices ${outdir}/HC_${s}/HC_${s}_t1_T1w.nii.gz -o ${qcdir}/HC_${s}_t1_T1ref.gif
+		echo "HC: incomplete case, copying visit 1"
+		mkdir -p ${outdir}/${prepend_hc}${s}
+		cp $hc1 ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t1_T1w.nii.gz
+		# slices ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t1_T1w.nii.gz -o ${qcdir}/${prepend_hc}${s}_t1_T1ref.gif
 	
 	# HC visit 2 only
 	elif [[ (! -f $hc1 && -f $hc2) ]]; then
 	
-		mkdir -p ${outdir}/HC_${s}
-		cp $hc2 ${outdir}/HC_${s}/HC_${s}_t2_T1w.nii.gz
-		slices ${outdir}/HC_${s}/HC_${s}_t2_T1w.nii.gz -o ${qcdir}/HC_${s}_t2_T1ref.gif
+		echo "HC: incomplete case, copying visit 2"
+		mkdir -p ${outdir}/${prepend_hc}${s}
+		cp $hc2 ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t2_T1w.nii.gz
+		# slices ${outdir}/${prepend_hc}${s}/${prepend_hc}${s}_t2_T1w.nii.gz -o ${qcdir}/${prepend_hc}${s}_t2_T1ref.gif
 		
 	fi
+	
+	echo "DONE"
 
 done

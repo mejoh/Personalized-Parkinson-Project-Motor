@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Re-run the full recon-all pipeline for each subject's sessions
+
 # v="7.3.2"
 # fs_dir=/project/3024006.02/Analyses/FreeSurfer_v${v}
 # subject='PD_sub-POMU00094252BA30B84F'
@@ -15,7 +17,7 @@ cd $SUBJECTS_DIR
 
 if [[ -d ${subject}_${timepoint} ]]; then
 
-	$FREESURFER_HOME/bin/recon-all -long ${subject}_${timepoint} ${subject} -all
+	$FREESURFER_HOME/bin/recon-all -long ${subject}_${timepoint} ${subject} -all -threads 2
 
 else
 
