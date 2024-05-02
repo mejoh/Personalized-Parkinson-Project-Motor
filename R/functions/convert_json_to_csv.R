@@ -41,6 +41,16 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
                   }else if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers_CSF_RewardTask.json')){
                           json <- read_delim(fSubsetFiles[i], show_col_types = FALSE)
                           colnames(json) <- paste('DD_InflammationMarkers_CSF-RewardTask_',colnames(json),sep='')
+                  }else if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers_Blood_.*CRP.Visit[0-9].json')){
+                          json <- read.table(fSubsetFiles[i])
+                          cn <- basename(fSubsetFiles[i]) %>% str_replace(., '\\..*','')
+                          colnames(json) <- cn
+                          json <- as_tibble(json)
+                  }else if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers_Blood_.*NFL.Visit[0-9].json')){
+                          json <- read.table(fSubsetFiles[i])
+                          cn <- basename(fSubsetFiles[i]) %>% str_replace(., '\\..*','')
+                          colnames(json) <- cn
+                          json <- as_tibble(json)
                   }else{
                           json <- read_csv(fSubsetFiles[i], col_names = FALSE, show_col_types = FALSE)
                           varname <- unlist(str_extract_all(fSubsetFiles[i],"(?<=POMVisit[0-9]/).+(?=.Visit)"))
@@ -50,12 +60,12 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
                   json <- jsonlite::read_json(fSubsetFiles[i])
           }
     # FIX: Rename vars where Of and On labels have been accidentally reversed
-    if(str_detect(fSubsetFiles[i], 'Motorische_taken_ON') && str_detect(names(json$crf), 'Up3Of')){
+    if(str_detect(fSubsetFiles[i], 'Motorische_taken_ON') && any(str_detect(names(json$crf), 'Up3Of'))){
       print(dSub)
       msg <- 'Up3Of variable found in On assessment, replacing with Up3On...'
       print(msg)
       names(json$crf) <- str_replace_all(names(json$crf), 'Up3Of', 'Up3On')
-    }else if(str_detect(fSubsetFiles[i], 'Motorische_taken_OFF') && str_detect(names(json$crf), 'Up3On')){
+    }else if(str_detect(fSubsetFiles[i], 'Motorische_taken_OFF') && any(str_detect(names(json$crf), 'Up3On'))){
       print(dSub)
       msg <- 'Up3On variable found in Off assessment, replacing with Up3Of...'
       print(msg)

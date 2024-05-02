@@ -9,12 +9,12 @@ extend_variables <- function(df, varlist){
       # Subset data based on current pseudonym and current variable
       vals <- df %>%
         filter(pseudonym == id) %>%
-        select(matches(var))
+        select(!!ensym(var))
       
       # Perform the same subsetting as above and look for NAs
       na.idx <- df %>%
         filter(pseudonym == id) %>%
-        select(matches(var)) %>%
+        select(!!ensym(var)) %>%
         is.na %>%
         as.vector
       

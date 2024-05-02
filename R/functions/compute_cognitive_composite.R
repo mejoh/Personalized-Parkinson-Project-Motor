@@ -9,10 +9,11 @@ compute_cognitive_composite <- function(df){
   var
  }
  
+
  df1 <- df %>% 
   select(all_of(selection_characteristrics), all_of(vars)) %>%
   mutate(across(all_of(vars), .fns = z_score, .names = 'z_{.col}'),
-         AVLT = (z_NpsMis15wRigTot + z_NpsMis15WrdDelRec + z_NpsMis15WrdRecognition)/3,
+         AVLT = (NpsMis15wRigTot + NpsMis15WrdDelRec + NpsMis15WrdRecognition)/3,
          z_AVLT = z_score(AVLT),
          CognitiveComposite_raw = (z_NpsMisWaisLcln+z_NpsMisBrixton+z_NpsMisBenton+z_NpsMisSemFlu+z_NpsMisModa90+z_AVLT)/6,
          across(where(is.numeric), \(x) round(x, digits=5)))

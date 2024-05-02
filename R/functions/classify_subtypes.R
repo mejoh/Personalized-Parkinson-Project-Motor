@@ -1,9 +1,5 @@
 classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBaseline=TRUE){
         
-        # TO DO:
-        # Look into implementing an option for multiple imputation
-        # Using MOCA_MCI instead of composite cognitive score
-        
         library(readxl)
         library(mice)
         library(miceadds)
@@ -48,41 +44,46 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
         
         ##### Compute cognitive composite score ####
         if(!MI){
+                # DEPRECATED!! 
                 # Use available normative scores
                 #File 1
-                ANDI_scores <- read_excel('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/ANDI_stacked_1-471.xlsx')
-                colnames(ANDI_scores)[1:3] <- c('pseudonym', 'FullName', 'Variable')
-                ANDI_z_scores <- ANDI_scores %>%
-                        select(pseudonym, Variable, z) %>%
-                        pivot_wider(names_from = Variable,
-                                    values_from = z)
-                colnames(ANDI_z_scores)[2:6] <- c('AVLT.Total_1to5','AVLT.DelayedRecall_1to5','AVLT.Recognition_1to5','SemanticFluency','Brixton')
-                #File 2
-                SDMT_Benton_WAIS_scores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/POM_dataset SDMT and Benton JULO and WAIS-IV LNS z-norms.csv')
-                SDMT_Benton_WAIS_z_scores <- SDMT_Benton_WAIS_scores %>%
-                        select(pseudonym, SDMT_ORAL_90_Z_SCORE, Benton_Z_SCORE, LetterNumSeq_Z_Score_age_and_edu_adjusted)
-                colnames(SDMT_Benton_WAIS_z_scores)[2:4] <- c('SymbolDigit', 'Benton', 'LetterNumberSeq')
+                # ANDI_scores <- read_excel('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/ANDI_stacked_1-471.xlsx')
+                # colnames(ANDI_scores)[1:3] <- c('pseudonym', 'FullName', 'Variable')
+                # ANDI_z_scores <- ANDI_scores %>%
+                #         select(pseudonym, Variable, z) %>%
+                #         pivot_wider(names_from = Variable,
+                #                     values_from = z)
+                # colnames(ANDI_z_scores)[2:6] <- c('AVLT.Total_1to5','AVLT.DelayedRecall_1to5','AVLT.Recognition_1to5','SemanticFluency','Brixton')
+                # #File 2
+                # SDMT_Benton_WAIS_scores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/POM_dataset SDMT and Benton JULO and WAIS-IV LNS z-norms.csv')
+                # SDMT_Benton_WAIS_z_scores <- SDMT_Benton_WAIS_scores %>%
+                #         select(pseudonym, SDMT_ORAL_90_Z_SCORE, Benton_Z_SCORE, LetterNumSeq_Z_Score_age_and_edu_adjusted)
+                # colnames(SDMT_Benton_WAIS_z_scores)[2:4] <- c('SymbolDigit', 'Benton', 'LetterNumberSeq')
+                # 
+                # Neuropsych_z_scores <- full_join(ANDI_z_scores, SDMT_Benton_WAIS_z_scores, by = 'pseudonym') %>% 
+                #         na.omit() %>%
+                #         mutate(AVLT.avg = (AVLT.Total_1to5 + AVLT.DelayedRecall_1to5 + AVLT.Recognition_1to5)/3,
+                #                CognitiveComposite = (SemanticFluency + Brixton + SymbolDigit + Benton + LetterNumberSeq + AVLT.avg) / 6)  
                 
-                Neuropsych_z_scores <- full_join(ANDI_z_scores, SDMT_Benton_WAIS_z_scores, by = 'pseudonym') %>% 
-                        na.omit() %>%
-                        mutate(AVLT.avg = (AVLT.Total_1to5 + AVLT.DelayedRecall_1to5 + AVLT.Recognition_1to5)/3,
-                               CognitiveComposite = (SemanticFluency + Brixton + SymbolDigit + Benton + LetterNumberSeq + AVLT.avg) / 6)  
+                
         }else{
+                # DEPRECATED!!!
                 # Use available and imputed normative scores
                 #File 3
-                NormativeScores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/NormativeScores.csv')
-                
-                Neuropsych_z_scores <- NormativeScores %>%
-                        select(pseudonym, AVLT.Total_1to5.imp, AVLT.DelayedRecall_1to5.imp, AVLT.Recognition_1to5.imp,
-                               SemanticFluency.imp, Brixton.imp, SymbolDigit.imp, Benton.imp, LetterNumberSeq.imp) %>%
-                        na.omit() %>%
-                        mutate(AVLT.avg.imp = (AVLT.Total_1to5.imp + AVLT.DelayedRecall_1to5.imp + AVLT.Recognition_1to5.imp)/3,
-                               CognitiveComposite = (SemanticFluency.imp + Brixton.imp + SymbolDigit.imp + 
-                                                             Benton.imp + LetterNumberSeq.imp + AVLT.avg.imp) / 6)   
+                # NormativeScores <- read_csv('/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/NormativeScores.csv')
+                # 
+                # Neuropsych_z_scores <- NormativeScores %>%
+                #         select(pseudonym, AVLT.Total_1to5.imp, AVLT.DelayedRecall_1to5.imp, AVLT.Recognition_1to5.imp,
+                #                SemanticFluency.imp, Brixton.imp, SymbolDigit.imp, Benton.imp, LetterNumberSeq.imp) %>%
+                #         na.omit() %>%
+                #         mutate(AVLT.avg.imp = (AVLT.Total_1to5.imp + AVLT.DelayedRecall_1to5.imp + AVLT.Recognition_1to5.imp)/3,
+                #                CognitiveComposite = (SemanticFluency.imp + Brixton.imp + SymbolDigit.imp + 
+                #                                              Benton.imp + LetterNumberSeq.imp + AVLT.avg.imp) / 6)   
         }
         
         # Merge datasets
-        df1 <- left_join(df1, Neuropsych_z_scores, by = 'pseudonym')
+        #df1 <- left_join(df1, Neuropsych_z_scores, by = 'pseudonym')
+        
         # df1 <- df1 %>%
         #         select(pseudonym, TimepointNr, MonthSinceDiag, Updrs2Sum, Updrs3Sum, PIGDavg,
         #                RBDSQSum, SCOPA_AUTSum, CognitiveComposite, MoCASum, DiagParkCertain, DiagParkPersist)
@@ -103,7 +104,9 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
         # #####
         
         ##### Define variables that depended on imputation #####
-        df1 <- df1 %>% mutate(MOCA_MCI = if_else(MoCASum >= 26, 0, 1),
+        df1 <- df1 %>% mutate(CognitiveComposite = z_CognitiveComposite2,
+                              MOCA_MCI = if_else(MoCASum >= 26, 0, 1),
+                              z_MOCA_MCI = if_else(z_MoCA__total > -1.5, 0 ,1),
                               MotorComposite = (Updrs2Sum + Updrs3Sum + PIGDavg)/3) %>%
                 select(-c(MoCASum))
         
@@ -165,6 +168,8 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
                                        SCOPA_AUT.Perc = pnorm(SCOPA_AUT.z)*100,
                                        MOCA_MCI.z = if_else(MOCA_MCI == 1, -0.675, 1),
                                        MOCA_MCI.Perc = pnorm(MOCA_MCI.z)*100,
+                                       z_MOCA_MCI.z = if_else(z_MOCA_MCI == 1, -0.675, 1),
+                                       z_MOCA_MCI.Perc = pnorm(z_MOCA_MCI.z)*100,
                                        CognitiveComposite.z = (CognitiveComposite - mean(dat$CognitiveComposite[dat$TimepointNr==0],na.rm=TRUE)) / sd(dat$CognitiveComposite[dat$TimepointNr==0],na.rm=TRUE),
                                        CognitiveComposite.Perc = pnorm(CognitiveComposite.z)*100)
                         
@@ -199,6 +204,8 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
                                        SCOPA_AUT.Perc = pnorm(SCOPA_AUT.z)*100,
                                        MOCA_MCI.z = if_else(MOCA_MCI == 1, -0.675, 1),
                                        MOCA_MCI.Perc = pnorm(MOCA_MCI.z)*100,
+                                       z_MOCA_MCI.z = if_else(z_MOCA_MCI == 1, -0.675, 1),
+                                       z_MOCA_MCI.Perc = pnorm(z_MOCA_MCI.z)*100,
                                        CognitiveComposite.z = case_when(TimepointNr==0 ~ (CognitiveComposite - mean(dat$CognitiveComposite[dat$TimepointNr==0],na.rm=TRUE)) / sd(dat$CognitiveComposite[dat$TimepointNr==0],na.rm=TRUE),
                                                                         TimepointNr==1 ~ (CognitiveComposite - mean(dat$CognitiveComposite[dat$TimepointNr==1],na.rm=TRUE)) / sd(dat$CognitiveComposite[dat$TimepointNr==1],na.rm=TRUE),
                                                                         TimepointNr==2 ~ (CognitiveComposite - mean(dat$CognitiveComposite[dat$TimepointNr==2],na.rm=TRUE)) / sd(dat$CognitiveComposite[dat$TimepointNr==2],na.rm=TRUE)),
@@ -220,13 +227,15 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
         
         df_split <- full_join(df_below, df_above) %>%
                 mutate(Subtype=NA,
-                       Subtype.MCI=NA)
+                       Subtype.MCI=NA,
+                       Subtype.MCI_z=NA)
         
         #No split
         df_nosplit <- df1 %>%
                 generate_zscores(., RelativeToBaseline = RelativeToBaseline) %>%
                 mutate(Subtype=NA,
-                       Subtype.MCI=NA)
+                       Subtype.MCI=NA,
+                       Subtype.MCI_z=NA)
         #####
         
         ##### Perform classification #####
@@ -264,6 +273,22 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
                         }
                 }
                 
+                for(n in 1:length(df$Subtype.MCI_z)){
+                        if(is.na(df$MotorComposite.Perc2[n]) | is.na(df$RBDSQ.Perc[n]) | is.na(df$SCOPA_AUT.Perc[n]) | is.na(df$z_MOCA_MCI.Perc[n])){
+                                df$Subtype.MCI_z[n] <- '4_Undefined'
+                        }else if((df$MotorComposite.Perc2[n] != 0 | df$RBDSQ.Perc[n] != 0 | df$SCOPA_AUT.Perc[n] != 0 | df$z_MOCA_MCI.Perc[n] != 100) &
+                                 (df$MotorComposite.Perc2[n] >= 75 & df$RBDSQ.Perc[n] >= 75) |
+                                 (df$MotorComposite.Perc2[n] >= 75 & df$SCOPA_AUT.Perc[n] >= 75) |
+                                 (df$MotorComposite.Perc2[n] >= 75 & df$z_MOCA_MCI.Perc[n] <= 25) |
+                                 (df$SCOPA_AUT.Perc[n] >= 75 & df$RBDSQ.Perc[n] >= 75 & df$z_MOCA_MCI.Perc[n] <= 25)){
+                                df$Subtype.MCI_z[n] <- '3_Diffuse-Malignant'   
+                        }else if(df$MotorComposite.Perc2[n] < 75 & df$RBDSQ.Perc[n] < 75 & df$SCOPA_AUT.Perc[n] < 75 & df$z_MOCA_MCI.Perc[n] > 25){
+                                df$Subtype.MCI_z[n] <- '1_Mild-Motor'
+                        }else{
+                                df$Subtype.MCI_z[n] <- '2_Intermediate'
+                        }
+                }
+                
                 
                 
                 df
@@ -274,21 +299,25 @@ classify_subtypes <- function(df, MI=TRUE, DiagExclusions='both', RelativeToBase
         df_split <- classification(df_split) %>%
                 rename(Subtype_DisDurSplit = Subtype) %>%
                 rename(Subtype_DisDurSplit.MCI = Subtype.MCI) %>%
-                select(pseudonym, TimepointNr, DisDurCutoff, Subtype_DisDurSplit, Subtype_DisDurSplit.MCI)
+                rename(Subtype_DisDurSplit.MCI_z = Subtype.MCI_z) %>%
+                select(pseudonym, TimepointNr, DisDurCutoff, Subtype_DisDurSplit, Subtype_DisDurSplit.MCI, Subtype_DisDurSplit.MCI_z)
         
         # Classification for entire cohort
         df_nosplit <- classification(df_nosplit) %>%
                 rename(Subtype_NoSplit = Subtype) %>%
                 rename(Subtype_NoSplit.MCI = Subtype.MCI) %>%
-                select(pseudonym, TimepointNr, CognitiveComposite, Subtype_NoSplit, Subtype_NoSplit.MCI)
+                rename(Subtype_NoSplit.MCI_z = Subtype.MCI_z) %>%
+                select(pseudonym, TimepointNr, CognitiveComposite, Subtype_NoSplit, Subtype_NoSplit.MCI, Subtype_NoSplit.MCI_z)
         
         df1 <- full_join(df_nosplit, df_split, by = c('pseudonym', 'TimepointNr'))
         # df1 %>% select(pseudonym, TimepointNr, DisDurCutoff, starts_with('Subtype_'))
         
         df1$Subtype_NoSplit[is.na(df1$Subtype_NoSplit)] <- '4_Undefined'
         df1$Subtype_NoSplit.MCI[is.na(df1$Subtype_NoSplit.MCI)] <- '4_Undefined'
+        df1$Subtype_NoSplit.MCI_z[is.na(df1$Subtype_NoSplit.MCI_z)] <- '4_Undefined'
         df1$Subtype_DisDurSplit[is.na(df1$Subtype_DisDurSplit)] <- '4_Undefined'
         df1$Subtype_DisDurSplit.MCI[is.na(df1$Subtype_DisDurSplit.MCI)] <- '4_Undefined'
+        df1$Subtype_DisDurSplit.MCI_z[is.na(df1$Subtype_DisDurSplit.MCI_z)] <- '4_Undefined'
         
         df <- left_join(df, df1, by = c('pseudonym', 'TimepointNr')) %>%
                 mutate(Subtype_Matches = Subtype_DisDurSplit == Subtype_NoSplit,

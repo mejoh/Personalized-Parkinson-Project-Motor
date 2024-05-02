@@ -6,7 +6,7 @@ compute_bp_repetitions <- function(df){
     repetition_counter <- 0
     non_repetition_counter <- 0
     for(v in 1:nrow(df1)){
-        if(str_detect(df1$trial_type[v],'Int') & df1$correct_response[v] != 'Miss' & v != 1){
+        if((str_detect(df1$trial_type[v],'NChoice2') | str_detect(df1$trial_type[v],'NChoice3'))  & df1$correct_response[v] != 'Miss' & v != 1){
             preceding <- df1$button_pressed[v-1]
             expected <- c(df1$Expected_1[v],df1$Expected_2[v],df1$Expected_3[v])
             expected <- expected[!is.na(expected)]

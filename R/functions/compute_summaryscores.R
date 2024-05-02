@@ -1,5 +1,45 @@
 compute_summaryscores <- function(df){
   
+        # Recode motor symptoms to R/L rather than watch side
+        df1 <- df %>%
+                mutate(Up3OfFiTaR = if_else(WatchSide=='R',Up3OfFiTaYesDev,Up3OfFiTaNonDev),
+                       Up3OfFiTaL = if_else(WatchSide=='L',Up3OfFiTaYesDev,Up3OfFiTaNonDev),
+                       Up3OfHaMoR = if_else(WatchSide=='R',Up3OfHaMoYesDev,Up3OfHaMoNonDev),
+                       Up3OfHaMoL = if_else(WatchSide=='L',Up3OfHaMoYesDev,Up3OfHaMoNonDev),
+                       Up3OfProSR = if_else(WatchSide=='R',Up3OfProSYesDev,Up3OfProSNonDev),
+                       Up3OfProSL = if_else(WatchSide=='L',Up3OfProSYesDev,Up3OfProSNonDev),
+                       Up3OfToTaR = if_else(WatchSide=='R',Up3OfToTaYesDev,Up3OfToTaNonDev),
+                       Up3OfToTaL = if_else(WatchSide=='L',Up3OfToTaYesDev,Up3OfToTaNonDev),
+                       Up3OfLAgiR = if_else(WatchSide=='R',Up3OfLAgiYesDev,Up3OfLAgiNonDev),
+                       Up3OfLAgiL = if_else(WatchSide=='L',Up3OfLAgiYesDev,Up3OfLAgiNonDev),
+                       Up3OfPosTR = if_else(WatchSide=='R',Up3OfPosTYesDev,Up3OfPosTNonDev),
+                       Up3OfPosTL = if_else(WatchSide=='L',Up3OfPosTYesDev,Up3OfPosTNonDev),
+                       Up3OfKinTreR = if_else(WatchSide=='R',Up3OfKinTreYesDev,Up3OfKinTreNonDev),
+                       Up3OfKinTreL = if_else(WatchSide=='L',Up3OfKinTreYesDev,Up3OfKinTreNonDev),
+                       Up3OfRAmpArmR = if_else(WatchSide=='R',Up3OfRAmpArmYesDev,Up3OfRAmpArmNonDev),
+                       Up3OfRAmpArmL = if_else(WatchSide=='L',Up3OfRAmpArmYesDev,Up3OfRAmpArmNonDev),
+                       Up3OfRAmpLegR = if_else(WatchSide=='R',Up3OfRAmpLegYesDev,Up3OfRAmpLegNonDev),
+                       Up3OfRAmpLegL = if_else(WatchSide=='L',Up3OfRAmpLegYesDev,Up3OfRAmpLegNonDev),
+                       
+                       Up3OnFiTaR = if_else(WatchSide=='R',Up3OnFiTaYesDev,Up3OnFiTaNonDev),
+                       Up3OnFiTaL = if_else(WatchSide=='L',Up3OnFiTaYesDev,Up3OnFiTaNonDev),
+                       Up3OnHaMoR = if_else(WatchSide=='R',Up3OnHaMoYesDev,Up3OnHaMoNonDev),
+                       Up3OnHaMoL = if_else(WatchSide=='L',Up3OnHaMoYesDev,Up3OnHaMoNonDev),
+                       Up3OnProSR = if_else(WatchSide=='R',Up3OnProSYesDev,Up3OnProSNonDev),
+                       Up3OnProSL = if_else(WatchSide=='L',Up3OnProSYesDev,Up3OnProSNonDev),
+                       Up3OnToTaR = if_else(WatchSide=='R',Up3OnToTaYesDev,Up3OnToTaNonDev),
+                       Up3OnToTaL = if_else(WatchSide=='L',Up3OnToTaYesDev,Up3OnToTaNonDev),
+                       Up3OnLAgiR = if_else(WatchSide=='R',Up3OnLAgiYesDev,Up3OnLAgiNonDev),
+                       Up3OnLAgiL = if_else(WatchSide=='L',Up3OnLAgiYesDev,Up3OnLAgiNonDev),
+                       Up3OnPosTR = if_else(WatchSide=='R',Up3OnPosTYesDev,Up3OnPosTNonDev),
+                       Up3OnPosTL = if_else(WatchSide=='L',Up3OnPosTYesDev,Up3OnPosTNonDev),
+                       Up3OnKinTreR = if_else(WatchSide=='R',Up3OnKinTreYesDev,Up3OnKinTreNonDev),
+                       Up3OnKinTreL = if_else(WatchSide=='L',Up3OnKinTreYesDev,Up3OnKinTreNonDev),
+                       Up3OnRAmpArmR = if_else(WatchSide=='R',Up3OnRAmpArmYesDev,Up3OnRAmpArmNonDev),
+                       Up3OnRAmpArmL = if_else(WatchSide=='L',Up3OnRAmpArmYesDev,Up3OnRAmpArmNonDev),
+                       Up3OnRAmpLegR = if_else(WatchSide=='R',Up3OnRAmpLegYesDev,Up3OnRAmpLegNonDev),
+                       Up3OnRAmpLegL = if_else(WatchSide=='L',Up3OnRAmpLegYesDev,Up3OnRAmpLegNonDev))
+        
   ##### Lists of scores to summarize #####
         #Motor (MDS-UPDRS III)
         list.TotalOff <- c('Up3OfSpeech', 'Up3OfFacial', 'Up3OfRigNec', 'Up3OfRigRue', 'Up3OfRigLue', 'Up3OfRigRle', 'Up3OfRigLle',
@@ -119,11 +159,10 @@ compute_summaryscores <- function(df){
         # list.SCOPASLP_global <- c('ScopaSlp08')
         # list.SCOPASLP_day <- c('ScopaSlp09','ScopaSlp10','ScopaSlp11','ScopaSlp12','ScopaSlp13','ScopaSlp14')
         # list.NFOGQ <- c('FrOfGait02','FrOfGait03','FrOfGait04','FrOfGait05','FrOfGait06','FrOfGait07','FrOfGait08','FrOfGait09')
-        # list.PASE <- c()
         # list.WOQ <- c()
         # list.SF12 <-c()
         #####
-        df1 <- df %>%
+        df1 <- df1 %>%
                 plyr::mutate(Up3OfTotal = rowSums(.[list.TotalOff]), Up3OfTotal.NrItems = length(list.TotalOff),
                        Up3OnTotal = rowSums(.[list.TotalOn]), Up3OnTotal.NrItems = length(list.TotalOn)) %>%
                 plyr::mutate(Up3OfBradySum = rowSums(.[list.BradykinesiaOff]), Up3OfBradySum.NrItems = length(list.BradykinesiaOff),
@@ -236,6 +275,7 @@ compute_summaryscores <- function(df){
                        NpsMis15WrdRecognition = NpsMis15WrdHits + (15-NpsMis15WrdFals),
                        MotorComposite = (Up2Total + Up3OfTotal + Up3OfPIGDSum)/3)
         
+        # PDQ-39
         for(v in 1:length(df1$PDQ39_socialsupportSum)){
                 if(is.na(df1$Pdq39It27[v]) | (df1$Pdq39It28a[v] == 1 && is.na(df1$Pdq39It28b[v])) | is.na(df1$Pdq39It29[v])){
                         df1$PDQ39_socialsupportSum[v] <- NA
@@ -254,6 +294,11 @@ compute_summaryscores <- function(df){
                                                                                          'PDQ39_stigmaSum', 'PDQ39_socialsupportSum', 'PDQ39_cognitionsSum',
                                                                                          'PDQ39_communicationSum', 'PDQ39_bodilydiscomfortSum')))))
         
+        # PASE
+        source("/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_pase.R")
+        df1 <- df1 %>%
+                left_join(., compute_pase(df1))
+        
         # Compute asymmetry index scores for bradykinesia, rigidity, and tremor
         scoreList <- list(AllScores = c('Up3OfSpeech', 'Up3OfFacial', 'Up3OfRigNec', 'Up3OfRigRue', 'Up3OfRigLue', 'Up3OfRigRle', 'Up3OfRigLle',
                                         'Up3OfFiTaYesDev', 'Up3OfFiTaNonDev', 'Up3OfHaMoYesDev', 'Up3OfHaMoNonDev', 'Up3OfProSYesDev',
@@ -270,20 +315,28 @@ compute_summaryscores <- function(df){
                                            'Up3OfProSNonDev', 'Up3OfToTaYesDev', 'Up3OfToTaNonDev', 'Up3OfLAgiYesDev', 'Up3OfLAgiNonDev'),
                           Bradykinesia_YesDev = c('Up3OfFiTaYesDev', 'Up3OfHaMoYesDev', 'Up3OfProSYesDev', 'Up3OfToTaYesDev', 'Up3OfLAgiYesDev'),
                           Bradykinesia_NonDev = c('Up3OfFiTaNonDev', 'Up3OfHaMoNonDev', 'Up3OfProSNonDev', 'Up3OfToTaNonDev', 'Up3OfLAgiNonDev'),
+                          Bradykinesia_R = c('Up3OfFiTaR', 'Up3OfHaMoR', 'Up3OfProSR', 'Up3OfToTaR', 'Up3OfLAgiR'),
+                          Bradykinesia_L = c('Up3OfFiTaL', 'Up3OfHaMoL', 'Up3OfProSL', 'Up3OfToTaL', 'Up3OfLAgiL'),
                           Bradykinesia_Hand = c('Up3OfFiTaYesDev', 'Up3OfFiTaNonDev', 'Up3OfHaMoYesDev', 'Up3OfHaMoNonDev', 'Up3OfProSYesDev', 'Up3OfProSNonDev'),
                           Bradykinesia_Foot = c('Up3OfToTaYesDev', 'Up3OfToTaNonDev', 'Up3OfLAgiYesDev', 'Up3OfLAgiNonDev'),
                           RestTremor = c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev'),
                           RestTremor_YesDev = c('Up3OfRAmpArmYesDev', 'Up3OfRAmpLegYesDev'),
                           RestTremor_NonDev = c('Up3OfRAmpArmNonDev', 'Up3OfRAmpLegNonDev'),
+                          RestTremor_R = c('Up3OfRAmpArmR', 'Up3OfRAmpLegR'),
+                          RestTremor_L = c('Up3OfRAmpArmL', 'Up3OfRAmpLegL'),
                           RestTremor_Hand = c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev'),
                           RestTremor_Foot = c('Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev'),
                           ActionTremor = c('Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev'),
                           ActionTremor_YesDev = c('Up3OfPosTYesDev', 'Up3OfKinTreYesDev'),
                           ActionTremor_NonDev = c('Up3OfPosTNonDev', 'Up3OfKinTreNonDev'),
+                          ActionTremor_R = c('Up3OfPosTR', 'Up3OfKinTreR'),
+                          ActionTremor_L = c('Up3OfPosTL', 'Up3OfKinTreL'),
                           CompositeTremor = c('Up3OfRAmpArmYesDev', 'Up3OfRAmpArmNonDev', 'Up3OfRAmpLegYesDev', 'Up3OfRAmpLegNonDev',
                                               'Up3OfPosTYesDev', 'Up3OfPosTNonDev', 'Up3OfKinTreYesDev', 'Up3OfKinTreNonDev'),
                           CompositeTremor_YesDev = c('Up3OfRAmpArmYesDev', 'Up3OfRAmpLegYesDev', 'Up3OfPosTYesDev', 'Up3OfKinTreYesDev'),
                           CompositeTremor_NonDev = c('Up3OfRAmpArmNonDev', 'Up3OfRAmpLegNonDev', 'Up3OfPosTNonDev', 'Up3OfKinTreNonDev'),
+                          CompositeTremor_R = c('Up3OfRAmpArmR', 'Up3OfRAmpLegR', 'Up3OfPosTR', 'Up3OfKinTreR'),
+                          CompositeTremor_L = c('Up3OfRAmpArmL', 'Up3OfRAmpLegL', 'Up3OfPosTL', 'Up3OfKinTreL'),
                           Sided = c('Up3OfRigRue', 'Up3OfRigLue', 'Up3OfRigRle', 'Up3OfRigLle',
                                     'Up3OfFiTaYesDev', 'Up3OfFiTaNonDev', 'Up3OfHaMoYesDev', 'Up3OfHaMoNonDev', 'Up3OfProSYesDev', 'Up3OfProSNonDev',
                                     'Up3OfToTaYesDev', 'Up3OfToTaNonDev', 'Up3OfLAgiYesDev', 'Up3OfLAgiNonDev',
@@ -295,42 +348,65 @@ compute_summaryscores <- function(df){
         df1 <- df1 %>%
                 mutate(Up3OfBradySumYesDev = (Up3OfFiTaYesDev+Up3OfHaMoYesDev+Up3OfProSYesDev+Up3OfToTaYesDev+Up3OfLAgiYesDev)/5,
                        Up3OfBradySumNonDev = (Up3OfFiTaNonDev+Up3OfHaMoNonDev+Up3OfProSNonDev+Up3OfToTaNonDev+Up3OfLAgiNonDev)/5,
+                       Up3OfBradySumR = (Up3OfFiTaR+Up3OfHaMoR+Up3OfProSR+Up3OfToTaR+Up3OfLAgiR)/5,
+                       Up3OfBradySumL = (Up3OfFiTaL+Up3OfHaMoL+Up3OfProSL+Up3OfToTaL+Up3OfLAgiL)/5,
                        Up3OfBradySumRiLeDelta = abs(Up3OfBradySumYesDev-Up3OfBradySumNonDev),
+                       Up3OfBradySumRiLeDelta2 = abs(Up3OfBradySumR-Up3OfBradySumL),
+                       Up3OfBradySumRiLeDelta2_NoAbs = Up3OfBradySumR-Up3OfBradySumL,
                        Up3OfBradySumArm = (Up3OfFiTaYesDev+Up3OfHaMoYesDev+Up3OfProSYesDev+Up3OfFiTaNonDev+Up3OfHaMoNonDev+Up3OfProSNonDev)/6,
                        Up3OfBradySumLeg = (Up3OfToTaYesDev+Up3OfLAgiYesDev+Up3OfToTaNonDev+Up3OfLAgiNonDev)/4,
                        Up3OfBradySumArmLegDelta = abs(Up3OfBradySumArm-Up3OfBradySumLeg),
+                       Up3OfBradySumArmLegDelta_NoAbs = Up3OfBradySumArm-Up3OfBradySumLeg,
                        AsymmetryIndexRiLe.Brady = if_else(Up3OfBradySumRiLeDelta>0,
                                                           Up3OfBradySumRiLeDelta/(Up3OfBradySumYesDev+Up3OfBradySumNonDev), 0),
                        AsymmetryIndexArmLeg.Brady = if_else(Up3OfBradySumArmLegDelta>0, 
                                                             Up3OfBradySumArmLegDelta/(Up3OfBradySumArm+Up3OfBradySumLeg), 0),
+                       AsymmetryIndexRiLe.Brady2 = Up3OfBradySumRiLeDelta2_NoAbs/(Up3OfBradySumR+Up3OfBradySumL),
+                       AsymmetryIndexArmLeg.Brady2 = Up3OfBradySumArmLegDelta_NoAbs/(Up3OfBradySumArm+Up3OfBradySumLeg),
                        
                        Up3OfRigiditySumR = (Up3OfRigRue+Up3OfRigRle)/2,
                        Up3OfRigiditySumL = (Up3OfRigLue+Up3OfRigLle)/2,
                        Up3OfRigiditySumRiLeDelta = abs(Up3OfRigiditySumR-Up3OfRigiditySumL),
+                       Up3OfRigiditySumRiLeDelta_NoAbs = Up3OfRigiditySumR-Up3OfRigiditySumL,
                        Up3OfRigiditySumArm = (Up3OfRigRue + Up3OfRigLue)/2,
                        Up3OfRigiditySumLeg = (Up3OfRigRle + Up3OfRigLle)/2,
                        Up3OfRigiditySumArmLegDelta = abs(Up3OfRigiditySumArm-Up3OfRigiditySumLeg),
+                       Up3OfRigiditySumArmLegDelta_NoAbs = Up3OfRigiditySumArm-Up3OfRigiditySumLeg,
                        AsymmetryIndexRiLe.Rigidity = if_else(Up3OfRigiditySumRiLeDelta>0,
                                                              Up3OfRigiditySumRiLeDelta/(Up3OfRigiditySumR+Up3OfRigiditySumL), 0),
                        AsymmetryIndexArmLeg.Rigidity = if_else(Up3OfRigiditySumArmLegDelta>0,
                                                                Up3OfRigiditySumArmLegDelta/(Up3OfRigiditySumArm+Up3OfRigiditySumLeg), 0),
+                       AsymmetryIndexRiLe.Rigidity2 = Up3OfRigiditySumRiLeDelta_NoAbs/(Up3OfRigiditySumR+Up3OfRigiditySumL),
+                       AsymmetryIndexArmLeg.Rigidity2 = Up3OfRigiditySumArmLegDelta_NoAbs/(Up3OfRigiditySumArm+Up3OfRigiditySumLeg),
                        
                        Up3OfRestTremSumYesDev = (Up3OfRAmpArmYesDev+Up3OfRAmpLegYesDev)/2,
                        Up3OfRestTremSumNonDev = (Up3OfRAmpArmNonDev+Up3OfRAmpLegNonDev)/2,
+                       Up3OfRestTremSumR = (Up3OfRAmpArmR+Up3OfRAmpLegR)/2,
+                       Up3OfRestTremSumL = (Up3OfRAmpArmL+Up3OfRAmpLegL)/2,
                        Up3OfRestTremSumRiLeDelta = abs(Up3OfRestTremSumYesDev-Up3OfRestTremSumNonDev),
+                       Up3OfRestTremSumRiLeDelta2 = abs(Up3OfRestTremSumR-Up3OfRestTremSumL),
+                       Up3OfRestTremSumRiLeDelta2_NoAbs = Up3OfRestTremSumR-Up3OfRestTremSumL,
                        Up3OfRestTremSumArm = (Up3OfRAmpArmYesDev+Up3OfRAmpArmNonDev)/2,
                        Up3OfRestTremSumLeg = (Up3OfRAmpLegYesDev+Up3OfRAmpLegNonDev)/2,
                        Up3OfRestTremSumArmLegDelta = abs(Up3OfRestTremSumArm-Up3OfRestTremSumLeg),
+                       Up3OfRestTremSumArmLegDelta_NoAbs = Up3OfRestTremSumArm-Up3OfRestTremSumLeg,
                        AsymmetryIndexRiLe.RestTrem = if_else(Up3OfRestTremSumRiLeDelta>0, 
                                                              Up3OfRestTremSumRiLeDelta/(Up3OfRestTremSumYesDev+Up3OfRestTremSumNonDev), 0),
                        AsymmetryIndexArmLeg.RestTrem = if_else(Up3OfRestTremSumArmLegDelta>0, 
                                                                Up3OfRestTremSumArmLegDelta/(Up3OfRestTremSumArm+Up3OfRestTremSumLeg), 0),
+                       AsymmetryIndexRiLe.RestTrem2 = Up3OfRestTremSumRiLeDelta2_NoAbs/(Up3OfRestTremSumR+Up3OfRestTremSumL),
+                       AsymmetryIndexArmLeg.RestTrem2 = Up3OfRestTremSumArmLegDelta_NoAbs/(Up3OfRestTremSumArm+Up3OfRestTremSumLeg),
                        
                        Up3OfActTremSumYesDev = (Up3OfPosTYesDev+Up3OfKinTreYesDev)/2,
                        Up3OfActTremSumNonDev = (Up3OfPosTNonDev+Up3OfKinTreNonDev)/2,
+                       Up3OfActTremSumR = (Up3OfPosTR+Up3OfKinTreR)/2,
+                       Up3OfActTremSumL = (Up3OfPosTL+Up3OfKinTreL)/2,
                        Up3OfActTremSumRiLeDelta = abs(Up3OfActTremSumYesDev-Up3OfActTremSumNonDev),
+                       Up3OfActTremSumRiLeDelta2 = abs(Up3OfActTremSumR-Up3OfActTremSumL),
+                       Up3OfActTremSumRiLeDelta2_NoAbs = Up3OfActTremSumR-Up3OfActTremSumL,
                        AsymmetryIndexRiLe.ActTrem = if_else(Up3OfActTremSumRiLeDelta>0, 
                                                             Up3OfActTremSumRiLeDelta/(Up3OfActTremSumYesDev+Up3OfActTremSumNonDev), 0),
+                       AsymmetryIndexRiLe.ActTrem2 = Up3OfActTremSumRiLeDelta2_NoAbs/(Up3OfActTremSumR+Up3OfActTremSumL),
                        
                        AsymmetryIndexRiLe.All = (AsymmetryIndexRiLe.Brady + AsymmetryIndexRiLe.Rigidity + 
                                                          AsymmetryIndexRiLe.RestTrem + AsymmetryIndexRiLe.ActTrem)/4,
@@ -341,9 +417,20 @@ compute_summaryscores <- function(df){
                        AsymmetryIndexRiLeDelta.All = (Up3OfBradySumRiLeDelta + Up3OfRigiditySumRiLeDelta + 
                                                               Up3OfRestTremSumRiLeDelta + Up3OfActTremSumRiLeDelta)/4,
                        AsymmetryIndexArmLegDelta.All = (Up3OfBradySumArmLegDelta + Up3OfRigiditySumArmLegDelta + 
+                                                                Up3OfRestTremSumArmLegDelta)/3,
+                       
+                       AsymmetryIndexRiLe.All2 = (AsymmetryIndexRiLe.Brady2 + AsymmetryIndexRiLe.Rigidity2 + 
+                                                         AsymmetryIndexRiLe.RestTrem2 + AsymmetryIndexRiLe.ActTrem2)/4,
+                       AsymmetryIndexArmLeg.All2 = (AsymmetryIndexArmLeg.Brady2 + AsymmetryIndexArmLeg.Rigidity2 + 
+                                                           AsymmetryIndexArmLeg.RestTrem2)/3,
+                       AsymmetryIndexRiLe.WeightedBradyRig2 = AsymmetryIndexRiLe.Brady2*(10/14) + AsymmetryIndexRiLe.Rigidity2*(4/14),
+                       AsymmetryIndexArmLeg.WeightedBradyRig2 = AsymmetryIndexArmLeg.Brady2*(10/14) + AsymmetryIndexArmLeg.Rigidity2*(4/14),
+                       AsymmetryIndexRiLeDelta.All2 = (Up3OfBradySumRiLeDelta2 + Up3OfRigiditySumRiLeDelta + 
+                                                              Up3OfRestTremSumRiLeDelta2 + Up3OfActTremSumRiLeDelta2)/4,
+                       AsymmetryIndexArmLegDelta.All2 = (Up3OfBradySumArmLegDelta + Up3OfRigiditySumArmLegDelta + 
                                                                 Up3OfRestTremSumArmLegDelta)/3)
         
-        # Updrs 4 scores require a bit of manipulation and is therefore summarized spearately here
+        # Updrs 4 scores require a bit of manipulation and is therefore summarized separately here
         df1 <- df1 %>%
                 mutate(MotComDysKinTime = str_sub(MotComDysKinTime, start=1, end=1),
                        MotComDysKinTime = as.numeric(MotComDysKinTime),
@@ -362,64 +449,30 @@ compute_summaryscores <- function(df){
                        Up4Dystonia = as.numeric(MotComPainOffDyst),
                        Up4Total = Up4Dyskinesia + Up4Fluct + Up4Dystonia)
         
-        # Try to define whether most affected side is Right or Left
-        df1 <- df1 %>% 
-                mutate(MAS.reported=NA, MAS.rigidity=NA, MAS.watch=NA, MAS.watch2=NA)
-        for(i in 1:nrow(df1)){
-                # Check which side was reported as MAS
-                MAS.reported <- df1$MostAffSide[i]
-                if(!is.na(MAS.reported)){
-                        if(MAS.reported == 'RightOnly' | MAS.reported == 'BiR>L'){
-                                mostAffSide <- 'R'
-                        }else if(MAS.reported == 'LeftOnly' | MAS.reported == 'BiL>R'){
-                                MAS.reported <- 'L'
-                        }else{
-                                MAS.reported <- 'unknown'
-                        }
-                        df1$MAS.reported[i] <- MAS.reported  
-                }
-                # Determine MAS based on rigidity, since this is the only UPDRS3 variable for which we know side
-                rigR <- df1[i,] %>% select(all_of(scoreList$Rigidity_R)) %>% rowSums()
-                rigL <- df1[i,] %>% select(all_of(scoreList$Rigidity_L)) %>% rowSums()
-                if(!is.na(rigR) & !is.na(rigL)){
-                        if(rigR > rigL){
-                                MAS.rigidity <- 'R'
-                        }else if(rigL > rigR){
-                                MAS.rigidity <- 'L'
-                        }else{
-                                MAS.rigidity <- 'unknown'
-                        }
-                        df1$MAS.rigidity[i] <- MAS.rigidity  
-                }
-                # Determine whether the MAS is on the watch side or not (probably not)
-                ydi <- str_detect(scoreList$Sided,'YesDev')
-                ndi <- str_detect(scoreList$Sided,'NonDev')
-                ydSev <- df1[i,] %>% select(all_of(scoreList$Sided[ydi])) %>% rowSums()
-                ndSev <- df1[i,] %>% select(all_of(scoreList$Sided[ndi])) %>% rowSums()
-                if(!is.na(ydSev) & !is.na(ndSev)){
-                        if(ydSev > ndSev){
-                                MAS.watch <- 'YesDev'
-                        }else if(ndSev > ydSev){
-                                MAS.watch <- 'NonDev'
-                        }else{
-                                MAS.watch <- 'unknown'
-                        }
-                        df1$MAS.watch[i] <- MAS.watch        
-                }
-                # Determine MAS based on the assumption that the watch is on the least affected side, 
-                watchSide <- df$WatchSide[i]
-                if(!is.na(watchSide) & !is.na(MAS.watch)){
-                        if(MAS.watch == 'NonDev' & watchSide == 'L'){
-                                MAS.watch2 <- 'R'
-                        }else if(MAS.watch == 'NonDev' & watchSide == 'R'){
-                                MAS.watch2 <- 'L'
-                        }else(
-                                MAS.watch2 <- 'unknown'
-                        )
-                        df1$MAS.watch2[i] <- MAS.watch2
-                }
+        # Add adjusted neuropsychiatric scores
+        adj_neuropsych_fname <- '/project/3024006.02/Data/Subtyping/Adjusted_Neuropsych_Scores/adj_neuropsych_scores.csv'
+        if(file.exists(adj_neuropsych_fname)){
+                adj_neuropsych_scores <- read_csv(adj_neuropsych_fname)
+                adj_neuropsych_scores <- adj_neuropsych_scores %>%
+                        select(pseudonym, ParticipantType, TimepointNr,
+                               SDMT_ORAL_90_Z_SCORE,
+                               LetterNumSeq_Z_Score_edu_adjusted,
+                               Benton_Z_SCORE,
+                               z_AVLT__total_1_to_5,
+                               z_AVLT__delayed_recall_1_to_5,
+                               z_AVLT__recognition_1_to_5,
+                               z_AVLT__mean,
+                               z_SF__Comb,
+                               z_LF__letter_1,
+                               z_BSAT__no_errors,
+                               z_CognitiveComposite,
+                               z_CognitiveComposite2,
+                               z_MoCA__total)
+                df1 <- left_join(df1, adj_neuropsych_scores, by = c('pseudonym','ParticipantType','TimepointNr'))
         }
         
+        
+        # Output
         df1
   
 }
