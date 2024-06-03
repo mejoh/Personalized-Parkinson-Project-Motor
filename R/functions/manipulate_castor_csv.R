@@ -38,7 +38,7 @@ manipulate_castor_csv <- function(datafile='/project/3022026.01/pep/ClinVars_10-
         df <- reverse_STAI_values(df)
         #####
         
-        ##### Set values of UPDRS-III items that have 5 to NA, these are items that could not be assessed #####
+        ##### Set values of UPDRS-III items that have 5 to NA. These are items that could not be assessed!! #####
         source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/repair_updrs3.R')
         df <- repair_updrs3(df)
         #####
@@ -59,6 +59,12 @@ manipulate_castor_csv <- function(datafile='/project/3022026.01/pep/ClinVars_10-
         ##### Compute summary scores (Dependency: Extend variables) #####
         source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_summaryscores.R')
         df <- compute_summaryscores(df)
+        #####
+        
+        ##### Compute cognitive composite score #####
+        source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/compute_cognitive_composite.R')
+        df <- df %>%
+                left_join(., compute_cognitive_composite(df))
         #####
         
         ##### Compute progression (deltas and ROCs; Dependency: Compute summary scores) #####
