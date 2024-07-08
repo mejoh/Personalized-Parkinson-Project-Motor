@@ -25,18 +25,26 @@ for c = 1:numel(cons)
     end
     putamen_activity = [cell2table(subjects,'VariableNames',{'pseudonym'}), array2table(vals,'VariableNames',{'Putamen_Delta','Putamen_T0'})];
     
-    % pSN free water
+    % Add pSN free water
     pSN_FW = readtable(fullfile('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data', cons{c}, '/covs__delta_pSN_FW.csv'), 'Delimiter', ',');
     pSN_FW{:,3} = round(pSN_FW{:,3} - mean(pSN_FW{:,3}, 'omitnan'),5);
     pSN_FW{:,4} = round(pSN_FW{:,4} - mean(pSN_FW{:,4}, 'omitnan'),5);
     
+    % Add caudalmiddlefrontal mean diffusivity
+    cmf_MD = readtable(fullfile('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data', cons{c}, '/covs__delta_caudalmiddlefrontal_MD.csv'), 'Delimiter', ',');
+    cmf_MD{:,3} = round(cmf_MD{:,3} - mean(cmf_MD{:,3}, 'omitnan'),5);
+    cmf_MD{:,4} = round(cmf_MD{:,4} - mean(cmf_MD{:,4}, 'omitnan'),5);
+    
     % Merged table
     covs = join(putamen_activity, pSN_FW);
+    covs = join(covs, cmf_MD);
     covs = movevars(covs, 'paths', 'After', 'pseudonym');
 
     for t = 1:numel(txtfilenames)
-        % Only Putamen covar
+        
         txtfile = ['/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', cons{c}, '/covs__', txtfilenames{t}, '.txt'];
+        
+        % Only Putamen covar
         cols = table2array(covs(:,3:4));
         colnames = {covs.Properties.VariableNames{3}, covs.Properties.VariableNames{4}};
         covtab = mj_InsertColumnInTxtFile(txtfile, cols, colnames);
@@ -55,12 +63,31 @@ for c = 1:numel(cons)
         outputname = fullfile(fp.p, [fp.name, '_AddCov2', fp.ext]);
         writetable(covtab, outputname, 'Delimiter', 'space', 'WriteVariableNames', false)
             % Generate a new file with paths after removal of subjects
-        complete_cases = rmmissing(covs);
+        complete_cases = rmmissing(covs(:,1:6));
         complete_cases = complete_cases{:,2};
         writecell(complete_cases, fullfile('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data', cons{c}, 'imgs__delta_clincorr_AddCov2.txt'));
         complete_cases_ba = strrep(complete_cases, 'ses-Diff', 'COMPLETE_ses-Visit1');
         complete_cases_ba = strrep(complete_cases_ba, 'ses-POMVisitDiff', 'ses-POMVisit1');
         writecell(complete_cases_ba, fullfile('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data', cons{c}, 'imgs__ba_clincorr_AddCov2.txt'));
+        
+        % Adding caudalmiddlefrontal mean diffusivity as well (leading to
+        % even fewer values)
+        cols = table2array(covs(:,3:8));
+        colnames = {covs.Properties.VariableNames{3}, covs.Properties.VariableNames{4},...
+            covs.Properties.VariableNames{5}, covs.Properties.VariableNames{6},...
+            covs.Properties.VariableNames{7}, covs.Properties.VariableNames{8}};
+        covtab = mj_InsertColumnInTxtFile(txtfile, cols, colnames);
+        covtab = rmmissing(covtab);
+        [fp.p, fp.name, fp.ext] = fileparts(txtfile);
+        outputname = fullfile(fp.p, [fp.name, '_AddCov3', fp.ext]);
+        writetable(covtab, outputname, 'Delimiter', 'space', 'WriteVariableNames', false)
+            % Generate a new file with paths after removal of subjects
+        complete_cases = rmmissing(covs(:,1:8));
+        complete_cases = complete_cases{:,2};
+        writecell(complete_cases, fullfile('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data', cons{c}, 'imgs__delta_clincorr_AddCov3.txt'));
+        complete_cases_ba = strrep(complete_cases, 'ses-Diff', 'COMPLETE_ses-Visit1');
+        complete_cases_ba = strrep(complete_cases_ba, 'ses-POMVisitDiff', 'ses-POMVisit1');
+        writecell(complete_cases_ba, fullfile('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data', cons{c}, 'imgs__ba_clincorr_AddCov3.txt'));
         
     end
 
