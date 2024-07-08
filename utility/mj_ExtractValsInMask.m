@@ -10,7 +10,7 @@
 %   img = '/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/con_0007/imgs__delta_clincorr.txt';
 %   img_type = 'FPList'; % 'Concat'
 %   mask = '/project/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/Oxford-Imanova_putamen.nii';
-%   vals = ExtractValsInMask(img, img_type, mask);
+%   vals = mj_ExtractValsInMask(img, img_type, mask);
 % 
 
 function [vals, subjects] = mj_ExtractValsInMask(img, img_type, mask)
@@ -34,6 +34,11 @@ elseif strcmp(img_type, 'FPList')
     opts.Delimiter = {'\t'};
     img_use = table2cell(readtable(img,opts))';
     subjects = extractBetween(img_use, 'PD_POM_', '_ses-POM')';
+elseif strcmp(img_type, 'AFNItable')
+    fprintf(">>> Processing list of file paths from InputFile of AFNI table\n")
+    tab = tdfread(img);
+    img_use = cellstr(tab.InputFile)';
+    subjects = cellstr(tab.Subj)';
 else
     msg = ">>> ERROR: List option not found, exiting...";
     error(msg)
