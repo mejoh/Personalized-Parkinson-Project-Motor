@@ -1,0 +1,2163 @@
+---
+title: 'Structural changes related to clinical progression'
+author: "M.E. Johansson"
+date: "10/30/2023"
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Project description
+
+This project explores whether PD-related changes in brain activity are related to underlying changes in brain structure. Here, we focus on tissue integrity in the substantia nigra and cortex, as measured using diffusion-weighted imaging. The substantia nigra is investigated using free water imaging. The cortex is investigated using mean diffusivity imaging.
+
+# Main
+
+## Data preparation
+
+Loading the following data:
+
+ - Free water (FW) estimates from the substantia nigra (SN)
+ - Surface-projected estimates of cortical mean diffusivity (cMD)
+ - Compensatory brain activity, to correlate with cMD
+ - Clinical data
+
+```{r, echo=F,warning=F,message=F}
+# options(contrasts=c("contr.treatment", "contr.poly"))
+options(contrasts=c("contr.sum", "contr.poly"))
+sigsize=5
+lsize=0.6
+legend_position <- c(0.8,1.1)
+
+library(ppcor)
+library(tidyverse)
+library(tidymodels)
+library(multilevelmod)
+library(readxl)
+library(sjPlot)
+library(cowplot)
+library(lme4)
+library(lmerTest)
+library(broom.mixed)
+library(vtable)
+library(rmcorr)
+library(msm)
+library(emmeans)
+library(ggeffects)
+library(GGally)
+library(MatchIt)
+library(rstatix)
+library(car)
+library(effectsize)
+library(ggpubr)
+library(MatchIt)
+library(extrafont)
+loadfonts(device='all',quiet = TRUE)
+
+# DTI data
+read_dti_metrics <- function(filename){
+    df <- read_delim(filename, delim = ',', trim_ws = T)
+    df <- df %>%
+        mutate(pseudonym = str_extract(IMG,"(?<=qsiprep/).+(?=/ses)"),
+               Timepoint = str_extract(IMG,"(?<=ses-).+(?=/metrics)"),
+               TimepointNr = if_else(str_detect(Timepoint,'Visit1'),0,2),
+               ParticipantType = if_else(str_detect(Timepoint,'POM'),
+                                         'Patient','Healthy'),
+               TimepointNr = TimepointNr) %>%
+        select(-c(IMG,Timepoint)) %>%
+        relocate(pseudonym,ParticipantType,TimepointNr) %>%
+        arrange(ParticipantType,pseudonym,TimepointNr)
+    
+    df
+}
+df_dti <- read_dti_metrics('/project/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_avg.csv') %>%
+  left_join(., read_dti_metrics('/project/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_sd.csv'), by = c('pseudonym','ParticipantType','TimepointNr'))
+
+# # fMRI data (basal ganglia activity from BRAIN 2024)
+# read_fmri <- function(fname){
+#   dat <- read_csv(fname) %>%
+#     select(-scans) %>%
+#     group_by(pseudonym,Group) %>%
+#     summarise(Beta = mean(Vals)) %>%
+#     ungroup() %>%
+#     mutate(ParticipantType = if_else(Group=='PD_POM','Patient','Healthy'),
+#            TimepointNr = 0) %>%
+#     select(-Group)
+#   
+# }
+# df_fmri <- read_fmri('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_-27_-15_6.csv') %>%
+#   rename(BG_activity = Beta) %>%
+#   left_join(., read_fmri('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_17_-47_-20.csv')) %>%
+#   rename(CB_activity = Beta) %>%
+#   left_join(., read_fmri('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_-31_-27_62.csv')) %>%
+#   rename(M1_activity = Beta) %>%
+#   relocate(BG_activity, .after = TimepointNr)
+
+# fMRI data (longitudinal changes in compensation correlated with bradykinesia progression)
+read_fmri2 <- function(fname){
+  dat <- read_csv(fname, col_names = F) %>%
+    mutate(X1=basename(X1),
+           pseudonym = str_sub(X1, 8,31),
+           ParticipantType = str_sub(X1, 1,6),
+           ParticipantType = if_else(ParticipantType=='PD_POM','Patient','Healthy')) %>%
+    relocate(pseudonym,ParticipantType) %>%
+    select(-c(X1))
+  dat
+}
+df_compensation_AddCov2 <- read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_AddCov2_tfce_corrp_tstat2_stats_stats_avg_agg.txt') %>%
+  rename(T2sub0_R_6a_id1=X2,T2sub0_L_6a_id2=X3,T2sub0_L_6a_id3=X4,T2sub0_R_6a_id4=X5,T2sub0_R_6d_id5=X6,T2sub0_R_FEF_id6=X7,T2sub0_L_6ma_id7=X8) %>%
+  mutate(TimepointNr=0,contrast='con_0007', .after = ParticipantType) %>%
+  left_join(., read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_AddCov2_tfce_corrp_tstat2_stats_BASELINE_stats_avg_agg.txt')) %>%
+  rename(T0_R_6a_id1=X2,T0_L_6a_id2=X3,T0_L_6a_id3=X4,T0_R_6a_id4=X5,T0_R_6d_id5=X6,T0_R_FEF_id6=X7,T0_L_6ma_id7=X8) %>%
+  mutate(T2sub0_bi_premotor_comp = (T2sub0_R_6a_id1+T2sub0_L_6a_id2+T2sub0_L_6a_id3+T2sub0_R_6a_id4+T2sub0_R_6d_id5+T2sub0_R_FEF_id6+T2sub0_L_6ma_id7) / 7,
+         T0_bi_premotor_comp = (T0_R_6a_id1+T0_L_6a_id2+T0_L_6a_id3+T0_R_6a_id4+T0_R_6d_id5+T0_R_FEF_id6+T0_L_6ma_id7) / 7)
+
+df_compensation_AddCov0 <- read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_tfce_corrp_tstat2_stats_stats_avg_agg.txt') %>%
+  rename(T2sub0_R_6a_id1=X2,T2sub0_L_LIPv_id2=X3,T2sub0_L_6ma_id3=X4,T2sub0_R_6d_id4=X5,T2sub0_R_FEF_id5=X6,T2sub0_R_6a_id6=X7) %>%
+  mutate(TimepointNr=0,contrast='con_0007', .after = ParticipantType) %>%
+  left_join(., read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_tfce_corrp_tstat2_stats_BASELINE_stats_avg_agg.txt')) %>%
+  rename(T0_R_6a_id1=X2,T0_L_LIPv_id2=X3,T0_L_6ma_id3=X4,T0_R_6d_id4=X5,T0_R_FEF_id5=X6,T0_R_6a_id6=X7) %>%
+  mutate(T2sub0_bi_premotor_comp = (T2sub0_R_6a_id1+T2sub0_L_6ma_id3+T2sub0_R_6d_id4+T2sub0_R_FEF_id5+T2sub0_R_6a_id6) / 5,
+         T0_bi_premotor_comp = (T0_R_6a_id1+T0_L_6ma_id3+T0_R_6d_id4+T0_R_FEF_id5+T0_R_6a_id6) / 5,
+         T2sub0_L_parietal_comp = T2sub0_L_LIPv_id2,
+         T0_L_parietal_comp = T0_L_LIPv_id2,
+         T2sub0_bi_parietopremotor_comp = (T2sub0_R_6a_id1+T2sub0_L_6ma_id3+T2sub0_R_6d_id4+T2sub0_R_FEF_id5+T2sub0_R_6a_id6+T2sub0_L_LIPv_id2) / 6,
+         T0_bi_parietopremotor_comp = (T0_R_6a_id1+T0_L_6ma_id3+T0_R_6d_id4+T0_R_FEF_id5+T0_R_6a_id6+T0_L_LIPv_id2) / 6)
+
+# FreeSurfer data
+read_fs_metrics <- function(filename){
+  df <- read_csv(filename) %>%
+    rename(pseudonym=SubjID) %>%
+    mutate(TimepointNr = str_sub(pseudonym, start=26,end=27),
+           TimepointNr = if_else(TimepointNr=='t1',0,2),
+           pseudonym = str_sub(pseudonym, start=1, end=24)) %>%
+    relocate(pseudonym, TimepointNr)
+  
+  df
+}
+fs_exclusions <- c('sub-POMU56F70F8137CF0C55', 'sub-POMU6059DC1B31E11124')
+volume_rois <- c('thal','caud','put','pal','accumb','amyg')
+# surface_rois <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
+          # 'paracentral','postcentral','precentral',
+          # 'superiorfrontal','caudalmiddlefrontal','rostralanteriorcingulate')
+surface_rois <- c( "caudalanteriorcingulate","caudalmiddlefrontal",
+                   "cuneus","entorhinal","fusiform","inferiorparietal",
+                   "inferiortemporal","isthmuscingulate","lateraloccipital",
+                   "lateralorbitofrontal","lingual","medialorbitofrontal",
+                   "middletemporal","parahippocampal","paracentral",
+                   "parsopercularis","parsorbitalis","parstriangularis",
+                   "pericalcarine","postcentral","posteriorcingulate",
+                   "precentral","precuneus","rostralanteriorcingulate",
+                   "rostralmiddlefrontal","superiorfrontal","superiorparietal",
+                   "superiortemporal","supramarginal","frontalpole",
+                   "temporalpole","transversetemporal","insula")
+df_fs_vol <- read_fs_metrics('/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/LandRvolumes.csv') %>%
+  select(pseudonym,TimepointNr,TSCGMV,TCGMV,TGMV,ICV,contains(volume_rois))
+df_fs_surf <- read_fs_metrics('/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_SurfAvg.csv') %>%
+  select(pseudonym,TimepointNr,contains(surface_rois))
+df_fs_thick <- read_fs_metrics('/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_ThickAvg.csv') %>%
+  select(pseudonym,TimepointNr,contains(surface_rois))
+metric <- c('fsl_MD','TensorFWCorrected_dcmp_MD','TensorDTINoNeg_dcmp_MD','dipy-MDc','dipy-MD','FW')
+metric <- metric[1]
+df_fs_md <- read_csv(paste0('/project/3022026.01/pep/bids/derivatives/qsiprep/measures/1_NoPVC_projfrac02-08-01_correctb0orientation//SurfaceMeasures_',metric,'_T1w_Mean.csv')) %>%
+  rename(pseudonym = SubjID) %>%
+  mutate(TimepointNr = if_else(str_detect(Timepoint,'Visit1'),0,2)) %>%
+  relocate(pseudonym, TimepointNr) %>%
+  select(-Timepoint) %>% select(pseudonym,TimepointNr,contains(surface_rois)) %>%
+  na.omit()
+df_fs <- df_fs_vol %>% 
+  left_join(df_fs_surf, by = c('pseudonym','TimepointNr')) %>%
+  left_join(df_fs_thick, by = c('pseudonym','TimepointNr')) %>% 
+  left_join(df_fs_md, by = c('pseudonym', 'TimepointNr')) %>%
+  filter(! pseudonym %in% fs_exclusions)
+for(roi in volume_rois){
+  bi_roi <- tibble(
+    roi=(
+      (df_fs %>% pull(paste0('L',roi)) + df_fs %>% pull(paste0('R',roi))) / 2
+    )
+  )
+  colnames(bi_roi) <- paste0('bi_',roi)
+  df_fs <- df_fs %>% bind_cols(bi_roi)
+}
+for(roi in surface_rois){
+  for(m in c('surfavg','thickavg','dti')){
+    bi_roi <- tibble(
+      roi=(
+        (df_fs %>% pull(paste('L',roi,m,sep='_')) + df_fs %>% pull(paste('R',roi,m,sep='_'))) / 2
+      )
+    )
+    colnames(bi_roi) <- paste('bi',roi,m,sep='_')
+    df_fs <- df_fs %>% bind_cols(bi_roi)
+  }
+}
+
+# Clinical data
+read_clinical_metrics <- function(filename, clinical_metrics){
+  df <- read_csv(filename,
+                 col_select = all_of(clinical_metrics)) %>%
+    filter(ParticipantType != 'PD_PIT') %>%
+    mutate(ParticipantType = if_else(ParticipantType == 'PD_POM','Patient','Healthy'),
+           Subtype_DiagEx3_DisDurSplit = if_else(ParticipantType=='Healthy','0_Healthy',Subtype_DiagEx3_DisDurSplit),
+           Subtype_DiagEx3_DisDurSplit.MCI_z = if_else(ParticipantType=='Healthy','0_Healthy',Subtype_DiagEx3_DisDurSplit.MCI_z),
+           TimepointNr = if_else(ParticipantType == 'Healthy' & TimepointNr == 1, 2, TimepointNr)) %>%
+    filter(TimepointNr != 1)
+  subtypes <- df %>%
+    filter(TimepointNr == 0) %>%
+    select(pseudonym,
+           Subtype_DiagEx3_DisDurSplit,
+           Subtype_DiagEx3_DisDurSplit.MCI_z) %>%
+    rename(Subtype_DiagEx3_DisDurSplit_ba = Subtype_DiagEx3_DisDurSplit,
+           Subtype_DiagEx3_DisDurSplit.MCI_z_ba = Subtype_DiagEx3_DisDurSplit.MCI_z)
+  df <- df %>%
+    left_join(subtypes, by = 'pseudonym')
+  df$Subtype_DiagEx3_DisDurSplit[is.na(df$Subtype_DiagEx3_DisDurSplit)] <- '4_Undefined'
+  df$Subtype_DiagEx3_DisDurSplit.MCI_z[is.na(df$Subtype_DiagEx3_DisDurSplit.MCI_z)] <- '4_Undefined'
+  df$Subtype_DiagEx3_DisDurSplit_ba[is.na(df$Subtype_DiagEx3_DisDurSplit_ba)] <- '4_Undefined'
+  df$Subtype_DiagEx3_DisDurSplit.MCI_z_ba[is.na(df$Subtype_DiagEx3_DisDurSplit.MCI_z_ba)] <- '4_Undefined'
+  
+  df     
+}
+clinical_metrics <- c('pseudonym','ParticipantType','TimepointNr','YearsToFollowUp','MriNeuroPsychTask',
+                      'Subtype_DiagEx3_DisDurSplit','Subtype_DiagEx3_DisDurSplit.MCI_z','Age','Gender','YearsSinceDiag','NpsEducYears',
+                      'Up3OfTotal','Up3OfBradySum','Up3OfRigiditySum', 'Up3OfRestTremAmpSum', 'Up3OfCompositeTremorSum',
+                      'Up3OnTotal','Up3OnBradySum','Up3OnRigiditySum', 'Up3OnRestTremAmpSum', 'Up3OnCompositeTremorSum',
+                      'z_MoCA__total', 'z_CognitiveComposite2','MotorComposite','RBDSQSum','SCOPA_AUTSum','LEDD',
+                      'AsymmetryIndexRiLe.WeightedBradyRig','AsymmetryIndexRiLe.WeightedBradyRig2')
+df_clin <- read_clinical_metrics('/project/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2023-10-18.csv', 
+                                 clinical_metrics) %>%
+    mutate(MostAffSide=NA,
+           MostAffSide = case_when(
+               AsymmetryIndexRiLe.WeightedBradyRig2<0 ~ 'L',
+               AsymmetryIndexRiLe.WeightedBradyRig2>0 ~ 'R',
+               AsymmetryIndexRiLe.WeightedBradyRig2==0 ~ 'Sym',
+               .default = NA
+               )
+           ) %>%
+  relocate(Subtype_DiagEx3_DisDurSplit, .after = 'Gender') %>%
+  relocate(Subtype_DiagEx3_DisDurSplit_ba, .after = 'Gender') %>%
+  relocate(Subtype_DiagEx3_DisDurSplit.MCI_z, .after = 'Subtype_DiagEx3_DisDurSplit') %>%
+  relocate(Subtype_DiagEx3_DisDurSplit.MCI_z_ba, .after = 'Subtype_DiagEx3_DisDurSplit') %>%
+  relocate(MostAffSide, .after = 'Gender')
+
+# Combine
+df <- df_clin %>%
+  full_join(., df_dti, by = c('pseudonym','ParticipantType','TimepointNr')
+            ) %>%
+  full_join(., df_fs, by = c('pseudonym','TimepointNr')
+            ) #%>%
+  #left_join(., df_fmri, by = c('pseudonym','ParticipantType','TimepointNr'))
+```
+
+## Feature engineering
+
+We generate a number of new variables:
+
+ - Compute signal-to-noise and contrast-to-noise ratios for SN FW.
+ - Compute asymmetry indices of SN FW.
+ - Determine most affected side from motor symptom asymmetry.
+ - Compute MD averages across multiple regions.
+ - Normalize regional MD by overall MD.
+ - Calculate deltas.
+ - Factorize categorical variables.
+ - Determine completeness of data per participant.
+ 
+
+```{r, echo=F,warning=F,message=F}
+
+# Contrast-to-noise and signal-to-noise ratios for pSN FW
+df <- df %>%
+  mutate(pSN_cr = (pSN_avg - aSN_avg) / aSN_sd,
+         L_pSN_cr = (L_pSN_avg - L_aSN_avg) / L_aSN_sd,
+         R_pSN_cr = (R_pSN_avg - R_aSN_avg) / R_aSN_sd,
+         pSN_sr = (pSN_avg / aSN_avg) * 100,
+         L_pSN_sr = (L_pSN_avg / L_aSN_avg) * 100,
+         R_pSN_sr = (R_pSN_avg / R_aSN_avg) * 100)
+
+# Asymmetry indices for pSN FW
+df <- df %>%
+  mutate(AsymIdxAbs_pSN_avg = abs(R_pSN_avg - L_pSN_avg) / (R_pSN_avg + L_pSN_avg),
+         AsymIdxNoAbs_pSN_avg = (R_pSN_avg - L_pSN_avg) / (R_pSN_avg + L_pSN_avg),
+         AsymIdxAbs_pSN_cr = abs(R_pSN_cr - L_pSN_cr) / (R_pSN_cr + L_pSN_cr),
+         AsymIdxNoAbs_pSN_cr = (R_pSN_cr - L_pSN_cr) / (R_pSN_cr + L_pSN_cr),
+         AsymIdxAbs_pSN_sr = abs(R_pSN_sr - L_pSN_sr) / (R_pSN_cr + L_pSN_sr),
+         AsymIdxNoAbs_pSN_sr = (R_pSN_sr - L_pSN_sr) / (R_pSN_cr + L_pSN_sr))
+
+# Determine imaging metrics for most and least affected sides
+# Remember that left is right and right is left
+df <- df %>%
+  mutate(
+    MAF_pSN_avg = case_when(
+      MostAffSide == 'R' ~ L_pSN_avg,
+      MostAffSide == 'L' ~ R_pSN_avg,
+      .default = NA),
+    LAF_pSN_avg = case_when(
+      MostAffSide == 'R' ~ R_pSN_avg,
+      MostAffSide == 'L' ~ L_pSN_avg,
+      .default = NA),
+    MAF_pSN_cr = case_when(
+      MostAffSide == 'R' ~ L_pSN_cr,
+      MostAffSide == 'L' ~ R_pSN_cr,
+      .default = NA),
+    LAF_pSN_cr = case_when(
+      MostAffSide == 'R' ~ R_pSN_cr,
+      MostAffSide == 'L' ~ L_pSN_cr,
+      .default = NA),
+    MAF_pSN_sr = case_when(
+      MostAffSide == 'R' ~ L_pSN_sr,
+      MostAffSide == 'L' ~ R_pSN_sr,
+      .default = NA),
+    LAF_pSN_sr = case_when(
+      MostAffSide == 'R' ~ R_pSN_sr,
+      MostAffSide == 'L' ~ L_pSN_sr,
+      .default = NA)
+  )
+
+# Averages across FS parcellations for cortical MD
+df <- df %>%
+  mutate(bi_premotor_dti = (bi_caudalmiddlefrontal_dti + bi_superiorfrontal_dti) / 2,
+         bi_parietal_dti = (bi_superiorfrontal_dti+bi_inferiorparietal_dti+bi_precuneus_dti+bi_supramarginal_dti) / 4,
+         bi_sensorimotor_dti = (bi_precentral_dti + bi_postcentral_dti + bi_paracentral_dti) / 3,
+         bi_allregions_dti = (bi_premotor_dti + bi_parietal_dti + bi_sensorimotor_dti) / 3)
+df <- df %>%
+  mutate(bi_premotor_thickavg = (bi_caudalmiddlefrontal_thickavg + bi_superiorfrontal_thickavg) / 2,
+         bi_parietal_thickavg = (bi_superiorfrontal_thickavg+bi_inferiorparietal_thickavg+bi_precuneus_thickavg+bi_supramarginal_thickavg) / 4,
+         bi_sensorimotor_thickavg = (bi_precentral_thickavg + bi_postcentral_thickavg + bi_paracentral_thickavg) / 3,
+         bi_allregions_thickavg = (bi_premotor_thickavg + bi_parietal_thickavg + bi_sensorimotor_thickavg) / 3)
+df <- df %>%
+  mutate(bi_premotor_surfavg = (bi_caudalmiddlefrontal_surfavg + bi_superiorfrontal_surfavg) / 2,
+         bi_parietal_surfavg = (bi_superiorfrontal_surfavg+bi_inferiorparietal_surfavg+bi_precuneus_surfavg+bi_supramarginal_surfavg) / 4,
+         bi_sensorimotor_surfavg = (bi_precentral_surfavg + bi_postcentral_surfavg + bi_paracentral_surfavg) / 3,
+         bi_allregions_surfavg = (bi_premotor_surfavg + bi_parietal_surfavg + bi_sensorimotor_surfavg) / 3)
+# Normalizing regional MD by overall MD
+labels <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
+            'paracentral','postcentral','precentral',
+            'superiorfrontal','caudalmiddlefrontal')
+for(lab in labels){
+  
+  var <- paste('bi',lab,'dti',sep='_')
+  newvar <- paste('bi',lab,'norm','dti',sep='_')
+  tmp1 <- df %>%
+    select(all_of(var))
+  tmp2 <- df %>%
+    select(bi_allregions_dti)
+  tmp3 <- tmp1/tmp2
+  colnames(tmp3) <- newvar
+  
+  df <- df %>% bind_cols(tmp3)
+  
+  
+}
+
+# Add time-specific values as separate columns
+add_timepoints_as_columns <- function(dat, id_cols, timevar, var){
+  
+  # Separate timepoints and calculate delta
+  dat2 <- dat %>%
+    select(all_of(id_cols),
+           all_of(timevar),
+           all_of(var)) %>%
+    pivot_wider(id_cols = id_cols,
+                names_from = 'TimepointNr',
+                names_prefix = 'T',
+                values_from = all_of(var)) %>%
+    mutate(T2sub0 = T2-T0) %>%
+    rename()
+  
+  # Add variable name
+  dat2 <- rename_with(
+    dat2,
+    ~ paste0(.x, '_', var, recycle0 = TRUE),
+    starts_with("T")
+  )
+  
+  # Join with old data
+  dat <- 
+    left_join(dat, dat2, by = c(id_cols))
+  
+  # Print
+  dat
+
+}
+
+id_cols <- colnames(df)[1:2]
+timevar <- 'TimepointNr'
+vars <- colnames(df)[15:length(colnames(df))]
+
+for(i in 1:length(vars)){
+  df <- add_timepoints_as_columns(df, id_cols, timevar, vars[i])
+}
+
+# Factorize
+df <- df %>%
+  mutate(ParticipantType = factor(ParticipantType),
+         Subtype_DiagEx3_DisDurSplit = factor(Subtype_DiagEx3_DisDurSplit),
+         Subtype_DiagEx3_DisDurSplit.MCI_z = factor(Subtype_DiagEx3_DisDurSplit.MCI_z),
+         Subtype_DiagEx3_DisDurSplit_ba = factor(Subtype_DiagEx3_DisDurSplit_ba),
+         Subtype_DiagEx3_DisDurSplit.MCI_z_ba = factor(Subtype_DiagEx3_DisDurSplit.MCI_z_ba),
+         Gender = factor(Gender),
+         TimepointNr = factor(TimepointNr))
+
+# Which subjects have complete data?
+subs <- unique(df$pseudonym)
+tmp <- c()
+for(i in subs){
+  ntp <- df %>%
+    filter(pseudonym==i) %>%
+    select(TimepointNr) %>%
+    nrow()
+  tmp <- tmp %>%
+    bind_rows(tibble(pseudonym=i,ntp=ntp))
+}
+tmp <- tmp %>%
+  mutate(complete_case = if_else(ntp > 1, 1, 0)) %>%
+  select(-ntp)
+df <- df %>%
+  left_join(., tmp, by = 'pseudonym')
+  
+```
+
+## Exclusions
+
+ - Select only participants who performed the motor task.
+ - Exclude additional participants who did not pass quality control procedures.
+
+```{r, echo=F,message=F}
+
+# Only process motor task
+df <- df %>%
+  filter(MriNeuroPsychTask=='Motor')
+
+# Remove 
+read_dti_exclusions <- function(filename) {
+  df <- read_excel(filename) %>%
+    filter(retain == 'N') %>%
+    select(pseudonym,session) %>%
+    distinct() %>%
+    mutate(TimepointNr = if_else(str_detect(session,'Visit1'),0,2),
+           TimepointNr = factor(TimepointNr),
+           Exclusion = 1) %>%
+    select(-session)
+}
+
+exclusions <- read_dti_exclusions('/project/3024006.02/Analyses/MJF_FreeWater/QC/FW/Exclusions_and_Outliers_FW.xlsx')
+df <- df %>%
+  left_join(exclusions, by = c('pseudonym','TimepointNr')) %>%
+  mutate(Exclusion = if_else(is.na(Exclusion),0,Exclusion)) %>%
+  rename(Exclusion_FW = Exclusion)
+df_fw <- df %>%
+  filter(Exclusion_FW!=1)
+
+exclusions <- read_dti_exclusions('/project/3024006.02/Analyses/MJF_FreeWater/QC/MD/Exclusions_and_Outliers_MD.xlsx')
+df <- df %>%
+  left_join(exclusions, by = c('pseudonym','TimepointNr')) %>%
+  mutate(Exclusion = if_else(is.na(Exclusion),0,Exclusion)) %>%
+  rename(Exclusion_MD = Exclusion)
+df_md <- df %>%
+  filter(Exclusion_MD!=1)
+
+```
+
+## Descriptive statistics
+
+```{r, echo=F,warning=F,message=F}
+summary_stats_table <- function(dat, vars_group, vars_dv){
+  
+  # Select data
+  dat <- 
+    dat %>%
+    select(all_of(vars_group), all_of(vars_dv))
+  
+  # Group data iteratively
+  for(i in 1:length(vars_group)){
+    dat <- 
+      dat %>%
+      group_by(.data[[vars_group[i]]], .add = T)
+  }
+  
+  # Initialize data frame
+  stats <-
+    tibble(
+      n = numeric(),
+      avg = numeric(),
+      sd = numeric(),
+      se = numeric(),
+      ci.lwr = numeric(),
+      ci.upr = numeric(),
+      dv = character()
+    )
+  # Add descriptives for every dv
+  for(i in 1:length(vars_dv)){
+    row <- 
+      dat %>%
+      summarise(n=n(),
+                avg = mean(.data[[vars_dv[i]]],na.rm=T),
+                sd = sd(.data[[vars_dv[i]]],na.rm=T),
+                se = sd / sqrt(n), 
+                ci.lwr = avg - 1.96*se,
+                ci.upr = avg + 1.96*se) %>%
+      ungroup() %>%
+      mutate(dv = vars_dv[i])
+    
+    stats <- 
+      stats %>%
+      bind_rows(row)
+
+  }
+  
+  # Print
+  stats
+  
+}
+```
+
+### Free water
+
+```{r, echo=F,warning=F,message=F}
+
+vars_group <- c('ParticipantType','TimepointNr')
+vars_dv <- c('pSN_avg', 'aSN_avg')
+
+# Values per timepoint with error, separated by group
+stats_tab <- 
+  summary_stats_table(df_fw, vars_group, vars_dv)
+g <- ggplot(stats_tab, aes(x = avg, y = dv, color = ParticipantType)) +
+  geom_point() + 
+  geom_errorbarh(aes(xmin = ci.lwr, xmax = ci.upr)) + 
+  facet_wrap(~ParticipantType+TimepointNr,ncol=2,nrow=2) +
+  theme_bw() + 
+  theme(legend.position = 'none')
+print(g)
+
+# Main plot: Deltas per region with error
+vars_dv_delta <- paste0('T2sub0_', vars_dv)
+stats_delta_tab <- 
+  summary_stats_table(df_fw %>% filter(TimepointNr==0), vars_group, vars_dv_delta) %>%
+  mutate(dv = str_replace(dv,'T2sub0_',''))
+
+g <- ggplot(stats_delta_tab, aes(x = avg, y = dv, color = ParticipantType)) + 
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() + 
+  geom_errorbarh(aes(xmin = ci.lwr, xmax = ci.upr)) + 
+  facet_grid(~ParticipantType) +
+  theme_bw() +
+  theme(legend.position = 'none') + 
+  ylab('Region') + 
+  xlab('Two-year change (delta; Follow-up - Baseline)') + 
+  theme_bw() + 
+  theme(legend.position = 'none') + 
+  ggtitle('Longitudinal change in free water')
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_errorbar_deltas.png', dpi=300, device='png', base_width = 8)
+
+stats_delta_tab.subtype <- 
+  summary_stats_table(df_fw %>% filter(TimepointNr==0), c('Subtype_DiagEx3_DisDurSplit.MCI_z_ba','TimepointNr'), vars_dv_delta) %>%
+  mutate(dv = str_replace(dv,'T2sub0_','')) %>%
+  filter(Subtype_DiagEx3_DisDurSplit.MCI_z_ba != '4_Undefined')
+
+g <- ggplot(stats_delta_tab.subtype, aes(x = avg, y = dv, color = Subtype_DiagEx3_DisDurSplit.MCI_z_ba)) + 
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() + 
+  geom_errorbarh(aes(xmin = ci.lwr, xmax = ci.upr)) + 
+  facet_grid(~Subtype_DiagEx3_DisDurSplit.MCI_z_ba) +
+  theme_bw() +
+  theme(legend.position = 'none') + 
+  ylab('Region') + 
+  xlab('Two-year change (delta; Follow-up - Baseline)') + 
+  theme_bw() + 
+  theme(legend.position = 'none') + 
+  ggtitle('Longitudinal change in free water')
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_errorbar_deltas_subtypes.png', dpi=300, device='png', base_width = 8)
+
+# Main plot: Boxplots to visualize group differences
+  # PD
+df.plot <- df_fw %>% 
+  select(pseudonym,ParticipantType,TimepointNr,
+         all_of(vars_dv)) %>%
+  pivot_longer(cols = all_of(vars_dv),
+               names_to = 'ROI',
+               values_to = 'Value') %>%
+  mutate(ROI=factor(ROI,
+                    levels=vars_dv,
+                    labels=vars_dv),
+         ParticipantType = factor(ParticipantType),
+         TimepointNr = factor(TimepointNr)) %>%
+  na.omit()
+
+g <- ggplot(df.plot, aes(y=Value, x=ParticipantType, fill=TimepointNr)) + 
+  geom_boxplot() + 
+  facet_grid(~ROI) +
+  theme_bw() +
+  ylab('Free water (fraction)') + xlab('') +
+  scale_fill_viridis_d(option='mako', begin = .7, end = .5,
+                        direction = 1, labels=c('BA','2Y'),
+                       guide = guide_legend(title='Time'))
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_box_HcVsPd.png', dpi=300, device='png', base_width = 7)
+
+  # Subtypes
+df.plot.sub <- df_fw %>% 
+  select(pseudonym,Subtype_DiagEx3_DisDurSplit.MCI_z_ba,TimepointNr,
+         all_of(vars_dv)) %>%
+  pivot_longer(cols = all_of(vars_dv),
+               names_to = 'ROI',
+               values_to = 'Value') %>%
+  mutate(ROI=factor(ROI,
+                    levels=vars_dv,
+                    labels=vars_dv),
+         Subtype_DiagEx3_DisDurSplit.MCI_z_ba = factor(Subtype_DiagEx3_DisDurSplit.MCI_z_ba),
+         TimepointNr = factor(TimepointNr)) %>%
+  na.omit() %>%
+  filter(Subtype_DiagEx3_DisDurSplit.MCI_z_ba != '4_Undefined')
+
+g <- ggplot(df.plot.sub, aes(y=Value, x=Subtype_DiagEx3_DisDurSplit.MCI_z_ba, fill=TimepointNr)) + 
+  geom_boxplot() + 
+  facet_grid(~ROI) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45,vjust=1,hjust=1)) +
+  ylab('Free water (fraction)') + xlab('') +
+  scale_fill_viridis_d(option='mako', begin = .7, end = .5,
+                        direction = 1, labels=c('BA','2Y'),
+                       guide = guide_legend(title='Time'))
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_box_Subtypes.png', dpi=300, device='png', base_width = 7)
+
+# Count of participants
+df.plot %>%
+  filter(ROI == 'pSN_avg') %>%
+  count(ParticipantType,TimepointNr) %>%
+  print()
+
+# Main plot: Individual trajectories
+delta_vals <- df_fw %>% 
+  select(pseudonym,ParticipantType,TimepointNr,
+         all_of(vars_dv_delta)) %>%
+  pivot_longer(cols = all_of(vars_dv_delta),
+               names_to = 'ROI',
+               values_to = 'Delta') %>%
+  mutate(ROI=factor(ROI,
+                    levels=vars_dv_delta,
+                    labels=vars_dv),
+         ParticipantType = factor(ParticipantType),
+         TimepointNr = factor(TimepointNr))
+df.plot <- left_join(df.plot, delta_vals, by = c('pseudonym','ParticipantType','TimepointNr','ROI'))
+
+g <- df.plot %>%
+  filter(ROI == 'pSN_avg') %>%
+  ggplot(., aes(y=Value, x = as.numeric(TimepointNr))) + 
+  geom_point(alpha=.3) + 
+  geom_line(aes(group = pseudonym, color = Delta), alpha=.3) + 
+  geom_smooth(method = 'lm', color = 'black') +
+  facet_wrap(~ROI+ParticipantType, ncol = 2, nrow = 1) +
+  scale_color_viridis_c(option = 'inferno', begin=0.0,end=0.8)
+print(g)
+
+# Main plot: Boxplot of deltas
+g <- df.plot %>%
+  filter(TimepointNr==0) %>%
+  ggplot(aes(y=Delta, x=ParticipantType, fill=ROI)) + 
+  geom_boxplot() + 
+  facet_grid(~ROI) +
+  theme_bw() +
+  ylab('Free water delta (fraction)') + xlab('') +
+  scale_fill_viridis_d(option='mako', begin = .9, end = .1,
+                        direction = 1,
+                       guide = guide_legend(title='ROI'))
+print(g)
+
+# Checking for outliers
+df.plot %>% filter(ROI=='pSN_avg', ParticipantType=='Patient') %>% arrange(-Value) %>% print(n=20)
+df.plot %>% filter(ROI=='pSN_avg', ParticipantType=='Patient') %>% arrange(Delta) %>% print(n=20)
+df.plot %>% filter(ROI=='pSN_avg', ParticipantType=='Patient') %>% arrange(-Delta) %>% print(n=20)
+
+df.plot %>% filter(ROI=='pSN_avg', ParticipantType=='Healthy') %>% arrange(-Value) %>% print(n=20)
+df.plot %>% filter(ROI=='pSN_avg', ParticipantType=='Healthy') %>% arrange(Delta) %>% print(n=20)
+df.plot %>% filter(ROI=='pSN_avg', ParticipantType=='Healthy') %>% arrange(-Delta) %>% print(n=20)
+```
+
+### FreeSurfer metrics
+
+```{r, echo=F,warning=F,message=F}
+
+vars_group <- c('ParticipantType','TimepointNr')
+labels <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
+            'paracentral','postcentral','precentral','superiorfrontal','caudalmiddlefrontal')
+measure <- c('dti')
+hemi <- c('bi')
+vars_dv <- paste(hemi,labels,measure,sep='_')
+
+# Values per timepoint with error, separated by group
+stats_tab <- 
+  summary_stats_table(df_md, vars_group, vars_dv)
+g <- ggplot(stats_tab, aes(x = avg, y = dv, color = ParticipantType)) +
+  geom_point() + 
+  geom_errorbarh(aes(xmin = ci.lwr, xmax = ci.upr)) + 
+  facet_wrap(~ParticipantType+TimepointNr,ncol=2,nrow=2) +
+  theme_bw() + 
+  theme(legend.position = 'none')
+print(g)
+
+# Main plot: Deltas per region with error
+vars_dv_delta <- paste0('T2sub0_', vars_dv)
+stats_delta_tab <- 
+  summary_stats_table(df_md %>% filter(TimepointNr==0), vars_group, vars_dv_delta) %>%
+  mutate(dv = str_replace(dv,'T2sub0_',''))
+
+g <- ggplot(stats_delta_tab, aes(x = avg, y = dv, color = ParticipantType)) + 
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() + 
+  geom_errorbarh(aes(xmin = ci.lwr, xmax = ci.upr)) + 
+  facet_grid(~ParticipantType) +
+  theme_bw() +
+  theme(legend.position = 'none') + 
+  ylab('Region') + 
+  xlab('Two-year change (delta; Follow-up - Baseline)') + 
+  theme_bw() + 
+  theme(legend.position = 'none') + 
+  ggtitle('Longitudinal change in cortical MD')
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_errorbar_deltas.png', dpi=300, device='png', base_width = 8)
+
+stats_delta_tab.subtype <- 
+  summary_stats_table(df_md %>% filter(TimepointNr==0), c('Subtype_DiagEx3_DisDurSplit.MCI_z_ba','TimepointNr'), vars_dv_delta) %>%
+  mutate(dv = str_replace(dv,'T2sub0_','')) %>%
+  filter(Subtype_DiagEx3_DisDurSplit.MCI_z_ba != '4_Undefined')
+
+g <- ggplot(stats_delta_tab.subtype, aes(x = avg, y = dv, color = Subtype_DiagEx3_DisDurSplit.MCI_z_ba)) + 
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() + 
+  geom_errorbarh(aes(xmin = ci.lwr, xmax = ci.upr)) + 
+  facet_grid(~Subtype_DiagEx3_DisDurSplit.MCI_z_ba) +
+  theme_bw() +
+  theme(legend.position = 'none') + 
+  ylab('Region') + 
+  xlab('Two-year change (delta; Follow-up - Baseline)') + 
+  theme_bw() + 
+  theme(legend.position = 'none') + 
+  ggtitle('Longitudinal change in cortical MD')
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_errorbar_deltas_subtypes.png', dpi=300, device='png', base_width = 8)
+
+# Main plot: Boxplots to visualize group differences
+  # PD
+df.plot <- df_md %>% 
+  select(pseudonym,ParticipantType,TimepointNr,
+         all_of(vars_dv)) %>%
+  pivot_longer(cols = all_of(vars_dv),
+               names_to = 'ROI',
+               values_to = 'Value') %>%
+  mutate(ROI=factor(ROI,
+                    levels=vars_dv,
+                    labels=vars_dv),
+         ParticipantType = factor(ParticipantType),
+         TimepointNr = factor(TimepointNr)) %>%
+  na.omit()
+
+g <- ggplot(df.plot, aes(y=Value, x=ParticipantType, fill=TimepointNr)) + 
+  geom_boxplot() + 
+  facet_grid(~ROI) +
+  theme_bw() +
+  ylab('Cortical MD') + xlab('') +
+  scale_fill_viridis_d(option='mako', begin = .7, end = .5,
+                        direction = 1, labels=c('BA','2Y'),
+                       guide = guide_legend(title='Time'))
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_box_HcVsPd.png', dpi=300, device='png', base_width = 7)
+
+  # Subtypes
+df.plot.sub <- df_md %>% 
+  select(pseudonym,Subtype_DiagEx3_DisDurSplit.MCI_z_ba,TimepointNr,
+         all_of(vars_dv)) %>%
+  pivot_longer(cols = all_of(vars_dv),
+               names_to = 'ROI',
+               values_to = 'Value') %>%
+  mutate(ROI=factor(ROI,
+                    levels=vars_dv,
+                    labels=vars_dv),
+         Subtype_DiagEx3_DisDurSplit.MCI_z_ba = factor(Subtype_DiagEx3_DisDurSplit.MCI_z_ba),
+         TimepointNr = factor(TimepointNr)) %>%
+  na.omit() %>%
+  filter(Subtype_DiagEx3_DisDurSplit.MCI_z_ba != '4_Undefined')
+
+g <- ggplot(df.plot.sub, aes(y=Value, x=Subtype_DiagEx3_DisDurSplit.MCI_z_ba, fill=TimepointNr)) + 
+  geom_boxplot() + 
+  facet_grid(~ROI) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45,vjust=1,hjust=1)) +
+  ylab('Mean diffusivity') + xlab('') +
+  scale_fill_viridis_d(option='mako', begin = .7, end = .5,
+                        direction = 1, labels=c('BA','2Y'),
+                       guide = guide_legend(title='Time'))
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_box_Subtypes.png', dpi=300, device='png', base_width = 7)
+
+# Count of participants
+df.plot %>%
+  filter(ROI == 'bi_inferiorparietal_dti') %>%
+  count(ParticipantType,TimepointNr) %>%
+  print()
+
+# Main plot: Individual trajectories
+delta_vals <- df_md %>% 
+  select(pseudonym,ParticipantType,TimepointNr,
+         all_of(vars_dv_delta)) %>%
+  pivot_longer(cols = all_of(vars_dv_delta),
+               names_to = 'ROI',
+               values_to = 'Delta') %>%
+  mutate(ROI=factor(ROI,
+                    levels=vars_dv_delta,
+                    labels=vars_dv),
+         ParticipantType = factor(ParticipantType),
+         TimepointNr = factor(TimepointNr))
+df.plot <- left_join(df.plot, delta_vals, by = c('pseudonym','ParticipantType','TimepointNr','ROI'))
+
+g <- df.plot %>%
+  filter(ROI == 'bi_caudalmiddlefrontal_dti') %>%
+  ggplot(., aes(y=Value, x = as.numeric(TimepointNr))) + 
+  geom_point(alpha=.3) + 
+  geom_line(aes(group = pseudonym, color = Delta), alpha=.3) + 
+  geom_smooth(method = 'lm', color = 'black') +
+  facet_wrap(~ROI+ParticipantType, ncol = 2, nrow = 1) +
+  scale_color_viridis_c(option = 'inferno', begin=0.0,end=0.8)
+print(g)
+
+# Main plot: Boxplot of deltas
+g <- df.plot %>%
+  filter(TimepointNr==0) %>%
+  ggplot(aes(y=Delta, x=ParticipantType, fill=ROI)) + 
+  geom_boxplot() + 
+  facet_grid(~ROI) +
+  theme_bw() +
+  ylab('Mean diffusivity (delta)') + xlab('') +
+  scale_fill_viridis_d(option='mako', begin = .9, end = .1,
+                        direction = 1,
+                       guide = guide_legend(title='ROI'))
+print(g)
+
+# Checking for outliers
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Patient') %>% arrange(Value) %>% print(n=20)
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Patient') %>% arrange(-Value) %>% print(n=20)
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Patient') %>% arrange(Delta) %>% print(n=20)
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Patient') %>% arrange(-Delta) %>% print(n=20)
+
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Healthy') %>% arrange(Value) %>% print(n=20)
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Healthy') %>% arrange(-Value) %>% print(n=20)
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Healthy') %>% arrange(Delta) %>% print(n=20)
+df.plot %>% filter(ROI=='bi_inferiorparietal_dti', ParticipantType=='Healthy') %>% arrange(-Delta) %>% print(n=20)
+
+```
+
+## Baseline comparisons (FW)
+
+Baseline comparisons will be omitted since the same information is contained in the longitudinal analyses below.
+
+### Healthy vs Patient: Avg
+
+```{r, echo=F,warning=F,message=F,eval=F}
+outcome <- c('pSN_avg', 'aSN_avg')#, 'AsymIdxNoAbs_pSN_avg', 'AsymIdxNoAbs_pSN_cr', 'AsymIdxNoAbs_pSN_sr')
+compare_baseline <- function(data, outcome){
+  print(paste0('>>>>> ', outcome))
+  f <- paste0(outcome, ' ~ ParticipantType + Age + Gender + NpsEducYears')
+  m <- data %>%
+    filter(TimepointNr==0) %>%
+    lm(f, data = .)
+  print(anova(m))
+  print(summary(m))
+  ggemmeans(m, 'ParticipantType',back.transform=T) %>% plot(connect.lines=T) %>% print()
+}
+for(i in outcome){
+  compare_baseline(df_fw, i)
+}
+```
+
+### Patients: MAF vs. LAF
+
+```{r, echo=F,warning=F,message=F,eval=F}
+mafdat <- df_fw %>%
+    filter(TimepointNr == 0,
+           ParticipantType == 'Patient') %>%
+    select(pseudonym,Age,Gender,NpsEducYears,YearsSinceDiag,MAF_pSN_avg,LAF_pSN_avg) %>%
+    pivot_longer(cols = c('MAF_pSN_avg','LAF_pSN_avg'),
+                 names_to = 'Lateralization',
+                 values_to = 'FW') %>%
+  mutate(Lateralization = factor(Lateralization,
+                                 levels=c('LAF_pSN_avg','MAF_pSN_avg'),
+                                 labels=c('Least','Most'))) %>%
+  na.omit()
+mafdat %>% st(., group='Lateralization')
+g <- mafdat %>% ggplot(aes(x=Lateralization,y=FW)) + 
+  geom_boxplot(fill='grey') + 
+  theme_bw() + 
+  ylab('Free water (fraction)') + xlab('Lateralization')
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/box_LeastVsMost.png', dpi=300, device='png', base_width = 4)
+
+m <- lmer(FW ~ Lateralization + Age + Gender + NpsEducYears + YearsSinceDiag + (1|pseudonym), data = mafdat)
+anova(m) %>% print()
+m %>% summary() %>% print()
+ggemmeans(m, 'Lateralization',back.transform=T) %>% plot(connect.lines=T) %>% print()
+```
+
+### Subtypes: Avg
+
+```{r, echo=F,warning=F,message=F,eval=F}
+outcome <- c('pSN_avg', 'aSN_avg')#, 'AsymIdxNoAbs_pSN_avg', 'AsymIdxNoAbs_pSN_cr', 'AsymIdxNoAbs_pSN_sr')
+df.subtype <- df_fw %>%
+  rename(Subtype = Subtype_DiagEx3_DisDurSplit.MCI) %>%
+  filter(TimepointNr==0,
+         Subtype != '0_Healthy',
+         Subtype != '4_Undefined') %>%
+  select(pseudonym, Subtype, Age, Gender, all_of(outcome)) %>%
+  pivot_longer(cols = all_of(outcome),
+               names_to = 'Variable',
+               values_to = 'Val')
+
+df.subtype %>%
+  ggplot(aes(y=Val, x=Subtype, fill=Variable, Color=Variable)) + 
+  geom_boxplot() + 
+  facet_wrap(~Variable, scales = 'free',ncol=2,nrow=2) + 
+  theme_bw() + 
+  theme(legend.position = 'none') + 
+  ylab('Free water (fraction)') + xlab('Subtype')
+
+compare_baseline <- function(data, outcome){
+  print(paste0('>>>>> ', outcome))
+  f <- paste0('Val ~ Subtype + Age + Gender')
+  m <- data %>%
+    filter(Variable == outcome) %>%
+    lm(f, data = .)
+  print(anova(m))
+  print(summary(m))
+  
+  em <- emmeans(m, revpairwise ~ Subtype, type='response')
+  em$contrasts %>% print()
+  ggemmeans(m, terms=c('Subtype'),
+            back.transform = TRUE) %>% 
+    plot(connect.lines=TRUE) %>% print()
+}
+for(i in outcome){
+  compare_baseline(df.subtype, i)
+}
+
+```
+
+### Subtypes: MAF vs LAF
+
+```{r, echo=F,warning=F,message=F,eval=F}
+
+df.subtype <- df_fw %>%
+  rename(Subtype = Subtype_DiagEx3_DisDurSplit.MCI) %>%
+  filter(TimepointNr==0,
+         Subtype != '0_Healthy',
+         Subtype != '4_Undefined') %>%
+  select(pseudonym, Subtype, Age, Gender, starts_with('MAF'), starts_with('LAF')) %>%
+  pivot_longer(cols = c(starts_with('MAF'),starts_with('LAF')),
+               names_sep = '_',
+               names_to = c('Side','Region','Metric'),
+               values_to = 'Val') %>%
+  mutate(Subtype = factor(Subtype),
+         Side = factor(Side)) %>%
+  filter(Metric == 'avg')
+
+df.subtype %>%
+  ggplot(aes(y=Val, x=Subtype, fill=Side, Color=Side)) + 
+  geom_boxplot() + 
+  facet_wrap(Region ~ Subtype + Metric, scales = 'free',
+             nrow = 3, ncol = 2)
+
+outcome <- c('pSN')
+compare_baseline <- function(data, outcome){
+  print(paste0('>>>>> ', outcome))
+  f <- paste0('Val ~ Subtype*Side + Age + Gender')
+  m <- data %>%
+    filter(Region == outcome) %>%
+    lm(f, data = .)
+  print(anova(m))
+  print(summary(m))
+  
+  em <- emmeans(m, ~ Subtype|Side, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='none', type='response', by = NULL) %>% 
+    kable(., 'pipe', digits = 3) %>% print()
+  em <- emmeans(m, ~ Subtype|Side, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'), adjust='none', type='response') %>% 
+    kable(., 'pipe', digits = 3) %>% print()
+  em <- emmeans(m, revpairwise ~ Subtype, type='response')
+  em$contrasts %>% print()
+  em <- emmeans(m, revpairwise ~ Side, type='response')
+  em$contrasts %>% print()
+  ggemmeans(m, terms=c('Side','Subtype'),
+            back.transform = TRUE) %>% 
+    plot(connect.lines=TRUE) %>% print()
+}
+for(i in outcome){
+  compare_baseline(df.subtype, i)
+}
+
+```
+
+## *Longitudinal change (FW)
+
+This section analyzes longitudinal changes in SN FW and how it differs between patients and controls. Changes in SN FW are also compared between least and most affected sides.
+
+### *Healthy vs Patient: Avg
+
+```{r, echo=F,warning=F,message=F}
+outcome <- c('pSN_avg', 'aSN_avg')#, 'AsymIdxNoAbs_pSN_avg', 'AsymIdxNoAbs_pSN_cr', 'AsymIdxNoAbs_pSN_sr')
+df.long <- df_fw %>%
+  select(pseudonym, ParticipantType, TimepointNr, Age, Gender, NpsEducYears, all_of(outcome)) %>%
+  pivot_longer(cols = all_of(outcome),
+               names_to = 'Variable',
+               values_to = 'Val')
+
+compare_baseline <- function(data, outcome){
+  print(paste0('>>>>> ', outcome))
+  f <- paste0('log(Val) ~ ParticipantType*TimepointNr + Age + Gender + NpsEducYears + (1|pseudonym)')
+  tmp <- data %>%
+    filter(Variable==outcome) %>%
+    na.omit()
+  n <- tmp %>% count(ParticipantType,TimepointNr)
+  print(n)
+  m <- lmer(f, data = tmp)
+  tab_model(m,show.se = T, digits=5)
+  a <- Anova(m,type=3)
+  print(a)
+  # eta_squared(m) %>% print()
+  
+  em <- emmeans(m, ~ TimepointNr|ParticipantType, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response', by=NULL) %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response') %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  # ggemmeans(m, terms=c('TimepointNr','ParticipantType'),
+  #           back.transform = TRUE) %>% 
+  #   plot(connect.lines=TRUE) %>% plot()
+}
+for(i in outcome){
+  compare_baseline(df.long, i)
+}
+
+g <- df.long %>%
+        filter(Variable=='pSN_avg') %>%
+  ggplot(aes(x=ParticipantType, y = Val, color=TimepointNr)) +
+  geom_jitter(alpha=0.2, position = position_jitterdodge(jitter.width = 0.2)) +
+  geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
+  stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5, 
+               mapping = aes(group=TimepointNr), position = position_dodge(width=0.8)) +
+  theme_bw() + 
+  scale_x_discrete(labels=c('Control','PD')) +
+  scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                        direction = -1) + 
+  ggtitle('Posterior substantia nigra') +
+  ylab('Free water (fraction)') + xlab('') + 
+  guides(color = guide_legend(title='Year')) +
+  ylim(0.1, 0.5) + 
+  annotate(geom='text',label='N=50',x=0.8,y=0.1) +
+  annotate(geom='text',label='N=45',x=1.2,y=0.1) +
+  annotate(geom='text',label='N=347',x=1.8,y=0.1) +
+  annotate(geom='text',label='N=264',x=2.2,y=0.1)
+y <- 0.47
+d = 0.015
+segmap <- data.frame(
+        x =    c(1.00, 0.80,  1.80, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 1.80),
+        xend = c(2.00, 1.20,  2.20, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 2.20),
+        y =    c(y,    y-d,   y-d,  y,    y,    y-d*1,y-d*1,y-d*1,y-d*1, y-d*3),
+        yend = c(y,    y-d,   y-d,  y-d*1,y-d*1,y-d*2,y-d*2,y-d*2,y-d*2, y-d*3)
+)
+sigmap <- data.frame(
+        x =     c(1.50, 2.00),
+        y =     c(y+0.015,    y-d*3),
+        label = c('+', '**')
+)
+g <- g + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(g)
+save_plot(g, filename = '/home/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/SnFW/FW_pSN_HCvsPD.png', dpi=300, device='png', base_width = 5)
+
+# lmer_mod <- 
+#   linear_reg() %>%
+#   set_engine('lmer') %>%
+#   set_mode('regression')
+# 
+# lmer_rec <- 
+#   recipe(pSN_avg ~ ParticipantType + TimepointNr + Age + Gender + pseudonym, data = df) %>%
+#   add_role(pseudonym, new_role = 'exp_unit') %>%
+#   step_log(pSN_avg, base = 10) %>%
+#   step_center(Age) %>%
+#   step_interact(terms = ~ ParticipantType:TimepointNr) %>%
+#   step_zv(all_predictors(), -has_role('exp_unit'))
+# 
+# lmer_wflow <- 
+#   workflow() %>%
+#   add_model(lmer_mod, formula = pSN_avg ~ ParticipantType*TimepointNr + Age + Gender + (1|pseudonym)) %>%
+#   add_recipe(lmer_rec)
+# 
+# lmer_fit <- 
+#   lmer_wflow %>%
+#   fit(data = df)
+# 
+# lmer_res <- 
+#   tidy(lmer_fit, conf.int = T)
+```
+
+### Healthy controls: Avg
+
+```{r, echo=F,warning=F,message=F,eval=F}
+m <- df_fw %>%
+    filter(ParticipantType=='Healthy') %>%
+    lmer(pSN_avg ~ TimepointNr + Age + Gender + (1|pseudonym), data = .)
+anova(m) %>% print()
+ggemmeans(m, 'TimepointNr') %>% plot(connect.lines=T) %>% print()
+
+df_fw[,c(2:3,12:33)] %>%
+    filter(ParticipantType=='Healthy') %>%
+    select(-c(ParticipantType)) %>%
+    st(., group='TimepointNr',
+       group.long = F,
+       group.test = T)
+
+```
+
+### Patients: Avg
+
+```{r, echo=F,warning=F,message=F,eval=F}
+m <- df_fw %>%
+    filter(ParticipantType=='Patient') %>%
+    lmer(pSN_avg ~ TimepointNr + Age + Gender + NpsEducYears + YearsSinceDiag + (1|pseudonym), data = .)
+anova(m) %>% print()
+ggemmeans(m, 'TimepointNr') %>% plot(connect.lines=T) %>% print()
+
+df.pairwise <- df_fw %>%
+  filter(ParticipantType=='Patient') %>%
+  select(pseudonym,TimepointNr,pSN_avg) %>%
+  pivot_wider(id_cols = 'pseudonym',
+              names_from = 'TimepointNr',
+              names_prefix = 'T_',
+              values_from = 'pSN_avg') %>%
+  na.omit() %>%
+  pivot_longer(cols = c('T_0','T_2'),
+               names_to = 'TimepointNr',
+               values_to = 'pSN_avg') %>%
+  mutate(TimepointNr = as.factor(TimepointNr))
+df.pairwise %>%
+  group_by(TimepointNr) %>%
+  summarise(avg = mean(pSN_avg),
+            sd = sd(pSN_avg))
+pt <- df.pairwise %>%
+  pairwise_t_test(pSN_avg ~ TimepointNr, paired = T)
+print(pt)
+pwt <- df.pairwise %>%
+  pairwise_wilcox_test(pSN_avg ~ TimepointNr, paired = T)
+print(pwt)
+
+df.pairwise %>%
+  lmer(pSN_avg ~ TimepointNr + (1|pseudonym), data = .) %>%
+  anova()
+
+df_fw[,c(2:3,13:34)] %>%
+    filter(ParticipantType=='Patient') %>%
+    select(-c(ParticipantType)) %>%
+    st(., group='TimepointNr',
+       group.long = F,
+       group.test = T)
+```
+
+### *Patients: MAF vs LAF
+
+```{r, echo=F,warning=F,message=F}
+
+mafdat <- df_fw %>%
+    filter(ParticipantType == 'Patient') %>%
+    select(pseudonym,TimepointNr,Age,Gender,NpsEducYears,YearsSinceDiag,MAF_pSN_avg,LAF_pSN_avg) %>%
+    pivot_longer(cols = c('MAF_pSN_avg','LAF_pSN_avg'),
+                 names_to = 'Lateralization',
+                 values_to = 'FW') %>%
+  mutate(Lateralization = factor(Lateralization,
+                                 levels=c('LAF_pSN_avg','MAF_pSN_avg'),
+                                 labels=c('Least','Most'))) %>%
+  na.omit()
+
+m <- mafdat %>%
+    lmer(FW ~ TimepointNr*Lateralization + Age + Gender + NpsEducYears + YearsSinceDiag + (1+Lateralization|pseudonym), data = .)
+Anova(m,type=3) %>% print()
+ggemmeans(m, c('TimepointNr','Lateralization')) %>% plot(connect.lines=T) %>% print()
+
+g <- mafdat %>%
+  ggplot(aes(x=Lateralization, y = FW, color=TimepointNr)) +
+  geom_jitter(alpha=0.2, position = position_jitterdodge(jitter.width = 0.2)) +
+  geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
+  stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5, 
+               mapping = aes(group=TimepointNr), position = position_dodge(width=0.8)) +
+  theme_bw() + 
+  scale_x_discrete(labels=c('Least','Most')) +
+  scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                        direction = -1) + 
+  ggtitle('') +
+  ylab('Free water (fraction)') + xlab('Most affected side') + ggtitle('') +
+  guides(color = guide_legend(title='Year')) +
+  ylim(0.05, 0.5)
+y <- 0.5
+d = 0.02
+segmap <- data.frame(
+        x =    c(1.00, 0.80,  1.80),
+        xend = c(2.00, 1.20,  2.20),
+        y =    c(y,    y-d,   y-d),
+        yend = c(y,    y-d,   y-d)
+)
+sigmap <- data.frame(
+        x =     c(1.50, 1.00,  2.00),
+        y =     c(y,    y-d*1, y-d*1),
+        label = c('***', '*','*')
+)
+g <- g + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_MAFvsLAF.png', dpi=300, device='png', base_width = 5)
+
+# At each separate visit
+for(i in c(0,2)){
+        print(paste0('>>> Analzying timepoint ', i))
+        m <- mafdat %>%
+                filter(TimepointNr==i) %>%
+                lm(log(FW) ~ Lateralization + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
+        Anova(m, type=3) %>% print()
+        tab_model(m,show.se=T,digits = 5)
+        eta_squared(a) %>% print()
+}
+
+```
+
+### Subtypes: Avg
+
+```{r, echo=F,warning=T,message=F,eval=F}
+outcome <- c('pSN_avg')#, 'AsymIdxNoAbs_pSN_avg', 'AsymIdxNoAbs_pSN_cr', 'AsymIdxNoAbs_pSN_sr')
+df.subtype <- df_fw %>%
+  rename(Subtype = Subtype_DiagEx3_DisDurSplit.MCI_z_ba) %>%
+  filter(Subtype != '4_Undefined',
+         Subtype != '0_Healthy') %>%
+  select(pseudonym, Subtype, TimepointNr, Age, Gender, YearsSinceDiag, all_of(outcome)) %>%
+  pivot_longer(cols = all_of(outcome),
+               names_to = 'Variable',
+               values_to = 'Val')
+
+df.subtype %>%
+  ggplot(aes(y=Val, x=TimepointNr, fill=Subtype, Color=Subtype)) + 
+  geom_boxplot() + 
+  facet_wrap(~Variable, scales = 'free')
+
+compare_baseline <- function(data, outcome){
+  print(paste0('>>>>> ', outcome))
+  f <- paste0('Val ~ Subtype*TimepointNr + Age + Gender + (1|pseudonym)')
+  m <- data %>%
+    filter(Variable == outcome) %>%
+    lmer(f, data = .)
+  print(anova(m))
+  print(summary(m))
+  
+  em <- emmeans(m, ~ TimepointNr|Subtype, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response', by=NULL) %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response') %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  ggemmeans(m, terms=c('TimepointNr','Subtype'),
+            back.transform = TRUE) %>% 
+    plot(connect.lines=TRUE) %>% plot()
+}
+for(i in outcome){
+  compare_baseline(df.subtype, i)
+}
+
+```
+
+### Subtypes: MAF vs LAF
+
+```{r, echo=F,warning=F,message=F,eval=F}
+
+df.subtype <- df_fw %>%
+  rename(Subtype = Subtype_DiagEx3_DisDurSplit.MCI_z_ba) %>%
+  filter(Subtype != '0_Healthy',
+         Subtype != '4_Undefined') %>%
+  select(pseudonym, Subtype, TimepointNr, Age, Gender, starts_with('MAF'), starts_with('LAF')) %>%
+  pivot_longer(cols = c(starts_with('MAF'),starts_with('LAF')),
+               names_sep = '_',
+               names_to = c('Side','Region','Metric'),
+               values_to = 'Val') %>%
+  mutate(Subtype = factor(Subtype),
+         Side = factor(Side)) %>%
+  filter(Metric == 'avg')
+
+df.subtype %>%
+  ggplot(aes(y=Val, x=Subtype, fill=TimepointNr, Color=TimepointNr)) + 
+  geom_boxplot() + 
+  facet_grid(Region ~ Subtype+Side, scales = 'free')
+
+outcome <- c('pSN')
+compare_baseline <- function(data, outcome){
+  print(paste0('>>>>> ', outcome))
+  f <- paste0('Val ~ Subtype*TimepointNr*Side + Age + Gender + (1|pseudonym)')
+  m <- data %>%
+    filter(Region == outcome) %>%
+    lmer(f, data = .)
+  print(anova(m))
+  print(summary(m))
+  
+  em <- emmeans(m, ~ Side*TimepointNr|Subtype, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise','revpairwise'),
+           adjust='mvt', type='response', by=NULL) %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise','revpairwise'),
+           adjust='mvt', type='response') %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  contrast(em, interaction = c('revpairwise','identity','identity'),
+           adjust='mvt', type='response') %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  
+  em <- emmeans(m, ~ Side|Subtype, type = 'response')
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response', by = NULL) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response') %>% print()
+  
+  em <- emmeans(m, ~ TimepointNr|Subtype, type = 'response')
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response', by = NULL) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response') %>% print()
+  
+  em <- emmeans(m, ~ TimepointNr|Side, type = 'response')
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response', by = NULL) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response') %>% print()
+  
+  ggemmeans(m, terms=c('TimepointNr','Side','Subtype'),
+            back.transform = TRUE) %>% 
+    plot(connect.lines=TRUE) %>% plot()
+}
+for(i in outcome){
+  compare_baseline(df.subtype, i)
+}
+
+```
+
+## *Clinical correlations (FW)
+
+### *Severity: baseline and follow-up
+
+```{r, echo=F,warning=F,message=F}
+corrdat <- df_fw %>%
+    filter(ParticipantType=='Patient')
+
+# Bradykinesia severity
+# Baseline
+print('>>> Baseline: On-state bradykinesia vs pSN FW')
+cor.test(df_fw$Up3OnBradySum[df_fw$TimepointNr==0],df_fw$pSN_avg[df_fw$TimepointNr==0], method = 'spearman') %>% print()
+g <- df_fw %>%
+    filter(ParticipantType=='Patient',
+           TimepointNr==0) %>%
+    ggplot(aes(x=Up3OnBradySum,y=pSN_avg)) + 
+    geom_point() + 
+    geom_smooth(method='lm')
+print(g)
+m <- corrdat %>%
+  filter(TimepointNr==0) %>%
+  lm(log(pSN_avg) ~ Up3OnBradySum + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
+Anova(m,type=3) %>% print()
+summary(m) %>% print()
+# Follow-up
+print('>>> Follow-up: On-state bradykinesia vs pSN FW')
+cor.test(df_fw$Up3OnBradySum[df_fw$TimepointNr==2],df_fw$pSN_avg[df_fw$TimepointNr==2], method = 'spearman') %>% print()
+g <- df_fw %>%
+    filter(ParticipantType=='Patient',
+           TimepointNr==2) %>%
+    ggplot(aes(x=Up3OnBradySum,y=pSN_avg)) + 
+    geom_point() + 
+    geom_smooth(method='lm')
+print(g)
+m <- corrdat %>%
+  filter(TimepointNr==2) %>%
+  lm(log(pSN_avg) ~ Up3OnBradySum + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
+Anova(m,type=3) %>% print()
+summary(m) %>% print()
+
+# Motor asymmetry
+# Baseline
+print('>>> Baseline: Asymmetry vs pSN FW')
+cor.test(df_fw$AsymmetryIndexRiLe.WeightedBradyRig2[df_fw$TimepointNr==0],df_fw$AsymIdxNoAbs_pSN_avg[df_fw$TimepointNr==0], method = 'spearman') %>% print()
+m <- corrdat %>%
+  filter(TimepointNr==0) %>%
+  lm(AsymIdxNoAbs_pSN_avg ~ AsymmetryIndexRiLe.WeightedBradyRig2 + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
+tab_model(m, digits=5, show.se=T)
+g <- ggemmeans(m, terms = 'AsymmetryIndexRiLe.WeightedBradyRig2') %>% plot(add.data=TRUE,color='darkred') + theme_bw() + 
+  ggtitle('Baseline') + xlab('Motor asymetry index') + ylab('Free water asymmetry index') +
+  annotate(geom = 'text', x=-1, y=-0.5, hjust=0, label = expression(italic('N')*'= 344, '*italic('β')*' = -0.071, SE = 0.022, '*italic('P')*' = 0.001')) +
+  ylim(-0.5,0.5)
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_ba.png', dpi=300, device='png', base_width = 5)
+Anova(m,type=3) %>% print()
+summary(m) %>% print()
+# Follow-up
+print('>>> Follow-up: Asymmetry vs pSN FW')
+cor.test(df_fw$AsymmetryIndexRiLe.WeightedBradyRig2[df_fw$TimepointNr==2],df_fw$AsymIdxNoAbs_pSN_avg[df_fw$TimepointNr==2], method = 'spearman') %>% print()
+m <- corrdat %>%
+  filter(TimepointNr==2) %>%
+  lm(AsymIdxNoAbs_pSN_avg ~ AsymmetryIndexRiLe.WeightedBradyRig2 + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
+tab_model(m, digits=5, show.se=T)
+g <- ggemmeans(m, terms = 'AsymmetryIndexRiLe.WeightedBradyRig2') %>% plot(add.data=TRUE,color='darkred') + theme_bw() + 
+  ggtitle('Follow-up') + xlab('Motor asymetry index') + ylab('Free water asymmetry index') +
+  annotate(geom = 'text', x=-1, y=-0.5, hjust=0, label = expression(italic('N')*'= 251, '*italic('β')*' = -0.100, SE = 0.032, '*italic('P')*' = 0.002')) +
+  ylim(-0.5,0.5)
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_fu.png', dpi=300, device='png', base_width = 5)
+Anova(m,type=3) %>% print()
+summary(m) %>% print()
+
+```
+
+### Severity: longitudinal (RM-CORR)
+
+```{r, echo=F,warning=F,message=F,eval=F}
+# Bradykinesia severity 
+rmc <- rmcorr('pseudonym',Up3OfBradySum,pSN_avg,dataset = corrdat)
+print(rmc)
+plot(rmc)
+
+# Motor asymmetry
+rmc <- rmcorr('pseudonym',AsymmetryIndexRiLe.WeightedBradyRig2,AsymIdxNoAbs_pSN_avg,dataset = corrdat)
+print(rmc)
+plot(rmc)
+
+# Tremor
+# rmc <- rmcorr('pseudonym',Up3OfRestTremAmpSum,RRA_avg,dataset = corrdat)
+# print(rmc)
+# plot(rmc)
+```
+
+### *Severity: longitudinal (delta)
+
+```{r, echo=F,warning=F,message=F}
+
+deltadat <- df_fw %>%
+  filter(ParticipantType=='Patient',
+         TimepointNr==0)
+
+# Bradykinesia severity
+m <- lm(T2sub0_Up3OnBradySum ~ T2sub0_pSN_avg + T0_Up3OnBradySum + T0_pSN_avg + Age + Gender + NpsEducYears + YearsSinceDiag, data = deltadat)
+Anova(m,type=3)
+summary(m)
+ggemmeans(m,c('T2sub0_pSN_avg')) %>% plot() %>% print()
+g <- deltadat %>%
+    ggplot(aes(x=T2sub0_Up3OnBradySum,y=T2sub0_pSN_avg)) + 
+    geom_point() + 
+    geom_smooth(method='lm',color='black')
+plot(g)
+cor.test(deltadat$T2sub0_Up3OnBradySum[deltadat$TimepointNr==0],deltadat$T2sub0_pSN_avg[deltadat$TimepointNr==0], method = 'spearman') %>% print()
+
+
+# Motor asymmetry
+m <- lm(T2sub0_AsymIdxNoAbs_pSN_avg ~ T2sub0_AsymmetryIndexRiLe.WeightedBradyRig2 + T0_AsymmetryIndexRiLe.WeightedBradyRig2 + T0_AsymIdxNoAbs_pSN_avg + Age + Gender + NpsEducYears + YearsSinceDiag, data = deltadat)
+Anova(m,type=3)
+summary(m)
+ggemmeans(m,'T2sub0_AsymmetryIndexRiLe.WeightedBradyRig2') %>% plot() %>% print()
+g <- deltadat %>%
+    ggplot(aes(x=T2sub0_AsymmetryIndexRiLe.WeightedBradyRig2,y=T2sub0_AsymIdxNoAbs_pSN_avg)) + 
+    geom_point() + 
+    geom_smooth(method='lm',color='black')
+plot(g)
+cor.test(deltadat$T2sub0_AsymmetryIndexRiLe.WeightedBradyRig2[deltadat$TimepointNr==0],deltadat$T2sub0_pSN_avg[deltadat$TimepointNr==0], method = 'spearman') %>% print()
+tab_model(m, digits=5, show.se=T)
+g <- ggemmeans(m, terms = 'T2sub0_AsymmetryIndexRiLe.WeightedBradyRig2') %>% plot(add.data=TRUE,color='darkred') + theme_bw() + 
+  ggtitle('Between-session change') + xlab('Change in motor asymetry index') + ylab('Change in free water asymmetry index') +
+  annotate(geom = 'text', x=-1, y=-0.5, hjust=0, label = expression(italic('N')*'= 290, '*italic('β')*' = -0.010, SE = 0.038, '*italic('P')*' = 0.797')) +
+  ylim(-0.5,0.5)
+print(g)
+save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_delta.png', dpi=300, device='png', base_width = 5)
+```
+
+### Severity: longitudinal (disaggregation)
+
+```{r, echo=F,warning=F,message=F,eval=F}
+
+library(bmlm)
+complete_subjects <- df_fw %>%
+  filter(ParticipantType=='Patient') %>%
+  select(pseudonym,TimepointNr,Age,Gender,Up3OfBradySum,pSN_avg) %>%
+  pivot_wider(id_cols = c('pseudonym','Age','Gender'),
+              names_from = 'TimepointNr',
+              names_prefix = 'T',
+              values_from = c('Up3OfBradySum','pSN_avg')) %>%
+  na.omit() %>%
+  pull(pseudonym)
+
+disaggdat <- df_fw %>%
+  filter(ParticipantType=='Patient',
+         pseudonym %in% complete_subjects) %>%
+  isolate(.,
+          by = 'pseudonym',
+          value = c('Up3OfBradySum','pSN_avg'),
+          which = 'both') %>%
+  select(pseudonym,TimepointNr,Age,Gender,starts_with('Up3OfBradySum'),starts_with('pSN_avg'))
+
+disaggdat %>%
+  ggplot(aes(x=pSN_avg_cw,y=Up3OfBradySum_cw)) +
+  geom_point() + 
+  geom_line(aes(group=pseudonym)) + 
+  geom_smooth(method='lm')
+
+m <- lmer(Up3OfBradySum ~ pSN_avg_cw + pSN_avg_cb + Age + Gender + (1|pseudonym), data = disaggdat,
+          control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = F)
+m_null <- lmer(Up3OfBradySum ~ pSN_avg_cb + Age + Gender + (1|pseudonym), data = disaggdat,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = F)
+anova(m_null,m)
+ggemmeans(m,'pSN_avg_cw') %>% plot() %>% print()
+
+```
+
+### *LEDD: baseline and follow-up
+
+```{r, echo=F,warning=F,message=F}
+
+# Baseline
+print('>>> Baseline: LEDD vs pSN FW')
+cor.test(df_fw$LEDD[df_fw$TimepointNr==0],df_fw$pSN_avg[df_fw$TimepointNr==0], method = 'spearman') %>% print()
+g <- df_fw %>%
+    filter(ParticipantType=='Patient',
+           TimepointNr==0) %>%
+    ggplot(aes(x=LEDD,y=pSN_avg)) + 
+    geom_point() + 
+    geom_smooth(method='lm')
+print(g)
+m <- corrdat %>%
+  filter(TimepointNr==0) %>%
+  lm(pSN_avg ~ LEDD + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
+Anova(m,type=3) %>% print()
+summary(m) %>% print()
+# Follow-up
+print('>>> Follow-up: LEDD vs pSN FW')
+cor.test(df_fw$LEDD[df_fw$TimepointNr==2],df_fw$pSN_avg[df_fw$TimepointNr==2], method = 'spearman') %>% print()
+g <- df_fw %>%
+    filter(ParticipantType=='Patient',
+           TimepointNr==2) %>%
+    ggplot(aes(x=LEDD,y=pSN_avg)) + 
+    geom_point() + 
+    geom_smooth(method='lm')
+print(g)
+m <- corrdat %>%
+  filter(TimepointNr==2) %>%
+  lm(pSN_avg ~ Up3OfBradySum + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
+Anova(m,type=3) %>% print()
+summary(m) %>% print()
+
+```
+
+### LEDD: longitudinal (RM-CORR)
+
+```{r, echo=F,warning=F,message=F,eval=F}
+
+corrdat <- df_fw %>%
+    filter(ParticipantType=='Patient')
+rmc <- rmcorr('pseudonym',LEDD,pSN_avg,dataset = corrdat)
+print(rmc)
+plot(rmc)
+
+```
+
+### *LEDD: longitudinal (delta)
+
+```{r, echo=F,warning=F,message=F}
+
+deltadat <- df_fw %>%
+  filter(ParticipantType=='Patient',
+         TimepointNr==0)
+m <- lm(T2sub0_LEDD ~ T2sub0_pSN_avg + T0_LEDD + T0_pSN_avg + Age + Gender + NpsEducYears + YearsSinceDiag, data = deltadat)
+Anova(m,type=3)
+summary(m)
+ggemmeans(m,c('T2sub0_pSN_avg')) %>% plot() %>% print()
+g <- deltadat %>%
+    ggplot(aes(x=T2sub0_LEDD,y=T2sub0_pSN_avg)) + 
+    geom_point() + 
+    geom_smooth(method='lm',color='black')
+plot(g)
+cor.test(deltadat$T2sub0_LEDD[deltadat$TimepointNr==0],deltadat$T2sub0_pSN_avg[deltadat$TimepointNr==0], method = 'spearman') %>% print()
+
+```
+
+### LEDD: longitudinal (disaggregation)
+
+```{r, echo=F,warning=F,message=F,eval=F}
+
+library(bmlm)
+complete_subjects <- df_fw %>%
+  filter(ParticipantType=='Patient') %>%
+  select(pseudonym,TimepointNr,Age,Gender,LEDD,pSN_avg) %>%
+  pivot_wider(id_cols = c('pseudonym','Age','Gender'),
+              names_from = 'TimepointNr',
+              names_prefix = 'T',
+              values_from = c('LEDD','pSN_avg')) %>%
+  na.omit() %>%
+  pull(pseudonym)
+
+disaggdat <- df_fw %>%
+  filter(ParticipantType=='Patient',
+         pseudonym %in% complete_subjects) %>%
+  isolate(.,
+          by = 'pseudonym',
+          value = c('LEDD','pSN_avg'),
+          which = 'both') %>%
+  select(pseudonym,TimepointNr,Age,Gender,starts_with('LEDD'),starts_with('pSN_avg'))
+
+disaggdat %>%
+  ggplot(aes(x=pSN_avg_cw,y=LEDD_cw)) +
+  geom_point() + 
+  geom_line(aes(group=pseudonym)) + 
+  geom_smooth(method='lm')
+
+m <- lmer(LEDD ~ pSN_avg_cw + pSN_avg_cb + Age + Gender + (1|pseudonym), data = disaggdat,
+          control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = F)
+m_null <- lmer(LEDD ~ pSN_avg_cb + Age + Gender + (1|pseudonym), data = disaggdat,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=2e5)), REML = F)
+anova(m_null,m)
+ggemmeans(m,'pSN_avg_cw') %>% plot() %>% print()
+
+```
+
+## Basal ganglia ~ pSN
+
+```{r, echo=F,warning=F,message=F, eval=F}
+
+df.bg <- df_fw %>%
+  filter(TimepointNr==0,
+         ParticipantType=='Patient') %>%
+  select(pseudonym,Age,Gender,MAF_pSN_avg,BG_activity,CB_activity,M1_activity,LEDD) %>%
+  na.omit()
+
+gp <- ggpairs(df.bg, columns = 4:8, aes(alpha=0.5),
+        lower = list(continuous = 'smooth'))
+print(gp)
+
+m <- lm(BG_activity ~ MAF_pSN_avg + Age + Gender, data = df.bg)
+anova(m) %>% print()
+summary(m) %>% print()
+ggemmeans(m, 'MAF_pSN_avg') %>% plot() %>% print()
+
+```
+
+## *Write FW values for FSL covariate analysis
+
+This section should be run manually.
+
+```{r, echo=F,warning=F,message=F,eval=F}
+
+cons <- c('con_0007', 'con_0010')
+
+for(i in cons){
+  
+  pth <- paste0('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/imgs__delta_clincorr.txt')
+  pths <- read_csv(pth, col_names = c('paths')) %>%
+    mutate(pseudonym = str_sub(paths, start = 72, end = 95))
+  
+  fsl_covs <-
+    df_fw %>%
+    filter(ParticipantType=='Patient') %>%
+    select(pseudonym, TimepointNr, pSN_avg) %>%
+    pivot_wider(id_cols = 'pseudonym',
+                names_from = 'TimepointNr',
+                names_prefix = 'T',
+                values_from = 'pSN_avg') %>%
+    mutate(pSN_Delta = T2-T0,
+           across(where(is.numeric), \(x) round(x, 5))) %>%
+    rename(pSN_T0 = T0) %>%
+    select(-T2) %>%
+    relocate(pseudonym, pSN_Delta, pSN_T0)
+  
+  fsl_covs <- pths %>%
+    left_join(fsl_covs, by = 'pseudonym')
+  
+  outpth <- paste0('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/covs__delta_pSN_FW.csv')
+  write_csv(fsl_covs, outpth)
+  
+  fsl_covs <-
+    df_md %>%
+    filter(ParticipantType=='Patient') %>%
+    select(pseudonym, TimepointNr, bi_caudalmiddlefrontal_dti) %>%
+    pivot_wider(id_cols = 'pseudonym',
+                names_from = 'TimepointNr',
+                names_prefix = 'T',
+                values_from = 'bi_caudalmiddlefrontal_dti') %>%
+    mutate(cmf_Delta = T2-T0,
+           across(where(is.numeric), \(x) round(x, 5))) %>%
+    rename(cmf_T0 = T0) %>%
+    select(-T2) %>%
+    relocate(pseudonym, cmf_Delta, cmf_T0)
+  
+  fsl_covs <- pths %>%
+    left_join(fsl_covs, by = 'pseudonym')
+  
+  outpth <- paste0('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/covs__delta_caudalmiddlefrontal_MD.csv')
+  write_csv(fsl_covs, outpth)
+  
+}
+
+```
+
+## *FreeSurfer metrics
+
+```{r, echo=F,warning=F,message=F}
+
+# Weights to match patients and controls
+set.seed(312)
+matching0 <- df_md %>%
+  filter(TimepointNr==0) %>%
+  select(pseudonym,ParticipantType,Age,Gender,NpsEducYears) %>%
+  mutate(ParticipantType = if_else(ParticipantType=='Healthy',0,1)) %>%
+  na.omit() %>%
+  matchit(ParticipantType ~ Age + Gender + NpsEducYears,
+          data = .,
+          method = NULL,
+          distance = 'glm',
+          link = 'probit',
+          estimand = 'ATT')
+summary(matching0)
+matching1 <- df_md %>%
+  filter(TimepointNr==0) %>%
+  select(pseudonym,ParticipantType,Age,Gender,NpsEducYears) %>%
+  mutate(ParticipantType = if_else(ParticipantType=='Healthy',0,1)) %>%
+  na.omit() %>%
+  matchit(ParticipantType ~ Age + Gender + NpsEducYears,
+          data = .,
+          method = 'full',
+          distance = 'glm',
+          link = 'probit',
+          estimand = 'ATT',
+          tol = 1e-4)
+summary(matching1, un = F)
+plot(summary(matching1))
+plot(matching1, type = 'jitter', interactive = F)
+plot(matching1, type = 'density', interactive = F,
+     which.xs = ~Age + Gender + NpsEducYears)
+w <- match.data(matching1) %>%
+  select(pseudonym, ParticipantType, weights) %>%
+  mutate(ParticipantType = factor(if_else(ParticipantType==0,'Healthy','Patient')))
+df_md <- df_md %>%
+  left_join(., w, by = c('pseudonym','ParticipantType'))
+
+# Write data for plotting purposes
+write_csv(df_md,'/project/3024006.02/wd/ggseg_all_data.csv')
+
+# Group x Time comparisons, 1 observation per timepoint
+
+labels <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
+            'paracentral','postcentral','precentral',
+            'superiorfrontal','caudalmiddlefrontal')
+# 'premotor','sensorimotor','parietal'
+measure <- c('dti')
+hemi <- c('bi')
+cols <- paste(hemi,labels,measure,sep='_')
+
+plot_dat <- df_md %>%
+  select(pseudonym,ParticipantType,TimepointNr,
+         all_of(cols)) %>%
+  pivot_longer(cols = all_of(cols),
+               names_to = 'region',
+               values_to = 'metric')
+plot_dat %>%
+  ggplot(aes(x=factor(region),y=metric,fill=TimepointNr)) + 
+  geom_boxplot() + 
+  facet_wrap(~ParticipantType) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+tab <- c()
+tab2 <- c()
+for(lab in labels){
+  
+        print(paste0('>>> Region: ', lab))
+        
+  # Variables to use
+  dv <- paste0(hemi,'_',lab, '_', measure)
+  dv_delta <- paste0('T2sub0_',dv)
+  dv_t0 <- paste0('T0_',dv)
+  dv_t2 <- paste0('T2_',dv)
+  iv_thick_ba <- paste0('T0_',str_replace(dv,'dti','thickavg'))
+  iv_thick_fu <- paste0('T2_',str_replace(dv,'dti','thickavg'))
+  iv_thick_delta <- paste0('T2sub0_',str_replace(dv,'dti','thickavg'))
+  # iv_allregions_ba <- paste0('T0_',hemi,'_','allregions', '_', measure)
+  # iv_allregions_fu <- paste0('T2_',hemi,'_','allregions', '_', measure)
+  # iv_allregions_delta <- paste0('T2sub0_',hemi,'_','allregions', '_', measure)
+  
+  # Group comparisons
+  f <- paste0('log(', dv, ') ~ ParticipantType*TimepointNr + Age + Gender + NpsEducYears + ', iv_thick_delta,'+',iv_thick_ba, ' + (1|pseudonym)')
+  m <- lmer(f, df_md, weights = NULL)
+  tab_model(m,show.se = T, digits=5)
+  a <- Anova(m,type=3)
+  print(a)
+  eta_squared(m) %>% print()
+  em <- emmeans(m, ~ TimepointNr|ParticipantType, type='response')
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response', by=NULL) %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  contrast(em, interaction = c('revpairwise','revpairwise'),
+           adjust='mvt', type='response') %>% 
+    kable(., 'pipe', digits = 3, padding=0) %>% print()
+  
+  # g1 <- df_md %>%
+  #   ggplot(aes(y=.data[[dv]],x=ParticipantType,fill=TimepointNr)) +
+  #   geom_boxplot() + theme_bw()
+  # g2 <- ggemmeans(m, terms = c('ParticipantType','TimepointNr')) %>% plot()
+  
+  # Correlations
+  pcor_dat <- df_md %>%
+    filter(ParticipantType=='Patient',
+           TimepointNr==0,
+           complete_case == 1) %>%
+    rename(T0_Up3BradySum=T0_Up3OfBradySum, T2sub0_Up3BradySum=T2sub0_Up3OfBradySum) %>%
+    select(pseudonym,all_of(dv_delta),all_of(dv_t0),
+           T0_Up3BradySum,T2sub0_Up3BradySum,
+           T0_z_MoCA__total,T2sub0_z_MoCA__total,
+           T0_LEDD,T2sub0_LEDD,
+           all_of(c(iv_thick_ba,iv_thick_delta)),
+           Age,NpsEducYears,Gender,YearsSinceDiag) %>%
+    na.omit()
+  
+  # Symptom-specific correlations
+  m_delta <- lm(paste0(dv_delta, '~', dv_t0, 
+                       '+T2sub0_Up3BradySum+T0_Up3BradySum+T2sub0_z_MoCA__total+T0_z_MoCA__total+T2sub0_LEDD+T0_LEDD+Age+Gender+NpsEducYears+YearsSinceDiag+',
+                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+  s_delta <- summary(m_delta)
+  
+  # g3 <- pcor_dat %>%
+  #   ggplot(aes(y=.data[[dv_delta]],x=T2sub0_Up3BradySum)) +
+  #   geom_point() +
+  #   geom_smooth(method = 'lm')
+  # g4 <- ggemmeans(m_delta, terms='T2sub0_Up3BradySum') %>%
+  #   plot(add.data = T)
+  # g5 <- ggemmeans(m_delta, terms='T2sub0_z_MoCA__total') %>%
+  #   plot(add.data = T)
+  # g6 <- ggemmeans(m_delta, terms='T2sub0_LEDD') %>%
+  #   plot(add.data = T)
+  
+  # Non-specific correlations
+  m_delta_brady <- lm(paste0(dv_delta, '~', dv_t0, 
+                       '+T2sub0_Up3BradySum+T0_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag+',
+                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+  s_delta_brady <- summary(m_delta_brady)
+  m_delta_moca <- lm(paste0(dv_delta, '~', dv_t0, 
+                       '+T2sub0_z_MoCA__total+T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag+',
+                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+  s_delta_moca <- summary(m_delta_moca)
+  m_delta_ledd <- lm(paste0(dv_delta, '~', dv_t0, 
+                       '+T2sub0_LEDD+T0_LEDD+Age+Gender+NpsEducYears+YearsSinceDiag+',
+                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+  s_delta_ledd <- summary(m_delta_ledd)
+  
+  # Time-specific correlations
+    # T0
+  tcor_dat_t0 <- df_md %>%
+    filter(ParticipantType=='Patient',
+           TimepointNr==0) %>%
+    rename(T0_Up3BradySum=T0_Up3OfBradySum) %>%
+    select(pseudonym,all_of(dv_t0),
+           T0_Up3BradySum,
+           T0_z_MoCA__total,
+           all_of(c(iv_thick_ba)),
+           Age,NpsEducYears,Gender,YearsSinceDiag) %>%
+    na.omit()
+  s_ba_all <- lm(paste0(dv_t0, '~T0_Up3BradySum+T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
+  s_ba_brady <- lm(paste0(dv_t0, '~T0_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
+  s_ba_moca <- lm(paste0(dv_t0, '~T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
+    # T2
+  tcor_dat_t2 <- df_md %>%
+    filter(ParticipantType=='Patient',
+           TimepointNr==2) %>%
+    rename(T2_Up3BradySum=T2_Up3OfBradySum) %>%
+    select(pseudonym,all_of(dv_t2),
+           T2_Up3BradySum,
+           T2_z_MoCA__total,
+           all_of(c(iv_thick_fu)),
+           Age,NpsEducYears,Gender,YearsSinceDiag) %>%
+    na.omit()
+  s_fu_all <- lm(paste0(dv_t2, '~T2_Up3BradySum+T2_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
+  s_fu_brady <- lm(paste0(dv_t2, '~T2_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
+  s_fu_moca <- lm(paste0(dv_t2, '~T2_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
+
+  # g <- ggarrange(g1,g2,g3,ncol = 2, nrow = 2)
+  # print(g)
+
+  # g <- ggarrange(g4,g5,g6,ncol = 2, nrow = 2)
+  # print(g)
+  
+  # RM correlations
+  rcor_dat <- df_md %>%
+    filter(ParticipantType=='Patient',
+           complete_case==1) %>%
+    rename(Up3BradySum=Up3OfBradySum)
+  rmc_brady <- rmcorr('pseudonym',dv,'Up3BradySum',dataset = rcor_dat)
+  rmc_moca <- rmcorr('pseudonym',dv,'z_MoCA__total',dataset = rcor_dat)
+  rmc_ledd <- rmcorr('pseudonym',dv,'LEDD',dataset = rcor_dat)
+  
+  # Cohen's d
+  d <- df_md %>%
+    filter(TimepointNr==0) %>%
+    select(all_of(dv_delta),ParticipantType) %>%
+    na.omit() %>%
+    cohens_d(dv_delta,'ParticipantType',data=.,pooled_sd = F)
+  # Eta squared
+  eta <- eta_squared(m)
+  
+  tab <- bind_rows(tab,
+                   tibble(label=dv,
+                          p_Group_x_Time=a[rownames(a)=='ParticipantType:TimepointNr',3],
+                          p_Time=a[rownames(a)=='TimepointNr',3],
+                          p_Group=a[rownames(a)=='ParticipantType',3],
+                          cohens_d=d$Cohens_d,
+                          eta_squared=eta$Eta2_partial[eta$Parameter=='ParticipantType:TimepointNr'],
+                          p_brady_delta=s_delta$coefficients[rownames(s_delta$coefficients)=='T2sub0_Up3BradySum',4],
+                          p_bradyOnly_delta=s_delta_brady$coefficients[rownames(s_delta_brady$coefficients)=='T2sub0_Up3BradySum',4],
+                          p_brady_rmc=rmc_brady$p,
+                          p_moca_delta=s_delta$coefficients[rownames(s_delta$coefficients)=='T2sub0_z_MoCA__total',4],
+                          p_mocaOnly_delta=s_delta_moca$coefficients[rownames(s_delta_moca$coefficients)=='T2sub0_z_MoCA__total',4],
+                          p_moca_rmc=rmc_moca$p,
+                          p_ledd_delta=s_delta$coefficients[rownames(s_delta$coefficients)=='T2sub0_LEDD',4],
+                          p_leddOnly_delta=s_delta_ledd$coefficients[rownames(s_delta_ledd$coefficients)=='T2sub0_LEDD',4],
+                          p_ledd_rmc=rmc_ledd$p)
+  )
+  tab2 <- bind_rows(tab2,
+                   tibble(label=dv,
+                          p_all_brady_ba=s_ba_all$coefficients[rownames(s_ba_all$coefficients)=='T0_Up3BradySum',4],
+                          p_ba_brady=s_ba_brady$coefficients[rownames(s_ba_brady$coefficients)=='T0_Up3BradySum',4],
+                          p_all_brady_fu=s_fu_all$coefficients[rownames(s_fu_all$coefficients)=='T2_Up3BradySum',4],
+                          p_fu_brady=s_fu_brady$coefficients[rownames(s_fu_brady$coefficients)=='T2_Up3BradySum',4],
+                          p_all_moca_ba=s_ba_all$coefficients[rownames(s_ba_all$coefficients)=='T0_z_MoCA__total',4],
+                          p_ba_moca=s_ba_moca$coefficients[rownames(s_ba_moca$coefficients)=='T0_z_MoCA__total',4],
+                          p_all_moca_fu=s_fu_all$coefficients[rownames(s_fu_all$coefficients)=='T2_z_MoCA__total',4],
+                          p_mocaOnly_fu=s_fu_moca$coefficients[rownames(s_fu_moca$coefficients)=='T2_z_MoCA__total',4])
+  )
+}
+
+print(tab)
+print(paste0('>>> FDR-corrected GROUP x TIME')) 
+p.adjust(tab$p_Group_x_Time,method='fdr') %>% round(digits=5)
+write_csv(tab,'/project/3024006.02/wd/ggseg_stats_CLINvsMD.csv')
+print(tab2)
+print(paste0('>>> FDR-corrected BRADYKINESIA')) 
+p.adjust(tab2$p_all_brady_ba,method='fdr') %>% round(digits=5)
+
+# Visualization
+
+n <- df_md %>%
+  select(ParticipantType,TimepointNr,bi_caudalmiddlefrontal_dti) %>%
+  na.omit() %>%
+  count(ParticipantType,TimepointNr)
+
+## Caudal middle frontal
+g <- df_md %>%
+  ggplot(aes(x=ParticipantType, y = bi_caudalmiddlefrontal_dti, color=TimepointNr)) +
+  geom_jitter(alpha=0.2, position = position_jitterdodge(jitter.width = 0.2)) +
+  geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
+  stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5, 
+               mapping = aes(group=TimepointNr), position = position_dodge(width=0.8)) +
+  theme_bw() + 
+  scale_x_discrete(labels=c('Control','PD')) +
+  scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                        direction = -1) + 
+  ggtitle('') +
+  ylab('Mean diffusivity') + xlab('') + ggtitle('Caudal middle frontal gyrus') +
+  guides(color = guide_legend(title='Year')) +
+  ylim(0.68, 1) + 
+  annotate(geom='text',label='N=60',x=0.8,y=0.68) +
+  annotate(geom='text',label='N=54',x=1.2,y=0.68) +
+  annotate(geom='text',label='N=355',x=1.8,y=0.68) +
+  annotate(geom='text',label='N=308',x=2.2,y=0.68)
+y <- 1
+d = 0.015
+segmap <- data.frame(
+        x =    c(1.00, 0.80,  1.80, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 1.80, 0.80),
+        xend = c(2.00, 1.20,  2.20, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 2.20, 1.20),
+        y =    c(y,    y-d,   y-d,  y,    y,    y-d*1,y-d*1,y-d*1,y-d*1, y-d*3, y-d*3),
+        yend = c(y,    y-d,   y-d,  y-d*1,y-d*1,y-d*2,y-d*2,y-d*2,y-d*2, y-d*3, y-d*3)
+)
+sigmap <- data.frame(
+        x =     c(1.50, 1.00,        2.00),
+        y =     c(y,    y-d*3, y-d*3),
+        label = c('***','*', '***')
+)
+g <- g + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(g)
+save_plot(g, filename = '/home/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/CorticalMD/cMD_caudalmiddlefrontal_HCvsPD.png', dpi=300, device='png', base_width = 5)
+
+## Inferior parietal cortex
+g <- df_md %>%
+  ggplot(aes(x=ParticipantType, y = bi_inferiorparietal_dti, color=TimepointNr)) +
+  geom_jitter(alpha=0.2, position = position_jitterdodge(jitter.width = 0.2)) +
+  geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
+  stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5, 
+               mapping = aes(group=TimepointNr), position = position_dodge(width=0.8)) +
+  theme_bw() + 
+  scale_x_discrete(labels=c('Control','PD')) +
+  scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                        direction = -1) + 
+  ggtitle('') +
+  ylab('Mean diffusivity') + xlab('') + ggtitle('Inferior parietal cortex') +
+  guides(color = guide_legend(title='Year')) +
+  ylim(0.68, 1) + 
+  annotate(geom='text',label='N=60',x=0.8,y=0.68) +
+  annotate(geom='text',label='N=54',x=1.2,y=0.68) +
+  annotate(geom='text',label='N=355',x=1.8,y=0.68) +
+  annotate(geom='text',label='N=308',x=2.2,y=0.68)
+y <- 1
+d = 0.015
+segmap <- data.frame(
+        x =    c(1.00, 0.80,  1.80, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 1.80, 0.80),
+        xend = c(2.00, 1.20,  2.20, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 2.20, 1.20),
+        y =    c(y,    y-d,   y-d,  y,    y,    y-d*1,y-d*1,y-d*1,y-d*1, y-d*3, y-d*3),
+        yend = c(y,    y-d,   y-d,  y-d*1,y-d*1,y-d*2,y-d*2,y-d*2,y-d*2, y-d*3, y-d*3)
+)
+sigmap <- data.frame(
+        x =     c(1.50, 1.00,        2.00),
+        y =     c(y,    y-d*3+0.01, y-d*3),
+        label = c('***','+', '***')
+)
+g <- g + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     size = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(g)
+save_plot(g, filename = '/home/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/CorticalMD/cMD_inferiorparietal_HCvsPD.png', dpi=300, device='png', base_width = 5)
+
+```
+
+## *Compensation ~ cortical microstructure
+
+```{r, echo=F,warning=F,message=F}
+
+labels <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
+            'paracentral','postcentral','precentral',
+            'superiorfrontal','caudalmiddlefrontal')
+# 'premotor','sensorimotor','parietal','allregions'
+measure <- c('dti')
+hemi <- c('bi')
+prefix <- c('T2sub0')
+cols_T2sub0 <- paste(prefix,hemi,labels,measure,sep='_')
+prefix <- c('T0')
+cols_T0 <- paste(prefix,hemi,labels,measure,sep='_')
+
+tmp <- df_md %>% 
+  filter(ParticipantType=='Patient',
+         TimepointNr==0) %>%
+  select(pseudonym, ParticipantType, TimepointNr, Age, Gender, NpsEducYears, YearsSinceDiag,
+         T2sub0_Up3OnBradySum,T0_Up3OnBradySum,T2sub0_Up3OfBradySum,T0_Up3OfBradySum,
+         all_of(cols_T2sub0),
+         all_of(cols_T0),
+         all_of(str_replace(cols_T0,'dti','thickavg')),
+         all_of(str_replace(cols_T2sub0,'dti','thickavg')),
+         T2sub0_bi_allregions_dti,T0_bi_allregions_dti) %>%
+  select(-c(ParticipantType,TimepointNr))
+
+tmp <- df_compensation_AddCov0 %>%
+  left_join(., tmp, by = c('pseudonym')) %>%
+  na.omit()
+
+# Explore correlation structure
+# tmp %>%
+#   select(T2sub0_bi_premotor_comp,
+#          T2sub0_Up3OnBradySum,
+#          all_of(cols_T2sub0)) %>%
+#   ggpairs()
+
+tab <- c()
+for(lab in 1:length(labels)){
+  iv_T2sub0 <- cols_T2sub0[lab]
+  iv_T0 <- cols_T0[lab]
+  iv_thick_ba <- paste0(str_replace(iv_T0,'dti','thickavg'))
+  iv_thick_delta <- paste0(str_replace(iv_T2sub0,'dti','thickavg'))
+  iv_allregions_ba <- paste0('T0_',hemi,'_','allregions', '_', measure)
+  iv_allregions_delta <- paste0('T2sub0_',hemi,'_','allregions', '_', measure)
+  
+  # Parietal comp
+  f <- paste0('T2sub0_L_parietal_comp ~ ', iv_T2sub0, ' + Age + Gender + NpsEducYears + YearsSinceDiag + T0_L_parietal_comp +',iv_T0)
+  m <- lm(f, data = tmp)
+  a1 <- Anova(m,type=3)
+  
+  g1 <- tmp %>%
+    ggplot(aes(x=.data[[iv_T2sub0]],y=T2sub0_L_parietal_comp)) +
+    geom_point() + geom_smooth(method='lm',color='blue') + theme_bw() +
+    ggtitle('Raw values of T2sub0_L_parietal_comp')
+  pred <- ggpredict(m, terms=iv_T2sub0)
+  g2 <- plot(pred, add.data = TRUE) + theme_bw() + 
+        geom_hline(yintercept = 0, color = 'darkgrey', lty = 2) + geom_vline(xintercept = 0, color = 'darkgrey', lty = 2)
+  g <- ggarrange(g1,g2,nrow = 2,ncol = 1)
+  # print(g)
+  
+  # Premotor comp
+  f <- paste0('T2sub0_bi_premotor_comp ~ ', iv_T2sub0, ' + Age + Gender + NpsEducYears + YearsSinceDiag + T0_bi_premotor_comp +',iv_T0)
+  m <- lm(f, data = tmp)
+  a2 <- Anova(m,type=3)
+  
+  # Parietopremotor comp
+  f <- paste0('T2sub0_bi_parietopremotor_comp ~ ', iv_T2sub0, ' + Age + Gender + NpsEducYears + YearsSinceDiag + T0_bi_parietopremotor_comp +',iv_T0)
+  m <- lm(f, data = tmp)
+  a3 <- Anova(m,type=3)
+  
+  # rcor_dat <- df_md %>%
+  #   filter(ParticipantType=='Patient',
+  #          Exclusion_MD!=1,
+  #          complete_case==1)
+  # rmc_brady <- rmcorr('pseudonym',dv,'Up3OnBradySum',dataset = rcor_dat)
+  # rmc_moca <- rmcorr('pseudonym',dv,'z_MoCA__total',dataset = rcor_dat)
+  # rmc_ledd <- rmcorr('pseudonym',dv,'LEDD',dataset = rcor_dat)
+  
+  tab <- bind_rows(tab,
+                   tibble(region=iv_T2sub0,
+                          p_T2sub0_L_parietal_comp=a1[rownames(a1)==iv_T2sub0,4],
+                          p_T2sub0_bi_premotor_comp=a2[rownames(a2)==iv_T2sub0,4],
+                          p_T2sub0_bi_parietopremotor_comp=a3[rownames(a3)==iv_T2sub0,4])
+  )
+}
+print(tab)
+write_csv(tab,'/project/3024006.02/wd/ggseg_stats_COMPvsMD.csv')
+write_csv(tmp,'/project/3024006.02/wd/ggseg_data_COMPvsMD.csv')
+
+```
+
+## Work that needs to be done
+
+
+
