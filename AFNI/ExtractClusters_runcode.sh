@@ -1,7 +1,7 @@
 #!/bin/bash
 
 module load afni
-dir=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/ROI/Masked_full/
+dir=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/WholeBrain
 cd $dir
 source ~/scripts/Personalized-Parkinson-Project-Motor/AFNI/ExtractClusters.sh
 # nvox=`1d_tool.py -infile /project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/afc/CLUSTER-TABLE.NN2_2sided.1D -csim_show_clustsize -verb 0`
@@ -52,6 +52,12 @@ extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_Group_by_Type 24 24 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_PD_by_Type 28 28 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_HC_by_Type 26 26 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_Group_by_TypeBA 30 30 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_PD_by_TypeBA 34 34 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_HC_by_TypeBA 32 32 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_Group_by_TypeFU 36 36 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_PD_by_TypeFU 40 40 Z $nvox
+extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 z_HC_by_TypeFU 38 38 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_Group 42 42 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_GroupBA 44 44 Z $nvox
 extract_clusters $dir/3dLME_disease con_combined_Group2_x_TimepointNr2_x_Type3 Z_GroupFU 46 46 Z $nvox

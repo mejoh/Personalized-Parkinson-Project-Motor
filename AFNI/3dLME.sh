@@ -2,7 +2,7 @@
 
 #qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_test -l 'nodes=1:ppn=32,walltime=06:00:00,mem=90gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh
 
-#ROI=(2 0); GC=(1 0); for roi in ${ROI[@]}; do for gc in ${GC[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_${roi}${gc} -v R=${roi},G=${gc} -l 'nodes=1:ppn=32,walltime=07:00:00,mem=85gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh; done; done
+#ROI=(0); GC=(1); for roi in ${ROI[@]}; do for gc in ${GC[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_${roi}${gc} -v R=${roi},G=${gc} -l 'nodes=1:ppn=32,walltime=07:00:00,mem=85gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME.sh; done; done
 
 # R=2
 # G=0
@@ -16,6 +16,7 @@ GroupComparison=${G}	# 1 = Group comparison, 0 = Correlation analysis
 
 module unload afni; module load afni/2022
 module unload R; module load R/4.1.0
+module load R-packages/4.1.0
 njobs=32
 
 dOutput=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI
@@ -152,6 +153,9 @@ if [ $GroupComparison -eq 1 ]; then
 	-gltCode Group_BA 'Group : -1*HC_PIT 1*PD_POM TimepointNr : 1*T0' \
 	-gltCode Group_FU 'Group : -1*HC_PIT 1*PD_POM TimepointNr : 1*T1' \
 	-gltCode Time 'TimepointNr : -1*T0 1*T1' \
+	-gltCode Type123 'trial_type : 0.5*1c 0.5*23c' \
+	-gltCode Type123_BA 'trial_type : 0.5*1c 0.5*23c TimepointNr : 1*T0' \
+	-gltCode Type123_FU 'trial_type : 0.5*1c 0.5*23c TimepointNr : 1*T1' \
 	-gltCode Type23gt1 'trial_type : -1*1c 1*23c' \
 	-gltCode Type23gt1_BA 'trial_type : -1*1c 1*23c TimepointNr : 1*T0' \
 	-gltCode Type23gt1_FU 'trial_type : -1*1c 1*23c TimepointNr : 1*T1' \

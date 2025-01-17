@@ -72,6 +72,7 @@ if [ -f "${pref_map}+tlrc.HEAD" ]; then
 	whereami -space TLRC -atlas CA_MPM_22_TT  -omask ${pref_map}+tlrc. > ${pref_map}_a-CA-MPM-22-TT.txt
 	3drefit -space MNI ${pref_map}+tlrc.
 	whereami -space MNI -spm -atlas CA_MPM_22_MNI  -omask ${pref_map}+tlrc. > ${pref_map}_a-CA-MPM-22-MNI.txt
+whereami -space MNI -spm -atlas CA_ML_18_MNI  -omask ${pref_map}+tlrc. > ${pref_map}_a-CA_ML_18_MNI.txt
 	whereami -space MNI -spm -atlas MNI_Glasser_HCP_v1.0  -omask ${pref_map}+tlrc > ${pref_map}_a-MNI-Glasser-HCP-v1.txt
 	whereami -space MNI -spm -atlas Brainnetome_1.0  -omask ${pref_map}+tlrc > ${pref_map}_a-Brainnetome-v1.txt
 	# 3drefit -space TLRC ${pref_map}+tlrc.

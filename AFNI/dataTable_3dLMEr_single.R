@@ -23,7 +23,7 @@ dataTable_3dLMEr_single <- function(con='con_0007.nii', outputDir='/project/3024
     
     ##### Load clinical data and select subtype variable #####
     # DiagEx1 = Baseline diagnosis - DiagEx2 = Follow-up diagnosis - DiagEx3 = Both
-    dfClinVars <- read_csv('/project/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2023-10-18.csv') %>%
+    dfClinVars <- read_csv('/project/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2024-07-17.csv') %>%
         rename(Subtype = Subtype_DiagEx3_DisDurSplit.MCI_z) %>%
         mutate(Subtype = if_else(ParticipantType=='HC_PIT', '0_Healthy', Subtype),
                Subtype = if_else(is.na(Subtype),'4_Undefined',Subtype))

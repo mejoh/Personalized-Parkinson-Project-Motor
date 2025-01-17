@@ -2,9 +2,12 @@
 
 #qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_testRscGroup -l 'nodes=1:ppn=32,walltime=06:00:00,mem=90gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_AcrossCondition.sh
 
-#CON=(con_0010 con_0007); ROI=(2 0); GC=(1 0); POLY=(1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do for gc in ${GC[@]}; do for poly in ${POLY[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_AC_${con}_${roi}${gc}${poly} -v R=${roi},G=${gc},P=${poly},C=${con} -l 'nodes=1:ppn=32,walltime=03:00:00,mem=40gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_AcrossCondition.sh; done; done; done; done
+# Torque
+#CON=(con_0010 con_0007); ROI=(2 0); GC=(1); POLY=(1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do for gc in ${GC[@]}; do for poly in ${POLY[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N 3dLME_AC_${con}_${roi}${gc}${poly} -v R=${roi},G=${gc},P=${poly},C=${con} -l 'nodes=1:ppn=32,walltime=03:00:00,mem=40gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_AcrossCondition.sh; done; done; done; done
+# Slurm
+#CON=(con_0010 con_0007); ROI=(2 0); GC=(1); POLY=(1); for con in ${CON[@]}; do for roi in ${ROI[@]}; do for gc in ${GC[@]}; do for poly in ${POLY[@]}; do sbatch -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -J 3dLME_AC_${con}_${roi}${gc}${poly} --export=R=${roi},G=${gc},P=${poly},C=${con} -N 1 -c 32 --time=03:00:00 --mem=40G /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_AcrossCondition.sh; done; done; done; done
 
-# R=1
+# R=2
 # G=1
 # P=1
 # C=con_0010
@@ -18,6 +21,7 @@ con=${C}				# con_0010 = Mean, con_0012 = 2>1, con_0013 = 3>1, con_0008 = 3>2
 
 module unload afni; module load afni/2022
 module unload R; module load R/4.1.0
+module load R-packages/4.1.0
 njobs=32
 export OMP_NUM_THREADS=32
 
