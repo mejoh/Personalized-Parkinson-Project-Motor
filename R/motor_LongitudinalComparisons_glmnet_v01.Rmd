@@ -1,0 +1,194 @@
+---
+title: "Predicting PD progression with functional and structural aspects of nigro-striatal
+  deficits and cortical compensation"
+author: "M.E. Johansson"
+date: "2024-09-20"
+output: 
+  html_document:
+    toc: yes
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r LIBRARIES, echo=F, warning=F, message=F}
+library(tidyverse)
+library(tidymodels)
+library(glmnet)
+library(broom.mixed)
+library(vip)
+
+options(contrasts=c("contr.sum", "contr.poly"))
+```
+
+## Prepare data
+
+```{r PREP-DATA, echo=F, warning=F, message=F}
+df <- read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_clin.csv') %>%
+    select(!starts_with('Up3Of')) %>%
+    mutate(Gender = factor(Gender)) %>%
+    full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_func_premotor.csv'), by = 'pseudonym') %>%
+    full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_func_putamen.csv'), by = 'pseudonym') %>%
+    full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_struc_pSN.csv'), by = 'pseudonym') %>%
+    full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_struc_cort.csv'), by = 'pseudonym') %>%
+    select(!ends_with('T2')) %>%
+    mutate(across(where(is.numeric), \(x) round(x, digits=5))) %>%
+    na.omit()
+```
+
+## Feature engineering
+
+```{r PREP-DATA, echo=F, warning=F, message=F}
+
+cn <- colnames(df)
+Td_colnames <- cn[str_detect(cn,'_Td')]
+T0_colnames <- cn[str_detect(cn,'_T0')]
+for(i in 1:length(Td_colnames)){
+        td <- Td_colnames[i]
+        t0 <- T0_colnames[i]
+        tmp <- df %>%
+                select(all_of(td),all_of(t0))
+        res <- resid(lm(formula = paste0(td, '~', t0), data = tmp))
+        res <- tibble(td_r = res)
+        colnames(res) <- str_replace(td, '_Td', '_TdRes')
+        df <- bind_cols(df, res)
+}
+df <- df %>%
+        select(!ends_with('_Td')) %>%
+        select(!ends_with('_T0'))
+
+```
+
+## Elastic regression
+
+```{r MODEL_stage1, echo=F, warning=F, message=F}
+
+# Split
+set.seed(464)
+df.split <- initial_split(df)
+df.train <- training(df.split)
+df.test <- testing(df.split)
+
+# Model
+tm_mod <- 
+    linear_reg(penalty = tune(), mixture = tune()) %>%
+    set_engine('glmnet') %>%
+    set_mode('regression')
+
+# Recipe
+tm_rec <- 
+    recipe(Up3OnBradySum_TdRes ~ ., data = df) %>%
+    step_rm(pseudonym) %>%
+    step_dummy(all_nominal_predictors()) %>%
+    step_zv(all_predictors()) %>%
+    step_YeoJohnson(all_numeric_predictors()) %>%
+    step_normalize(all_predictors())
+# Check what recipe does the data
+tmp_rec_prep <-
+        tm_rec %>%
+        prep()
+tm_rec_bake <- 
+        tm_rec_prep %>%
+        bake()
+print(tm_rec_bake)
+
+# Workflow
+tm_wf <- 
+    workflow() %>%
+    add_model(tm_mod) %>%
+    add_recipe(tm_rec)
+
+# Tune
+tm_param <- 
+    tm_wf %>%
+    extract_parameter_set_dials()
+tm_reg_grid <- 
+    grid_regular(tm_param,
+                 levels = 10)
+tm_folds <- 
+    vfold_cv(df.train)
+tm_res <-
+    tm_wf %>%
+    tune_grid(resamples = tm_folds,
+              grid = tm_reg_grid,
+              control = control_grid(save_pred = T),
+              metrics = metric_set(rmse, mae, rsq))
+autoplot(tm_res) + 
+    scale_color_viridis_d(direction = -1) + 
+    theme(legend.position = "top")
+tm_res %>%
+    collect_metrics() %>%
+    mutate(mixture = factor(mixture)) %>%
+    ggplot(aes(penalty, mean, color = mixture)) +
+    geom_line(size = 1.5, alpha = 0.6) +
+    geom_point(size = 2) +
+    facet_wrap(~ .metric, scales = "free", nrow = 2) +
+    scale_color_viridis_d(option = "mako", begin = .9, end = 0, direction = -1) + 
+    theme(legend.position = "top")
+tm_top_models <- 
+    tm_res %>%
+    show_best(metric = 'rmse', n = 10) %>%
+    arrange(mean)
+print(tm_top_models)
+tm_best_model <- 
+    tm_res %>%
+    select_best(metric='rmse')
+tm_final_wf <- 
+    tm_wf %>%
+    finalize_workflow(tm_best_model)
+# Fit
+tm_final_fit <- 
+    tm_final_wf %>%
+    last_fit(df.split)
+# Assess
+    # Extract objects of interest
+tmp_final_fit_pred <- 
+    collect_predictions(tm_final_fit)
+tm_final_fit_xte <- 
+    tm_final_fit %>%
+    extract_fit_engine()
+tm_final_fit_xtp <- 
+    tm_final_fit %>%
+    extract_fit_parsnip()
+tm_final_fit_wf <-
+    tm_final_fit %>%
+    extract_workflow()
+    # Evaluate performance
+tmp_final_fit_pred %>%
+    ggplot(aes(x = Up3OnBradySum_TdRes, y = .pred))+
+        geom_abline(color = "gray50", lty = 2) + 
+        geom_point(alpha = 0.5) + 
+        coord_obs_pred() + 
+        labs(x = "observed", y = "predicted") + 
+        theme_bw()
+tm_final_fit %>%
+    collect_metrics() %>%
+    print()
+tm_final_fit_xte %>%
+    plot(., xvar = 'norm', label = T)
+tm_final_fit_xte %>%
+    plot(., xvar = 'lambda', label = T)
+tm_final_fit_xte %>%
+    plot(., xvar = 'dev', label = T)
+tm_final_fit_xtp %>%
+    vip(num_feature = 20)
+tm_final_fit_tidy <- 
+    tm_final_fit_xte %>% tidy()
+```
+
+As seen in the predicted vs observed plot, this model kind of stinks...
+
+## Screen alternative models
+
+```{r}
+
+```
+
+

@@ -43,7 +43,7 @@ manipulate_castor_csv <- function(datafile='/project/3022026.01/pep/ClinVars_10-
         df <- repair_updrs3(df)
         #####
         
-        ##### Extend variables #####
+        ##### Extend variables / Replace with baseline values #####
         source('/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/R/functions/extend_variables.R')
         varlist <- c('Gender', 'Age', 'MonthSinceDiag', 'MostAffSide', 'MriNeuroPsychTask', 'MriRespHand') #MostAffSide
         df <- extend_variables(df, varlist)

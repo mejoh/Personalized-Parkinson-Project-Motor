@@ -24,12 +24,20 @@ extend_variables <- function(df, varlist){
       # Define index for non-NA values
       val.idx <- !na.idx
       
-      # Find values that are not NA. Skip if there are more than 1 unique values
+      # Find values that are not NA
       non.na.val <- unique(vals[val.idx,])
-      if(nrow(non.na.val)>1) next
-      
-      # Replace NAs with real values
-      vals[na.idx,] <- non.na.val
+      # If there is only one unique value, replace all NAs with it.
+      # If there are more than one unique value, replace all values with the
+      # first value (baseline).
+      if(nrow(non.na.val)==1){
+              # Replace NAs with real values
+              vals[na.idx,] <- non.na.val
+      }else{
+              # Define baseline value
+              ba_val <- vals[1,1]
+              # Replace all values with baseline value
+              vals[1:nrow(vals),] <- ba_val
+      }
       
       #Find column and row index in data frame where values should be replaced
       col.idx <- colnames(df) == var

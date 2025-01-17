@@ -2,7 +2,7 @@
 
 function ZipOrUnzip()
 
-dAna = '/project/3024006.02/Analyses/motor_task';
+dAna = '/project/3024006.02/Analyses/motor_task_dcm_03';
 Sub = cellstr(spm_select('List', fullfile(dAna), 'dir', '^sub-POM.*'));
 % pat = '^ssub.*task-motor_acq-MB6.*preproc_bold.nii.*';
 pat = '^beta_0.*.nii.*';
