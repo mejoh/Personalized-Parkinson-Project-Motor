@@ -24,8 +24,8 @@ fclose(fID);
 %% Separate task events
 
 % Data
-% Onsets          = Trials{1,1} - TR/2;
-Onsets          = Trials{1,1} - stime;
+% Onsets          = Trials{1,1} - TR/2; % Onsets at middle of TR
+Onsets          = Trials{1,1} - stime;  % Middle of TR defined exactly
 ResponseTimes   = Trials{1,6};
 
 % Labels
@@ -51,8 +51,11 @@ durations = cell(size(names));
 pmod      = struct('name',{''}, 'param', {}, 'poly', {});   % Parametric modulation: Task regressors are modulated by mean centered RTs
 
 idx = logical(Responses .* (NChoice1+NChoice2+NChoice3) .* Hits);
-dur = mean(ResponseTimes(idx));
-% dur = 0;
+if ~dcm
+    dur = mean(ResponseTimes(idx));
+else
+    dur = 0;
+end
 %% Generate a model of relevant task events
 for n = 1:length(names)
     switch names{n}

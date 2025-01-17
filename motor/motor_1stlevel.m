@@ -1,11 +1,15 @@
 function Inputs = motor_1stlevel(Force, Subset, dcm, session)
 
+%% Description
+% Estimates activity during performance of action selection task
+% Main reference: https://doi.org/10.1093/brain/awad325
 % No arguments: Runs 1st-level for participants who have not been processed
-% Force: Reruns 1st-levelsM
+% Force: Reruns 1st-levels
 % Subset: Number of jobs to send to the cluster
-% preAROMA: Run 1st-levels to prepare for AROMA reclassification
 
-% If batch submission: 
+% JOB SUBMISSION TO CLUSTER
+%
+% If batch submission (X jobs submitted in parallel): 
 % iterations=30;
 % for i = 1:iterations
 %     fprintf("Iteration #%i \n", i)
@@ -13,7 +17,7 @@ function Inputs = motor_1stlevel(Force, Subset, dcm, session)
 %     ZipOrUnzip
 % end
 
-% If sequential job submission:
+% If sequential job submission (one job submitted at a time):
 % motor_1stlevel(false,[],false,'ses-POMVisit1')
 % ZipOrUnzip()
 % motor_copycontrasts('ses-POMVisit1',true)
@@ -30,6 +34,7 @@ function Inputs = motor_1stlevel(Force, Subset, dcm, session)
 % ZipOrUnzip()
 % motor_copycontrasts('ses-PITVisit2',true)
 
+%%
 if nargin<1 || isempty(Force)
 	Force = false;
     Subset = [];
@@ -56,9 +61,10 @@ prefix = ''; %'[A-Z]'; %'[0-9]';
 Root = '/project/3022026.01';
 BIDSDir  = fullfile(Root, 'pep', 'bids');
 FMRIPrep = fullfile(BIDSDir, 'derivatives/fmriprep_v23.0.2/motor');
-ANALYSESDir   = '/project/3024006.02/Analyses/motor_task';
+ANALYSESDir   = '/project/3024006.02/Analyses/motor_task_dcm_03';
 Sub = cellstr(spm_select('List', fullfile(FMRIPrep), 'dir', ['^sub-POMU', prefix, '.*']));
-% Sub = {'sub-POMU0C177BAE3D332846'; 'sub-POMU1EDD7C2E9E8DF70C'; 'sub-POMU4CC057B13DBB2927'; 'sub-POMU8067BDE54D1B1B4A'; 'sub-POMU862289F885891BCF'; 'sub-POMU98768D0FB5B292BF'; 'sub-POMUA2417117F868F087'; 'sub-POMUAC2513F0E5E32349'};
+% Sub = {'sub-POMU4A7727F13B26E411'; 'sub-POMU4E60B43DDEFC32ED'; 'sub-POMU9A08794D78B1E1A0'; 'sub-POMU7AABE759AC531D35'; 'sub-POMU0C7CB0F2155DE5AB'; 'sub-POMU1E5A12AA97C57B45'; 'sub-POMU1A50F30F4A977983'}; % PD
+% Sub = {'sub-POMU6EAC387509F0A349'; 'sub-POMU12F1F23A498674A9'; 'sub-POMU88EC9E198C36CDED'; 'sub-POMU5EA053BA9D2D4E54'; 'sub-POMU4CAA883EA0687CF6'; 'sub-POMU3E2A2E638B42B398'; 'sub-POMU50F6AD7CEEA7D448'}; % HC
 fprintf('Found %i subjects \n', numel(Sub))
 
 % Check data for each subject's visits and exclude where necessary
@@ -89,7 +95,7 @@ for n = 1:numel(Sub)
         EventsTsv = cellstr(spm_select('FPList', dBeh, [Sub{n}, '.*task-motor_acq-MB6_run-1', '.*_events.tsv']));
         EventsTsv = cellstr(EventsTsv{size(EventsTsv,1)});
         % Preexisting 1st level results
-        FirstLevelCon = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^con.*14\.nii$');
+        FirstLevelCon = spm_select('List', fullfile(ANALYSESDir, Sub{n}, Visit{v}, '1st_level'), '^con.*3\.nii$');
         
         % Exclude participants
         TaskID = extractBetween(EventsTsv{1}, '_task-', '_acq');
@@ -201,7 +207,6 @@ if ~dcm
 elseif dcm
     JobFile = {spm_file(mfilename('fullpath'), 'suffix','_dcm_job', 'ext','.m')};
 end
-%JobFile = {'/home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/motor/motor_1stlevel_job.m'};
 % Specify inputs to 1st-level analyses
 for n = 1:numel(Files)
     s = char(extractBetween(Files{n}, 'fmriprep_v23.0.2/motor/', '/ses'));    % Pseudonym
@@ -220,7 +225,6 @@ for n = 1:numel(Files)
         SourceMaskNii       = strrep(SourceNii, 'echo-1_desc-preproc_bold', 'desc-brain_mask');
     else
         SourceMaskNii       = strrep(SourceNii, 'echo-1_space-MNI152NLin6Asym_desc-preproc_bold', 'space-MNI152NLin6Asym_desc-brain_mask');
-%           SourceMaskNii       = spm_select('FPList', fullfile(FMRIPrep,s,v,'func'), [s, '_', v, '.*space-SST_desc-brain_mask.nii.gz']);
     end
     SPMDir              = fullfile(ANALYSESDir, s, v);
     SPMStatDir          = fullfile(ANALYSESDir, s, v, '1st_level');
@@ -239,6 +243,7 @@ for n = 1:numel(Files)
     % Copy functional image and mask
     copyfile(SourceNii, SPMDir)
     copyfile(SourceMaskNii, SPMDir)
+    copyfile(SourceJson, SPMDir)
     InputNii = strrep(SourceNii, strcat(FMRIPrep, ['/' s '/' v], '/func'), SPMDir);
     MaskNii = strrep(SourceMaskNii, strcat(FMRIPrep, ['/' s '/' v], '/func'), SPMDir);
     [~, ~, Ext] = fileparts(SourceNii);
