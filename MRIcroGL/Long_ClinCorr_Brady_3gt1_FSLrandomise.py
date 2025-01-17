@@ -14,7 +14,7 @@ gl.loadimage('C:/Program Files/MRIcroGL/MRIcroGL_windows_20190902/Resources/stan
 #gl.orthoviewmm(-27,-46,3)
 
 # Set mosaic
-gl.mosaic("A L- H 0 V 0 -18 0 48; 56 64 S X R 0");
+gl.mosaic("A L- H 0 V 0 -18 0 44; 48 52 S X R 0");
 
 # Smooth interpolation of overlay 
 gl.overlayloadsmooth(1)
@@ -30,12 +30,12 @@ gl.overlayload('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/c
 # Set overlay display parameters; 1 indicates 1st overlay
 gl.colorname(1,"6bluegrn")
 gl.minmax(1, 200, 8000)
-gl.opacity(1, 30)
+gl.opacity(1, 20)
 gl.colorname(2,"7cool")
-gl.minmax(2, 5000, 8000)
+gl.minmax(2, 2000, 8000)
 gl.opacity(2, 100)
 gl.colorname(3,"jet")
-gl.minmax(3, 0.1, 6700)
+gl.minmax(3, 0.1, 6000)
 gl.opacity(3, 100)
 
 # Set color bar options 
@@ -46,7 +46,7 @@ gl.colorbarsize(0.05)
 gl.backcolor(255, 255, 255)
 
 # Set shader
-gl.shadername('Standard')
+gl.shadername('OverlaySurface')
 #gl.shaderquality(10)
 
 # Save the image 

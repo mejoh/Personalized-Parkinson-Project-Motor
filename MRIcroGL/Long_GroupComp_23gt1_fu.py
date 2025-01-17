@@ -42,7 +42,7 @@ gl.colorbarsize(0.05)
 gl.backcolor(255, 255, 255)
 
 # Set shader
-gl.shadername('Standard')
+gl.shadername('OverlaySurface')
 #gl.shaderquality(10)
 
 # Save the image 

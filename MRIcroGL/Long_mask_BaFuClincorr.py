@@ -27,7 +27,7 @@ gl.overlayload('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/Masks/clust
 
 gl.colorname(1,"x_rain")
 gl.minmax(1, 0, 1)
-gl.opacity(1, 50)
+gl.opacity(1, 80)
 
 # Set color bar options 
 gl.colorbarposition(0)
@@ -37,7 +37,7 @@ gl.colorbarsize(0.05)
 gl.backcolor(255, 255, 255)
 
 # Set shader
-gl.shadername('Standard')
+gl.shadername('OverlaySurface')
 #gl.shaderquality(10)
 
 # Save the image 
