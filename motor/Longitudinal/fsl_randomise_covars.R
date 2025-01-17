@@ -1,5 +1,7 @@
+#
+
 # Generates output files for complete case analyses (i.e., only subjects that have both sessions)
-fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
+fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir, exclude=NULL){
     
     library(tidyverse)
     library(mice)
@@ -19,6 +21,12 @@ fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
     group = str_sub(imgs, start = 1, end = 6)
     pseudonym = str_sub(imgs, start = 8, end = 31)
     dfinit <- tibble(pseudonym=pseudonym,ParticipantType=group,imgs=imgs,imgs_fp=imgs_fp,imgs2_fp,imgs3_fp)
+    
+    # Exclude subjects
+    if(!is.null(exclude)){
+        dfinit <- dfinit %>%
+            filter(!(pseudonym %in% exclude))
+    }
     
     # Select baseline covars
     baseline_covars <- read_csv(csvfile,
@@ -45,37 +53,37 @@ fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
                PD=if_else(ParticipantType=='PD_POM',1,0))
     # Case-control matching
     # Optimal matching creates pairs of controls and patients
-    set.seed(312)
-    matching0 <- df %>%
-        mutate(Group = if_else(HC==1,0,1),
-               Gender = factor(Gender),
-               RespHandIsDominant = factor(RespHandIsDominant)) %>%
-        matchit(Group ~ Age + Gender + NpsEducYears + RespHandIsDominant,
-                data = .,
-                method = NULL,
-                distance = 'glm',
-                link = 'probit',
-                estimand = 'ATT')
-    summary(matching0)
-    matching1 <- df %>%
-        mutate(Group = if_else(HC==1,0,1),
-               Gender = factor(Gender),
-               RespHandIsDominant = factor(RespHandIsDominant)) %>%
-        matchit(Group ~ Age + Gender + NpsEducYears + RespHandIsDominant,
-                data = .,
-                method = 'optimal',
-                distance = 'glm',
-                link = 'probit',
-                estimand = 'ATT',
-                tol = 1e-4)
-    summary(matching1, un = F)
-    plot(summary(matching1))
-    plot(matching1, type = 'jitter', interactive = F)
-    plot(matching1, type = 'density', interactive = F,
-         which.xs = ~Age + Gender + NpsEducYears + RespHandIsDominant)
-    df.matched <- match.data(matching1) %>%
-        mutate(Gender = as.numeric(Gender)-1,
-               RespHandIsDominant = as.numeric(RespHandIsDominant)-1)
+    # set.seed(312)
+    # matching0 <- df %>%
+    #     mutate(Group = if_else(HC==1,0,1),
+    #            Gender = factor(Gender),
+    #            RespHandIsDominant = factor(RespHandIsDominant)) %>%
+    #     matchit(Group ~ Age + Gender + NpsEducYears + RespHandIsDominant,
+    #             data = .,
+    #             method = NULL,
+    #             distance = 'glm',
+    #             link = 'probit',
+    #             estimand = 'ATT')
+    # summary(matching0)
+    # matching1 <- df %>%
+    #     mutate(Group = if_else(HC==1,0,1),
+    #            Gender = factor(Gender),
+    #            RespHandIsDominant = factor(RespHandIsDominant)) %>%
+    #     matchit(Group ~ Age + Gender + NpsEducYears + RespHandIsDominant,
+    #             data = .,
+    #             method = 'optimal',
+    #             distance = 'glm',
+    #             link = 'probit',
+    #             estimand = 'ATT',
+    #             tol = 1e-4)
+    # summary(matching1, un = F)
+    # plot(summary(matching1))
+    # plot(matching1, type = 'jitter', interactive = F)
+    # plot(matching1, type = 'density', interactive = F,
+    #      which.xs = ~Age + Gender + NpsEducYears + RespHandIsDominant)
+    # df.matched <- match.data(matching1) %>%
+    #     mutate(Gender = as.numeric(Gender)-1,
+    #            RespHandIsDominant = as.numeric(RespHandIsDominant)-1)
     # Select and demean
     df.s <- df %>% 
         select(HC,PD,Age,Gender,NpsEducYears,RespHandIsDominant) %>%
@@ -85,14 +93,14 @@ fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
                RespHandIsDominant = RespHandIsDominant - mean(RespHandIsDominant),
                vxlEV=1,
                across(where(is.numeric), \(x) round(x, digits=3)))
-    df.s.matched <- df.matched %>% 
-        select(HC,PD,Age,Gender,NpsEducYears,RespHandIsDominant) %>%
-        mutate(Age=Age-mean(Age),
-               Gender=Gender-mean(Gender),
-               NpsEducYears=NpsEducYears-mean(NpsEducYears),
-               RespHandIsDominant = RespHandIsDominant - mean(RespHandIsDominant),
-               vxlEV=1,
-               across(where(is.numeric), \(x) round(x, digits=3)))
+    # df.s.matched <- df.matched %>%
+    #     select(HC,PD,Age,Gender,NpsEducYears,RespHandIsDominant) %>%
+    #     mutate(Age=Age-mean(Age),
+    #            Gender=Gender-mean(Gender),
+    #            NpsEducYears=NpsEducYears-mean(NpsEducYears),
+    #            RespHandIsDominant = RespHandIsDominant - mean(RespHandIsDominant),
+    #            vxlEV=1,
+    #            across(where(is.numeric), \(x) round(x, digits=3)))
     # Write to file
     write_delim(df[,4], paste0(outputdir, '/imgs__delta_unpaired_ttest_unmatched.txt'), col_names = F)
     write_delim(df[,5], paste0(outputdir, '/imgs__ba_unpaired_ttest_unmatched.txt'), col_names = F)
@@ -106,19 +114,17 @@ fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
     tmp %>% write_delim(., paste0(outputdir, '/posthoc_gPD__covs__delta_unpaired_ttest_unmatched_vxlEV.txt'), col_names = F)
     tmp %>% select(-vxlEV) %>% write_delim(., paste0(outputdir, '/posthoc_gPD__covs__delta_unpaired_ttest_unmatched.txt'), col_names = F)
     
-    write_delim(df.matched[,4], paste0(outputdir, '/imgs__delta_unpaired_ttest_matched.txt'), col_names = F)
-    write_delim(df.matched[,5], paste0(outputdir, '/imgs__ba_unpaired_ttest_matched.txt'), col_names = F)
-    write_delim(df.matched[,6], paste0(outputdir, '/imgs__fu_unpaired_ttest_matched.txt'), col_names = F)
-    write_delim(df.s.matched, paste0(outputdir, '/covs__delta_unpaired_ttest_matched_vxlEV.txt'), col_names = F)
-    
-    df.s.matched %>% select(-vxlEV) %>% write_delim(., paste0(outputdir, '/covs__delta_unpaired_ttest_matched.txt'), col_names = F)
-    
-    tmp <- df.s.matched %>% filter(HC == 1) %>% select(-PD)
-    tmp %>% write_delim(., paste0(outputdir, '/posthoc_gHC__covs__delta_unpaired_ttest_matched_vxlEV.txt'), col_names = F)
-    tmp %>% select(-vxlEV) %>% write_delim(., paste0(outputdir, '/posthoc_gHC__covs__delta_unpaired_ttest_matched.txt'), col_names = F)
-    tmp <- df.s.matched %>% filter(PD == 1) %>% select(-HC)
-    tmp %>% write_delim(., paste0(outputdir, '/posthoc_gPD__covs__delta_unpaired_ttest_matched_vxlEV.txt'), col_names = F)
-    tmp %>% select(-vxlEV) %>% write_delim(., paste0(outputdir, '/posthoc_gPD__covs__delta_unpaired_ttest_matched.txt'), col_names = F)
+    # write_delim(df.matched[,4], paste0(outputdir, '/imgs__delta_unpaired_ttest_matched.txt'), col_names = F)
+    # write_delim(df.matched[,5], paste0(outputdir, '/imgs__ba_unpaired_ttest_matched.txt'), col_names = F)
+    # write_delim(df.matched[,6], paste0(outputdir, '/imgs__fu_unpaired_ttest_matched.txt'), col_names = F)
+    # write_delim(df.s.matched, paste0(outputdir, '/covs__delta_unpaired_ttest_matched_vxlEV.txt'), col_names = F)
+    # df.s.matched %>% select(-vxlEV) %>% write_delim(., paste0(outputdir, '/covs__delta_unpaired_ttest_matched.txt'), col_names = F)
+    # tmp <- df.s.matched %>% filter(HC == 1) %>% select(-PD)
+    # tmp %>% write_delim(., paste0(outputdir, '/posthoc_gHC__covs__delta_unpaired_ttest_matched_vxlEV.txt'), col_names = F)
+    # tmp %>% select(-vxlEV) %>% write_delim(., paste0(outputdir, '/posthoc_gHC__covs__delta_unpaired_ttest_matched.txt'), col_names = F)
+    # tmp <- df.s.matched %>% filter(PD == 1) %>% select(-HC)
+    # tmp %>% write_delim(., paste0(outputdir, '/posthoc_gPD__covs__delta_unpaired_ttest_matched_vxlEV.txt'), col_names = F)
+    # tmp %>% select(-vxlEV) %>% write_delim(., paste0(outputdir, '/posthoc_gPD__covs__delta_unpaired_ttest_matched.txt'), col_names = F)
     
     # Contrasts
     
@@ -186,23 +192,23 @@ fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
                across(where(is.numeric), \(x) round(x, digits=3)))
     # Non-imputed data set
     ## TO DO: Write out files
-    df.delta.no_imp <- df.delta %>% na.omit()
-    df.delta.s.no_imp <- df.delta.s %>% na.omit()
-    df.delta.s.no_imp <- df.delta.s.imp %>%
-        mutate(Up3OnBradySum_Delta = Up3OnBradySum_Delta - mean(Up3OnBradySum_Delta),
-               Up3OnBradySum_T0 = Up3OnBradySum_T0 - mean(Up3OnBradySum_T0),
-               z_MoCA__total_Delta = z_MoCA__total_Delta - mean(z_MoCA__total_Delta),
-               z_MoCA__total_T0 = z_MoCA__total_T0 - mean(z_MoCA__total_T0),
-               LEDD_Delta = LEDD_Delta - mean(LEDD_Delta),
-               LEDD_T0 = LEDD_T0 - mean(LEDD_T0),
-               Age = Age - mean(Age),
-               Gender = Gender - mean(Gender),
-               NpsEducYears = NpsEducYears - mean(NpsEducYears),
-               YearsSinceDiag = YearsSinceDiag - mean(YearsSinceDiag),
-               RespHandIsDominant = RespHandIsDominant - mean(RespHandIsDominant),
-               Mean=1,
-               vxlEV=1,
-               across(where(is.numeric), \(x) round(x, digits=3)))
+    # df.delta.no_imp <- df.delta %>% na.omit()
+    # df.delta.s.no_imp <- df.delta.s %>% na.omit()
+    # df.delta.s.no_imp <- df.delta.s.imp %>%
+    #     mutate(Up3OnBradySum_Delta = Up3OnBradySum_Delta - mean(Up3OnBradySum_Delta),
+    #            Up3OnBradySum_T0 = Up3OnBradySum_T0 - mean(Up3OnBradySum_T0),
+    #            z_MoCA__total_Delta = z_MoCA__total_Delta - mean(z_MoCA__total_Delta),
+    #            z_MoCA__total_T0 = z_MoCA__total_T0 - mean(z_MoCA__total_T0),
+    #            LEDD_Delta = LEDD_Delta - mean(LEDD_Delta),
+    #            LEDD_T0 = LEDD_T0 - mean(LEDD_T0),
+    #            Age = Age - mean(Age),
+    #            Gender = Gender - mean(Gender),
+    #            NpsEducYears = NpsEducYears - mean(NpsEducYears),
+    #            YearsSinceDiag = YearsSinceDiag - mean(YearsSinceDiag),
+    #            RespHandIsDominant = RespHandIsDominant - mean(RespHandIsDominant),
+    #            Mean=1,
+    #            vxlEV=1,
+    #            across(where(is.numeric), \(x) round(x, digits=3)))
     # Write
     write_delim(df.delta[,4], paste0(outputdir, '/imgs__delta_clincorr.txt'), col_names = F)
     write_delim(df.delta[,5], paste0(outputdir, '/imgs__ba_clincorr.txt'), col_names = F)
@@ -287,26 +293,34 @@ fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
         write_delim(., paste0(outputdir, '/covs__fu_clincorr_LEDD.txt'), col_names = F)
     
     # Contrasts
+    # rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_vxlEV_AddCov3.txt'),col.names=F,row.names=F,quote=F)
     rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
           c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
           c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
           c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_vxlEV_AddCov2.txt'),col.names=F,row.names=F,quote=F)
-    rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-          c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-          c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0),
-          c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_vxlEV_AddCov1.txt'),col.names=F,row.names=F,quote=F)
+    # rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_vxlEV_AddCov1.txt'),col.names=F,row.names=F,quote=F)
     rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0),
           c(-1,0,0,0,0,0,0,0,0,0,0,0,0),
           c(0,0,1,0,0,0,0,0,0,0,0,0,0),
           c(0,0,-1,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_vxlEV.txt'),col.names=F,row.names=F,quote=F)
+    # rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_AddCov3.txt'),col.names=F,row.names=F,quote=F)
     rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
           c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
           c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0),
           c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_AddCov2.txt'),col.names=F,row.names=F,quote=F)
-    rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0),
-          c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0),
-          c(0,0,1,0,0,0,0,0,0,0,0,0,0,0),
-          c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_AddCov1.txt'),col.names=F,row.names=F,quote=F)
+    # rbind(c(1,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(-1,0,0,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,1,0,0,0,0,0,0,0,0,0,0,0),
+    #       c(0,0,-1,0,0,0,0,0,0,0,0,0,0,0)) %>% write.table(., paste0(outputdir, '/cons__delta_clincorr_all_AddCov1.txt'),col.names=F,row.names=F,quote=F)
     rbind(c(1,0,0,0,0,0,0,0,0,0,0,0),
           c(-1,0,0,0,0,0,0,0,0,0,0,0),
           c(0,0,1,0,0,0,0,0,0,0,0,0),
@@ -325,7 +339,7 @@ fsl_randomise_covars <- function(condir1, condir2, condir3, csvfile, outputdir){
 }
 
 # Generates output files for each sessions, separately, containing all subjects
-fsl_randomise_covars_byses <- function(condir, csvfile, timepointnr, outputdir){
+fsl_randomise_covars_byses <- function(condir, csvfile, timepointnr, outputdir, exclude=NULL){
     
     library(tidyverse)
     library(mice)
@@ -466,7 +480,7 @@ fsl_randomise_covars_byses <- function(condir, csvfile, timepointnr, outputdir){
     
 }
 
-csvfile='P:/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2023-10-18.csv'
+csvfile='P:/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2024-07-17.csv'
 con=c('con_0007','con_0010')#,'con_0011','con_0012')
 for(i in 1:length(con)){
     # Complete case analyses (only participants with both sessions)
@@ -474,7 +488,8 @@ for(i in 1:length(con)){
     condir2=paste0('P:/3024006.02/Analyses/motor_task/Group/', con[i], '/COMPLETE_ses-Visit1/')
     condir3=paste0('P:/3024006.02/Analyses/motor_task/Group/', con[i], '/COMPLETE_ses-Visit2/')
     outputdir=paste0('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', con[i])
-    fsl_randomise_covars(condir1, condir2, condir3, csvfile, outputdir)
+    exclude <- c('sub-POMU0E19B895DF700AB0')
+    fsl_randomise_covars(condir1, condir2, condir3, csvfile, outputdir, exclude)
     
     # By-session analyses (full number of participants for each session)
     condir=paste0('P:/3024006.02/Analyses/motor_task/Group/', con[i], '/ses-Visit1/')
