@@ -60,7 +60,9 @@ library(effectsize)
 library(ggpubr)
 library(MatchIt)
 library(extrafont)
-loadfonts(device='all',quiet = TRUE)
+loadfonts(device='win',quiet = TRUE)
+
+glmnet_dir <- 'P:/3024006.02/Data/GLMNET_NatComm/'
 
 # DTI data
 read_dti_metrics <- function(filename){
@@ -78,8 +80,8 @@ read_dti_metrics <- function(filename){
     
     df
 }
-df_dti <- read_dti_metrics('/project/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_avg.csv') %>%
-  left_join(., read_dti_metrics('/project/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_sd.csv'), by = c('pseudonym','ParticipantType','TimepointNr'))
+df_dti <- read_dti_metrics('P:/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_avg.csv') %>%
+  left_join(., read_dti_metrics('P:/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_sd.csv'), by = c('pseudonym','ParticipantType','TimepointNr'))
 
 # # fMRI data (basal ganglia activity from BRAIN 2024)
 # read_fmri <- function(fname){
@@ -93,11 +95,11 @@ df_dti <- read_dti_metrics('/project/3024006.02/Analyses/MJF_FreeWater/data/n2_p
 #     select(-Group)
 #   
 # }
-# df_fmri <- read_fmri('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_-27_-15_6.csv') %>%
+# df_fmri <- read_fmri('P:/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_-27_-15_6.csv') %>%
 #   rename(BG_activity = Beta) %>%
-#   left_join(., read_fmri('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_17_-47_-20.csv')) %>%
+#   left_join(., read_fmri('P:/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_17_-47_-20.csv')) %>%
 #   rename(CB_activity = Beta) %>%
-#   left_join(., read_fmri('/project/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_-31_-27_62.csv')) %>%
+#   left_join(., read_fmri('P:/3024006.02/Analyses/BRAIN_2023/fMRI/Group_comparisons/HcOn_x_ExtInt2Int3Catch_NoOutliers/marsbar/HC_PD_(IntExt)_-31_-27_62.csv')) %>%
 #   rename(M1_activity = Beta) %>%
 #   relocate(BG_activity, .after = TimepointNr)
 
@@ -112,18 +114,18 @@ read_fmri2 <- function(fname){
     select(-c(X1))
   dat
 }
-df_compensation_AddCov2 <- read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_AddCov2_tfce_corrp_tstat2_stats_stats_avg_agg.txt') %>%
+df_compensation_AddCov2 <- read_fmri2('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/backup_2024_10_01/con_0007/vals/rand_delta_clincorr_all_vxlEV_AddCov2_tfce_corrp_tstat2_stats_stats_avg_agg.txt') %>%
   rename(T2sub0_R_6a_id1=X2,T2sub0_L_6a_id2=X3,T2sub0_L_6a_id3=X4,T2sub0_R_6a_id4=X5,T2sub0_R_6d_id5=X6,T2sub0_R_FEF_id6=X7,T2sub0_L_6ma_id7=X8) %>%
   mutate(TimepointNr=0,contrast='con_0007', .after = ParticipantType) %>%
-  left_join(., read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_AddCov2_tfce_corrp_tstat2_stats_BASELINE_stats_avg_agg.txt')) %>%
+  left_join(., read_fmri2('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/backup_2024_10_01/con_0007/vals/rand_delta_clincorr_all_vxlEV_AddCov2_tfce_corrp_tstat2_stats_BASELINE_stats_avg_agg.txt')) %>%
   rename(T0_R_6a_id1=X2,T0_L_6a_id2=X3,T0_L_6a_id3=X4,T0_R_6a_id4=X5,T0_R_6d_id5=X6,T0_R_FEF_id6=X7,T0_L_6ma_id7=X8) %>%
   mutate(T2sub0_bi_premotor_comp = (T2sub0_R_6a_id1+T2sub0_L_6a_id2+T2sub0_L_6a_id3+T2sub0_R_6a_id4+T2sub0_R_6d_id5+T2sub0_R_FEF_id6+T2sub0_L_6ma_id7) / 7,
          T0_bi_premotor_comp = (T0_R_6a_id1+T0_L_6a_id2+T0_L_6a_id3+T0_R_6a_id4+T0_R_6d_id5+T0_R_FEF_id6+T0_L_6ma_id7) / 7)
 
-df_compensation_AddCov0 <- read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_tfce_corrp_tstat2_stats_stats_avg_agg.txt') %>%
+df_compensation_AddCov0 <- read_fmri2('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/backup_2024_10_01/con_0007/vals/rand_delta_clincorr_all_vxlEV_tfce_corrp_tstat2_stats_stats_avg_agg.txt') %>%
   rename(T2sub0_R_6a_id1=X2,T2sub0_L_LIPv_id2=X3,T2sub0_L_6ma_id3=X4,T2sub0_R_6d_id4=X5,T2sub0_R_FEF_id5=X6,T2sub0_R_6a_id6=X7) %>%
   mutate(TimepointNr=0,contrast='con_0007', .after = ParticipantType) %>%
-  left_join(., read_fmri2('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/con_0007/vals/rand_delta_clincorr_all_vxlEV_tfce_corrp_tstat2_stats_BASELINE_stats_avg_agg.txt')) %>%
+  left_join(., read_fmri2('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/stats/backup_2024_10_01/con_0007/vals/rand_delta_clincorr_all_vxlEV_tfce_corrp_tstat2_stats_BASELINE_stats_avg_agg.txt')) %>%
   rename(T0_R_6a_id1=X2,T0_L_LIPv_id2=X3,T0_L_6ma_id3=X4,T0_R_6d_id4=X5,T0_R_FEF_id5=X6,T0_R_6a_id6=X7) %>%
   mutate(T2sub0_bi_premotor_comp = (T2sub0_R_6a_id1+T2sub0_L_6ma_id3+T2sub0_R_6d_id4+T2sub0_R_FEF_id5+T2sub0_R_6a_id6) / 5,
          T0_bi_premotor_comp = (T0_R_6a_id1+T0_L_6ma_id3+T0_R_6d_id4+T0_R_FEF_id5+T0_R_6a_id6) / 5,
@@ -159,15 +161,15 @@ surface_rois <- c( "caudalanteriorcingulate","caudalmiddlefrontal",
                    "rostralmiddlefrontal","superiorfrontal","superiorparietal",
                    "superiortemporal","supramarginal","frontalpole",
                    "temporalpole","transversetemporal","insula")
-df_fs_vol <- read_fs_metrics('/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/LandRvolumes.csv') %>%
+df_fs_vol <- read_fs_metrics('P:/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/LandRvolumes.csv') %>%
   select(pseudonym,TimepointNr,TSCGMV,TCGMV,TGMV,ICV,contains(volume_rois))
-df_fs_surf <- read_fs_metrics('/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_SurfAvg.csv') %>%
+df_fs_surf <- read_fs_metrics('P:/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_SurfAvg.csv') %>%
   select(pseudonym,TimepointNr,contains(surface_rois))
-df_fs_thick <- read_fs_metrics('/project/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_ThickAvg.csv') %>%
+df_fs_thick <- read_fs_metrics('P:/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_ThickAvg.csv') %>%
   select(pseudonym,TimepointNr,contains(surface_rois))
-metric <- c('fsl_MD','TensorFWCorrected_dcmp_MD','TensorDTINoNeg_dcmp_MD','dipy-MDc','dipy-MD','FW')
+metric <- c('fsl_MD','FW','TensorFWCorrected_dcmp_MD','TensorDTINoNeg_dcmp_MD','dipy-MDc','dipy-MD')
 metric <- metric[1]
-df_fs_md <- read_csv(paste0('/project/3022026.01/pep/bids/derivatives/qsiprep/measures/1_NoPVC_projfrac02-08-01_correctb0orientation//SurfaceMeasures_',metric,'_T1w_Mean.csv')) %>%
+df_fs_md <- read_csv(paste0('P:/3022026.01/pep/bids/derivatives/qsiprep/measures/1_NoPVC_projfrac02-08-01_correctb0orientation/SurfaceMeasures_',metric,'_T1w_Mean.csv')) %>%
   rename(pseudonym = SubjID) %>%
   mutate(TimepointNr = if_else(str_detect(Timepoint,'Visit1'),0,2)) %>%
   relocate(pseudonym, TimepointNr) %>%
@@ -223,15 +225,29 @@ read_clinical_metrics <- function(filename, clinical_metrics){
   df$Subtype_DiagEx3_DisDurSplit_ba[is.na(df$Subtype_DiagEx3_DisDurSplit_ba)] <- '4_Undefined'
   df$Subtype_DiagEx3_DisDurSplit.MCI_z_ba[is.na(df$Subtype_DiagEx3_DisDurSplit.MCI_z_ba)] <- '4_Undefined'
   
+  # Define misdiagnosis
+  diagnosis <- df %>% select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist, DiagParkReplace)
+  baseline_exclusion <- diagnosis %>%
+          filter(TimepointNr==0, (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
+          select(pseudonym, DiagParkCertain)
+  visit2_exclusion <- diagnosis %>%
+          filter(TimepointNr==2, (DiagParkPersist == 2)) %>% 
+          select(pseudonym, DiagParkPersist, DiagParkReplace)
+  diag_exclusions <- full_join(baseline_exclusion, visit2_exclusion, by='pseudonym') %>% 
+          unique()
+  df <- df %>%
+    mutate(Misdiagnosis = if_else(pseudonym %in% diag_exclusions$pseudonym,1,0))
+  
   df     
 }
 clinical_metrics <- c('pseudonym','ParticipantType','TimepointNr','YearsToFollowUp','MriNeuroPsychTask',
+                      'DiagParkCertain', 'DiagParkPersist', 'DiagParkReplace',
                       'Subtype_DiagEx3_DisDurSplit','Subtype_DiagEx3_DisDurSplit.MCI_z','Age','Gender','YearsSinceDiag','NpsEducYears',
                       'Up3OfTotal','Up3OfBradySum','Up3OfRigiditySum', 'Up3OfRestTremAmpSum', 'Up3OfCompositeTremorSum',
                       'Up3OnTotal','Up3OnBradySum','Up3OnRigiditySum', 'Up3OnRestTremAmpSum', 'Up3OnCompositeTremorSum',
                       'z_MoCA__total', 'z_CognitiveComposite2','MotorComposite','RBDSQSum','SCOPA_AUTSum','LEDD',
                       'AsymmetryIndexRiLe.WeightedBradyRig','AsymmetryIndexRiLe.WeightedBradyRig2')
-df_clin <- read_clinical_metrics('/project/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2023-10-18.csv', 
+df_clin <- read_clinical_metrics('P:/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2024-07-17.csv', 
                                  clinical_metrics) %>%
     mutate(MostAffSide=NA,
            MostAffSide = case_when(
@@ -254,6 +270,14 @@ df <- df_clin %>%
   full_join(., df_fs, by = c('pseudonym','TimepointNr')
             ) #%>%
   #left_join(., df_fmri, by = c('pseudonym','ParticipantType','TimepointNr'))
+
+baseline_covs <- df %>%
+        filter(TimepointNr==0) %>%
+        select(pseudonym,ParticipantType,Age,Gender,NpsEducYears,MostAffSide)
+df <- df %>% 
+        select(-c(Age,Gender,NpsEducYears,MostAffSide)) %>%
+        left_join(.,baseline_covs,by=c('pseudonym','ParticipantType')) %>%
+        relocate(pseudonym,ParticipantType,Age,Gender,NpsEducYears,MostAffSide)
 ```
 
 ## Feature engineering
@@ -268,7 +292,6 @@ We generate a number of new variables:
  - Calculate deltas.
  - Factorize categorical variables.
  - Determine completeness of data per participant.
- 
 
 ```{r, echo=F,warning=F,message=F}
 
@@ -389,7 +412,7 @@ add_timepoints_as_columns <- function(dat, id_cols, timevar, var){
 
 id_cols <- colnames(df)[1:2]
 timevar <- 'TimepointNr'
-vars <- colnames(df)[15:length(colnames(df))]
+vars <- colnames(df)[18:length(colnames(df))]
 
 for(i in 1:length(vars)){
   df <- add_timepoints_as_columns(df, id_cols, timevar, vars[i])
@@ -427,6 +450,7 @@ df <- df %>%
 ## Exclusions
 
  - Select only participants who performed the motor task.
+ - Exclude misdiagnosed patients
  - Exclude additional participants who did not pass quality control procedures.
 
 ```{r, echo=F,message=F}
@@ -434,6 +458,10 @@ df <- df %>%
 # Only process motor task
 df <- df %>%
   filter(MriNeuroPsychTask=='Motor')
+
+# Remove misdiagnosed patients
+df <- df %>%
+  filter(Misdiagnosis != TRUE)
 
 # Remove 
 read_dti_exclusions <- function(filename) {
@@ -447,7 +475,7 @@ read_dti_exclusions <- function(filename) {
     select(-session)
 }
 
-exclusions <- read_dti_exclusions('/project/3024006.02/Analyses/MJF_FreeWater/QC/FW/Exclusions_and_Outliers_FW.xlsx')
+exclusions <- read_dti_exclusions('P:/3024006.02/Analyses/MJF_FreeWater/QC/FW/Exclusions_and_Outliers_FW.xlsx')
 df <- df %>%
   left_join(exclusions, by = c('pseudonym','TimepointNr')) %>%
   mutate(Exclusion = if_else(is.na(Exclusion),0,Exclusion)) %>%
@@ -455,7 +483,7 @@ df <- df %>%
 df_fw <- df %>%
   filter(Exclusion_FW!=1)
 
-exclusions <- read_dti_exclusions('/project/3024006.02/Analyses/MJF_FreeWater/QC/MD/Exclusions_and_Outliers_MD.xlsx')
+exclusions <- read_dti_exclusions('P:/3024006.02/Analyses/MJF_FreeWater/QC/MD/Exclusions_and_Outliers_MD.xlsx')
 df <- df %>%
   left_join(exclusions, by = c('pseudonym','TimepointNr')) %>%
   mutate(Exclusion = if_else(is.na(Exclusion),0,Exclusion)) %>%
@@ -555,7 +583,7 @@ g <- ggplot(stats_delta_tab, aes(x = avg, y = dv, color = ParticipantType)) +
   theme(legend.position = 'none') + 
   ggtitle('Longitudinal change in free water')
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_errorbar_deltas.png', dpi=300, device='png', base_width = 8)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_errorbar_deltas.png', dpi=300, device='png', base_width = 8)
 
 stats_delta_tab.subtype <- 
   summary_stats_table(df_fw %>% filter(TimepointNr==0), c('Subtype_DiagEx3_DisDurSplit.MCI_z_ba','TimepointNr'), vars_dv_delta) %>%
@@ -575,7 +603,7 @@ g <- ggplot(stats_delta_tab.subtype, aes(x = avg, y = dv, color = Subtype_DiagEx
   theme(legend.position = 'none') + 
   ggtitle('Longitudinal change in free water')
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_errorbar_deltas_subtypes.png', dpi=300, device='png', base_width = 8)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_errorbar_deltas_subtypes.png', dpi=300, device='png', base_width = 8)
 
 # Main plot: Boxplots to visualize group differences
   # PD
@@ -601,7 +629,7 @@ g <- ggplot(df.plot, aes(y=Value, x=ParticipantType, fill=TimepointNr)) +
                         direction = 1, labels=c('BA','2Y'),
                        guide = guide_legend(title='Time'))
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_box_HcVsPd.png', dpi=300, device='png', base_width = 7)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_box_HcVsPd.png', dpi=300, device='png', base_width = 7)
 
   # Subtypes
 df.plot.sub <- df_fw %>% 
@@ -628,7 +656,7 @@ g <- ggplot(df.plot.sub, aes(y=Value, x=Subtype_DiagEx3_DisDurSplit.MCI_z_ba, fi
                         direction = 1, labels=c('BA','2Y'),
                        guide = guide_legend(title='Time'))
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_box_Subtypes.png', dpi=300, device='png', base_width = 7)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_box_Subtypes.png', dpi=300, device='png', base_width = 7)
 
 # Count of participants
 df.plot %>%
@@ -724,7 +752,7 @@ g <- ggplot(stats_delta_tab, aes(x = avg, y = dv, color = ParticipantType)) +
   theme(legend.position = 'none') + 
   ggtitle('Longitudinal change in cortical MD')
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_errorbar_deltas.png', dpi=300, device='png', base_width = 8)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_errorbar_deltas.png', dpi=300, device='png', base_width = 8)
 
 stats_delta_tab.subtype <- 
   summary_stats_table(df_md %>% filter(TimepointNr==0), c('Subtype_DiagEx3_DisDurSplit.MCI_z_ba','TimepointNr'), vars_dv_delta) %>%
@@ -744,7 +772,7 @@ g <- ggplot(stats_delta_tab.subtype, aes(x = avg, y = dv, color = Subtype_DiagEx
   theme(legend.position = 'none') + 
   ggtitle('Longitudinal change in cortical MD')
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_errorbar_deltas_subtypes.png', dpi=300, device='png', base_width = 8)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_errorbar_deltas_subtypes.png', dpi=300, device='png', base_width = 8)
 
 # Main plot: Boxplots to visualize group differences
   # PD
@@ -770,7 +798,7 @@ g <- ggplot(df.plot, aes(y=Value, x=ParticipantType, fill=TimepointNr)) +
                         direction = 1, labels=c('BA','2Y'),
                        guide = guide_legend(title='Time'))
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_box_HcVsPd.png', dpi=300, device='png', base_width = 7)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_box_HcVsPd.png', dpi=300, device='png', base_width = 7)
 
   # Subtypes
 df.plot.sub <- df_md %>% 
@@ -797,7 +825,7 @@ g <- ggplot(df.plot.sub, aes(y=Value, x=Subtype_DiagEx3_DisDurSplit.MCI_z_ba, fi
                         direction = 1, labels=c('BA','2Y'),
                        guide = guide_legend(title='Time'))
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_box_Subtypes.png', dpi=300, device='png', base_width = 7)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/cortMD_box_Subtypes.png', dpi=300, device='png', base_width = 7)
 
 # Count of participants
 df.plot %>%
@@ -898,7 +926,7 @@ g <- mafdat %>% ggplot(aes(x=Lateralization,y=FW)) +
   theme_bw() + 
   ylab('Free water (fraction)') + xlab('Lateralization')
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/box_LeastVsMost.png', dpi=300, device='png', base_width = 4)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/box_LeastVsMost.png', dpi=300, device='png', base_width = 4)
 
 m <- lmer(FW ~ Lateralization + Age + Gender + NpsEducYears + YearsSinceDiag + (1|pseudonym), data = mafdat)
 anova(m) %>% print()
@@ -1063,8 +1091,8 @@ g <- df.long %>%
   ylim(0.1, 0.5) + 
   annotate(geom='text',label='N=50',x=0.8,y=0.1) +
   annotate(geom='text',label='N=45',x=1.2,y=0.1) +
-  annotate(geom='text',label='N=347',x=1.8,y=0.1) +
-  annotate(geom='text',label='N=264',x=2.2,y=0.1)
+  annotate(geom='text',label='N=333',x=1.8,y=0.1) +
+  annotate(geom='text',label='N=286',x=2.2,y=0.1)
 y <- 0.47
 d = 0.015
 segmap <- data.frame(
@@ -1088,7 +1116,19 @@ g <- g +
                   inherit.aes = FALSE,
                   size = sigsize)
 print(g)
-save_plot(g, filename = '/home/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/SnFW/FW_pSN_HCvsPD.png', dpi=300, device='png', base_width = 5)
+save_plot(g, filename = 'M:/Visualization/R_LongitudinalComparisonFmri/SnFW/FW_pSN_HCvsPD.png', dpi=300, device='png', base_width = 5)
+
+# Write for glmnet
+df.long %>%
+        filter(ParticipantType=='Patient', Variable=='pSN_avg') %>%
+        select(pseudonym, TimepointNr, Val) %>%
+        pivot_wider(id_cols = 'pseudonym',
+                    names_from = 'TimepointNr',
+                    names_prefix = 'T',
+                    values_from = 'Val') %>%
+        mutate(Td = T2 - T0) %>%
+        rename(pSN_T0 = T0, pSN_T2 = T2, pSN_Td = Td) %>%
+        write_csv(., paste0(glmnet_dir,'glmnet_struc_pSN.csv'))
 
 # lmer_mod <- 
 #   linear_reg() %>%
@@ -1235,7 +1275,7 @@ g <- g +
                   inherit.aes = FALSE,
                   size = sigsize)
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_MAFvsLAF.png', dpi=300, device='png', base_width = 5)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_MAFvsLAF.png', dpi=300, device='png', base_width = 5)
 
 # At each separate visit
 for(i in c(0,2)){
@@ -1245,7 +1285,7 @@ for(i in c(0,2)){
                 lm(log(FW) ~ Lateralization + Age + Gender + NpsEducYears + YearsSinceDiag, data = .)
         Anova(m, type=3) %>% print()
         tab_model(m,show.se=T,digits = 5)
-        eta_squared(a) %>% print()
+        eta_squared(m) %>% print()
 }
 
 ```
@@ -1418,9 +1458,9 @@ g <- ggemmeans(m, terms = 'AsymmetryIndexRiLe.WeightedBradyRig2') %>% plot(add.d
   annotate(geom = 'text', x=-1, y=-0.5, hjust=0, label = expression(italic('N')*'= 344, '*italic('β')*' = -0.071, SE = 0.022, '*italic('P')*' = 0.001')) +
   ylim(-0.5,0.5)
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_ba.png', dpi=300, device='png', base_width = 5)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_ba.png', dpi=300, device='png', base_width = 5)
 Anova(m,type=3) %>% print()
-summary(m) %>% print()
+eta_squared(m) %>% print()
 # Follow-up
 print('>>> Follow-up: Asymmetry vs pSN FW')
 cor.test(df_fw$AsymmetryIndexRiLe.WeightedBradyRig2[df_fw$TimepointNr==2],df_fw$AsymIdxNoAbs_pSN_avg[df_fw$TimepointNr==2], method = 'spearman') %>% print()
@@ -1433,10 +1473,9 @@ g <- ggemmeans(m, terms = 'AsymmetryIndexRiLe.WeightedBradyRig2') %>% plot(add.d
   annotate(geom = 'text', x=-1, y=-0.5, hjust=0, label = expression(italic('N')*'= 251, '*italic('β')*' = -0.100, SE = 0.032, '*italic('P')*' = 0.002')) +
   ylim(-0.5,0.5)
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_fu.png', dpi=300, device='png', base_width = 5)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_fu.png', dpi=300, device='png', base_width = 5)
 Anova(m,type=3) %>% print()
-summary(m) %>% print()
-
+eta_squared(m) %>% print()
 ```
 
 ### Severity: longitudinal (RM-CORR)
@@ -1496,7 +1535,7 @@ g <- ggemmeans(m, terms = 'T2sub0_AsymmetryIndexRiLe.WeightedBradyRig2') %>% plo
   annotate(geom = 'text', x=-1, y=-0.5, hjust=0, label = expression(italic('N')*'= 290, '*italic('β')*' = -0.010, SE = 0.038, '*italic('P')*' = 0.797')) +
   ylim(-0.5,0.5)
 print(g)
-save_plot(g, filename = '/project/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_delta.png', dpi=300, device='png', base_width = 5)
+save_plot(g, filename = 'P:/3024006.02/Analyses/MJF_FreeWater/vis/fw_final_asymmetry_delta.png', dpi=300, device='png', base_width = 5)
 ```
 
 ### Severity: longitudinal (disaggregation)
@@ -1677,7 +1716,7 @@ cons <- c('con_0007', 'con_0010')
 
 for(i in cons){
   
-  pth <- paste0('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/imgs__delta_clincorr.txt')
+  pth <- paste0('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/imgs__delta_clincorr.txt')
   pths <- read_csv(pth, col_names = c('paths')) %>%
     mutate(pseudonym = str_sub(paths, start = 72, end = 95))
   
@@ -1698,7 +1737,7 @@ for(i in cons){
   fsl_covs <- pths %>%
     left_join(fsl_covs, by = 'pseudonym')
   
-  outpth <- paste0('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/covs__delta_pSN_FW.csv')
+  outpth <- paste0('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/covs__delta_pSN_FW.csv')
   write_csv(fsl_covs, outpth)
   
   fsl_covs <-
@@ -1718,7 +1757,7 @@ for(i in cons){
   fsl_covs <- pths %>%
     left_join(fsl_covs, by = 'pseudonym')
   
-  outpth <- paste0('/project/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/covs__delta_caudalmiddlefrontal_MD.csv')
+  outpth <- paste0('P:/3024006.02/Analyses/motor_task/Group/Longitudinal/FSL/data/', i, '/covs__delta_caudalmiddlefrontal_MD.csv')
   write_csv(fsl_covs, outpth)
   
 }
@@ -1728,6 +1767,14 @@ for(i in cons){
 ## *FreeSurfer metrics
 
 ```{r, echo=F,warning=F,message=F}
+
+# FW-corrected outlier removal
+# df_md <- df_md %>%
+#         mutate(Exclude = if_else(pseudonym == 'sub-POMU32C52AEA06F071F1' & TimepointNr == 2, 1, 0)) %>%
+#         filter(!Exclude) %>%
+#         mutate(Exclude = if_else(pseudonym == 'sub-POMU32A3C60CF70B22F5' & TimepointNr == 0, 1, 0)) %>%
+#         filter(!Exclude)
+
 
 # Weights to match patients and controls
 set.seed(312)
@@ -1767,13 +1814,12 @@ df_md <- df_md %>%
   left_join(., w, by = c('pseudonym','ParticipantType'))
 
 # Write data for plotting purposes
-write_csv(df_md,'/project/3024006.02/wd/ggseg_all_data.csv')
+write_csv(df_md,'P:/3024006.02/wd/ggseg_all_data.csv')
 
 # Group x Time comparisons, 1 observation per timepoint
 
-labels <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
-            'paracentral','postcentral','precentral',
-            'superiorfrontal','caudalmiddlefrontal')
+labels <- c('caudalmiddlefrontal','inferiorparietal','paracentral','postcentral','precentral','precuneus',
+            'superiorfrontal','superiorparietal','supramarginal')
 # 'premotor','sensorimotor','parietal'
 measure <- c('dti')
 hemi <- c('bi')
@@ -1810,9 +1856,13 @@ for(lab in labels){
   # iv_allregions_fu <- paste0('T2_',hemi,'_','allregions', '_', measure)
   # iv_allregions_delta <- paste0('T2sub0_',hemi,'_','allregions', '_', measure)
   
+  tmp <- df_md %>% select(pseudonym,ParticipantType,TimepointNr,Age,Gender,NpsEducYears,all_of(dv)) %>% na.omit()
+  tmp %>% count(ParticipantType,TimepointNr) %>% print()
+  
   # Group comparisons
-  f <- paste0('log(', dv, ') ~ ParticipantType*TimepointNr + Age + Gender + NpsEducYears + ', iv_thick_delta,'+',iv_thick_ba, ' + (1|pseudonym)')
-  m <- lmer(f, df_md, weights = NULL)
+  # f <- paste0('log(', dv, ') ~ ParticipantType*TimepointNr + Age + Gender + NpsEducYears + ', iv_thick_delta,'+',iv_thick_ba, ' + (1|pseudonym)')
+  f <- paste0('log(', dv, ') ~ ParticipantType*TimepointNr + Age + Gender + NpsEducYears + (1|pseudonym)')
+  m <- lmer(f, tmp, weights = NULL)
   tab_model(m,show.se = T, digits=5)
   a <- Anova(m,type=3)
   print(a)
@@ -1835,7 +1885,7 @@ for(lab in labels){
     filter(ParticipantType=='Patient',
            TimepointNr==0,
            complete_case == 1) %>%
-    rename(T0_Up3BradySum=T0_Up3OfBradySum, T2sub0_Up3BradySum=T2sub0_Up3OfBradySum) %>%
+    rename(T0_Up3BradySum=T0_Up3OnBradySum, T2sub0_Up3BradySum=T2sub0_Up3OnBradySum) %>%
     select(pseudonym,all_of(dv_delta),all_of(dv_t0),
            T0_Up3BradySum,T2sub0_Up3BradySum,
            T0_z_MoCA__total,T2sub0_z_MoCA__total,
@@ -1843,11 +1893,14 @@ for(lab in labels){
            all_of(c(iv_thick_ba,iv_thick_delta)),
            Age,NpsEducYears,Gender,YearsSinceDiag) %>%
     na.omit()
+  print(paste0('>>> Number of participants: ', pcor_dat %>% nrow() %>% print()))
   
   # Symptom-specific correlations
-  m_delta <- lm(paste0(dv_delta, '~', dv_t0, 
-                       '+T2sub0_Up3BradySum+T0_Up3BradySum+T2sub0_z_MoCA__total+T0_z_MoCA__total+T2sub0_LEDD+T0_LEDD+Age+Gender+NpsEducYears+YearsSinceDiag+',
-                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+  # m_delta <- lm(paste0(dv_delta, '~', dv_t0, 
+  #                      '+T2sub0_Up3BradySum+T0_Up3BradySum+T2sub0_z_MoCA__total+T0_z_MoCA__total+T2sub0_LEDD+T0_LEDD+Age+Gender+NpsEducYears+YearsSinceDiag+',
+  #                      iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+   m_delta <- lm(paste0(dv_delta, '~', dv_t0, 
+                       '+T2sub0_Up3BradySum+T0_Up3BradySum+T2sub0_z_MoCA__total+T0_z_MoCA__total+T2sub0_LEDD+T0_LEDD+Age+Gender+NpsEducYears+YearsSinceDiag'), data = pcor_dat)
   s_delta <- summary(m_delta)
   
   # g3 <- pcor_dat %>%
@@ -1863,16 +1916,13 @@ for(lab in labels){
   
   # Non-specific correlations
   m_delta_brady <- lm(paste0(dv_delta, '~', dv_t0, 
-                       '+T2sub0_Up3BradySum+T0_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag+',
-                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+                       '+T2sub0_Up3BradySum+T0_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag'), data = pcor_dat)
   s_delta_brady <- summary(m_delta_brady)
   m_delta_moca <- lm(paste0(dv_delta, '~', dv_t0, 
-                       '+T2sub0_z_MoCA__total+T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag+',
-                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+                       '+T2sub0_z_MoCA__total+T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = pcor_dat)
   s_delta_moca <- summary(m_delta_moca)
   m_delta_ledd <- lm(paste0(dv_delta, '~', dv_t0, 
-                       '+T2sub0_LEDD+T0_LEDD+Age+Gender+NpsEducYears+YearsSinceDiag+',
-                       iv_thick_delta,'+',iv_thick_ba), data = pcor_dat)
+                       '+T2sub0_LEDD+T0_LEDD+Age+Gender+NpsEducYears+YearsSinceDiag'), data = pcor_dat)
   s_delta_ledd <- summary(m_delta_ledd)
   
   # Time-specific correlations
@@ -1880,30 +1930,34 @@ for(lab in labels){
   tcor_dat_t0 <- df_md %>%
     filter(ParticipantType=='Patient',
            TimepointNr==0) %>%
-    rename(T0_Up3BradySum=T0_Up3OfBradySum) %>%
+    rename(T0_Up3BradySum=T0_Up3OnBradySum) %>%
     select(pseudonym,all_of(dv_t0),
            T0_Up3BradySum,
            T0_z_MoCA__total,
            all_of(c(iv_thick_ba)),
            Age,NpsEducYears,Gender,YearsSinceDiag) %>%
     na.omit()
-  s_ba_all <- lm(paste0(dv_t0, '~T0_Up3BradySum+T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
-  s_ba_brady <- lm(paste0(dv_t0, '~T0_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
-  s_ba_moca <- lm(paste0(dv_t0, '~T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
+  s_ba_all <- lm(paste0('log(',dv_t0, ')~T0_Up3BradySum+T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
+  print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+  print(s_ba_all)
+  print(Anova(eval(s_ba_all$call),type=3))
+  print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+  s_ba_brady <- lm(paste0('log(',dv_t0, ')~T0_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
+  s_ba_moca <- lm(paste0('log(',dv_t0, ')~T0_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t0) %>% summary()
     # T2
   tcor_dat_t2 <- df_md %>%
     filter(ParticipantType=='Patient',
            TimepointNr==2) %>%
-    rename(T2_Up3BradySum=T2_Up3OfBradySum) %>%
+    rename(T2_Up3BradySum=T2_Up3OnBradySum) %>%
     select(pseudonym,all_of(dv_t2),
            T2_Up3BradySum,
            T2_z_MoCA__total,
            all_of(c(iv_thick_fu)),
            Age,NpsEducYears,Gender,YearsSinceDiag) %>%
     na.omit()
-  s_fu_all <- lm(paste0(dv_t2, '~T2_Up3BradySum+T2_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
-  s_fu_brady <- lm(paste0(dv_t2, '~T2_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
-  s_fu_moca <- lm(paste0(dv_t2, '~T2_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
+  s_fu_all <- lm(paste0('log(',dv_t2, ')~T2_Up3BradySum+T2_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
+  s_fu_brady <- lm(paste0('log(',dv_t2, ')~T2_Up3BradySum+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
+  s_fu_moca <- lm(paste0('log(',dv_t2, ')~T2_z_MoCA__total+Age+Gender+NpsEducYears+YearsSinceDiag'), data = tcor_dat_t2) %>% summary()
 
   # g <- ggarrange(g1,g2,g3,ncol = 2, nrow = 2)
   # print(g)
@@ -1925,9 +1979,9 @@ for(lab in labels){
     filter(TimepointNr==0) %>%
     select(all_of(dv_delta),ParticipantType) %>%
     na.omit() %>%
-    cohens_d(dv_delta,'ParticipantType',data=.,pooled_sd = F)
+    effectsize::cohens_d(dv_delta,'ParticipantType',data=.,pooled_sd = F)
   # Eta squared
-  eta <- eta_squared(m)
+  eta <- effectsize::eta_squared(m)
   
   tab <- bind_rows(tab,
                    tibble(label=dv,
@@ -1962,9 +2016,9 @@ for(lab in labels){
 print(tab)
 print(paste0('>>> FDR-corrected GROUP x TIME')) 
 p.adjust(tab$p_Group_x_Time,method='fdr') %>% round(digits=5)
-write_csv(tab,'/project/3024006.02/wd/ggseg_stats_CLINvsMD.csv')
+write_csv(tab,'P:/3024006.02/wd/ggseg_stats_CLINvsMD.csv')
 print(tab2)
-print(paste0('>>> FDR-corrected BRADYKINESIA')) 
+print(paste0('>>> FDR-corrected BRADYKINESIA (baseline)')) 
 p.adjust(tab2$p_all_brady_ba,method='fdr') %>% round(digits=5)
 
 # Visualization
@@ -1986,15 +2040,15 @@ g <- df_md %>%
   scale_color_viridis_d(option='mako', begin = .1, end = .6,
                         direction = -1) + 
   ggtitle('') +
-  ylab('Mean diffusivity') + xlab('') + ggtitle('Caudal middle frontal gyrus') +
+  ylab('Mean diffusivity (un-corrected)') + xlab('') + ggtitle('Caudal middle frontal gyrus') +
   guides(color = guide_legend(title='Year')) +
-  ylim(0.68, 1) + 
+  ylim(0.68, 0.95) + 
   annotate(geom='text',label='N=60',x=0.8,y=0.68) +
   annotate(geom='text',label='N=54',x=1.2,y=0.68) +
-  annotate(geom='text',label='N=355',x=1.8,y=0.68) +
-  annotate(geom='text',label='N=308',x=2.2,y=0.68)
-y <- 1
-d = 0.015
+  annotate(geom='text',label='N=340',x=1.8,y=0.68) +
+  annotate(geom='text',label='N=299',x=2.2,y=0.68)
+y <- 0.95
+d = 0.01
 segmap <- data.frame(
         x =    c(1.00, 0.80,  1.80, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 1.80, 0.80),
         xend = c(2.00, 1.20,  2.20, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 2.20, 1.20),
@@ -2004,63 +2058,63 @@ segmap <- data.frame(
 sigmap <- data.frame(
         x =     c(1.50, 1.00,        2.00),
         y =     c(y,    y-d*3, y-d*3),
-        label = c('***','*', '***')
+        label = c('*','***', '***')
 )
 g <- g + 
         geom_segment(data=segmap,
                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
                      inherit.aes = FALSE,
-                     size = lsize) +
+                     linewidth = lsize) +
         geom_text(data=sigmap, 
                   mapping = aes(x=x,y=y,label=label),
                   inherit.aes = FALSE,
                   size = sigsize)
 print(g)
-save_plot(g, filename = '/home/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/CorticalMD/cMD_caudalmiddlefrontal_HCvsPD.png', dpi=300, device='png', base_width = 5)
+save_plot(g, filename = 'M:/Visualization/R_LongitudinalComparisonFmri/CorticalMD/cMD_caudalmiddlefrontal_HCvsPD.png', dpi=300, device='png', base_width = 5)
 
 ## Inferior parietal cortex
-g <- df_md %>%
-  ggplot(aes(x=ParticipantType, y = bi_inferiorparietal_dti, color=TimepointNr)) +
-  geom_jitter(alpha=0.2, position = position_jitterdodge(jitter.width = 0.2)) +
-  geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
-  stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5, 
-               mapping = aes(group=TimepointNr), position = position_dodge(width=0.8)) +
-  theme_bw() + 
-  scale_x_discrete(labels=c('Control','PD')) +
-  scale_color_viridis_d(option='mako', begin = .1, end = .6,
-                        direction = -1) + 
-  ggtitle('') +
-  ylab('Mean diffusivity') + xlab('') + ggtitle('Inferior parietal cortex') +
-  guides(color = guide_legend(title='Year')) +
-  ylim(0.68, 1) + 
-  annotate(geom='text',label='N=60',x=0.8,y=0.68) +
-  annotate(geom='text',label='N=54',x=1.2,y=0.68) +
-  annotate(geom='text',label='N=355',x=1.8,y=0.68) +
-  annotate(geom='text',label='N=308',x=2.2,y=0.68)
-y <- 1
-d = 0.015
-segmap <- data.frame(
-        x =    c(1.00, 0.80,  1.80, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 1.80, 0.80),
-        xend = c(2.00, 1.20,  2.20, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 2.20, 1.20),
-        y =    c(y,    y-d,   y-d,  y,    y,    y-d*1,y-d*1,y-d*1,y-d*1, y-d*3, y-d*3),
-        yend = c(y,    y-d,   y-d,  y-d*1,y-d*1,y-d*2,y-d*2,y-d*2,y-d*2, y-d*3, y-d*3)
-)
-sigmap <- data.frame(
-        x =     c(1.50, 1.00,        2.00),
-        y =     c(y,    y-d*3+0.01, y-d*3),
-        label = c('***','+', '***')
-)
-g <- g + 
-        geom_segment(data=segmap,
-                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
-                     inherit.aes = FALSE,
-                     size = lsize) +
-        geom_text(data=sigmap, 
-                  mapping = aes(x=x,y=y,label=label),
-                  inherit.aes = FALSE,
-                  size = sigsize)
-print(g)
-save_plot(g, filename = '/home/sysneu/marjoh/Visualization/R_LongitudinalComparisonFmri/CorticalMD/cMD_inferiorparietal_HCvsPD.png', dpi=300, device='png', base_width = 5)
+# g <- df_md %>%
+#   ggplot(aes(x=ParticipantType, y = bi_inferiorparietal_dti, color=TimepointNr)) +
+#   geom_jitter(alpha=0.2, position = position_jitterdodge(jitter.width = 0.2)) +
+#   geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
+#   stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5, 
+#                mapping = aes(group=TimepointNr), position = position_dodge(width=0.8)) +
+#   theme_bw() + 
+#   scale_x_discrete(labels=c('Control','PD')) +
+#   scale_color_viridis_d(option='mako', begin = .1, end = .6,
+#                         direction = -1) + 
+#   ggtitle('') +
+#   ylab('Mean diffusivity') + xlab('') + ggtitle('Inferior parietal cortex') +
+#   guides(color = guide_legend(title='Year')) +
+#   ylim(0.68, 1) + 
+#   annotate(geom='text',label='N=60',x=0.8,y=0.68) +
+#   annotate(geom='text',label='N=54',x=1.2,y=0.68) +
+#   annotate(geom='text',label='N=355',x=1.8,y=0.68) +
+#   annotate(geom='text',label='N=308',x=2.2,y=0.68)
+# y <- 1
+# d = 0.015
+# segmap <- data.frame(
+#         x =    c(1.00, 0.80,  1.80, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 1.80, 0.80),
+#         xend = c(2.00, 1.20,  2.20, 1.00, 2.00, 0.80, 1.20, 1.80, 2.20, 2.20, 1.20),
+#         y =    c(y,    y-d,   y-d,  y,    y,    y-d*1,y-d*1,y-d*1,y-d*1, y-d*3, y-d*3),
+#         yend = c(y,    y-d,   y-d,  y-d*1,y-d*1,y-d*2,y-d*2,y-d*2,y-d*2, y-d*3, y-d*3)
+# )
+# sigmap <- data.frame(
+#         x =     c(1.50, 1.00,        2.00),
+#         y =     c(y,    y-d*3+0.01, y-d*3),
+#         label = c('***','+', '***')
+# )
+# g <- g + 
+#         geom_segment(data=segmap,
+#                      mapping = aes(x=x,xend=xend,y=y,yend=yend),
+#                      inherit.aes = FALSE,
+#                      size = lsize) +
+#         geom_text(data=sigmap, 
+#                   mapping = aes(x=x,y=y,label=label),
+#                   inherit.aes = FALSE,
+#                   size = sigsize)
+# print(g)
+# save_plot(g, filename = 'M:/Visualization/R_LongitudinalComparisonFmri/CorticalMD/cMD_inferiorparietal_HCvsPD.png', dpi=300, device='png', base_width = 5)
 
 ```
 
@@ -2115,16 +2169,16 @@ for(lab in 1:length(labels)){
   f <- paste0('T2sub0_L_parietal_comp ~ ', iv_T2sub0, ' + Age + Gender + NpsEducYears + YearsSinceDiag + T0_L_parietal_comp +',iv_T0)
   m <- lm(f, data = tmp)
   a1 <- Anova(m,type=3)
-  
+
   g1 <- tmp %>%
     ggplot(aes(x=.data[[iv_T2sub0]],y=T2sub0_L_parietal_comp)) +
     geom_point() + geom_smooth(method='lm',color='blue') + theme_bw() +
     ggtitle('Raw values of T2sub0_L_parietal_comp')
   pred <- ggpredict(m, terms=iv_T2sub0)
-  g2 <- plot(pred, add.data = TRUE) + theme_bw() + 
+  g2 <- plot(pred, add.data = TRUE) + theme_bw() +
         geom_hline(yintercept = 0, color = 'darkgrey', lty = 2) + geom_vline(xintercept = 0, color = 'darkgrey', lty = 2)
   g <- ggarrange(g1,g2,nrow = 2,ncol = 1)
-  # print(g)
+  print(g)
   
   # Premotor comp
   f <- paste0('T2sub0_bi_premotor_comp ~ ', iv_T2sub0, ' + Age + Gender + NpsEducYears + YearsSinceDiag + T0_bi_premotor_comp +',iv_T0)
@@ -2136,28 +2190,58 @@ for(lab in 1:length(labels)){
   m <- lm(f, data = tmp)
   a3 <- Anova(m,type=3)
   
-  # rcor_dat <- df_md %>%
-  #   filter(ParticipantType=='Patient',
-  #          Exclusion_MD!=1,
-  #          complete_case==1)
-  # rmc_brady <- rmcorr('pseudonym',dv,'Up3OnBradySum',dataset = rcor_dat)
-  # rmc_moca <- rmcorr('pseudonym',dv,'z_MoCA__total',dataset = rcor_dat)
-  # rmc_ledd <- rmcorr('pseudonym',dv,'LEDD',dataset = rcor_dat)
-  
   tab <- bind_rows(tab,
                    tibble(region=iv_T2sub0,
                           p_T2sub0_L_parietal_comp=a1[rownames(a1)==iv_T2sub0,4],
                           p_T2sub0_bi_premotor_comp=a2[rownames(a2)==iv_T2sub0,4],
                           p_T2sub0_bi_parietopremotor_comp=a3[rownames(a3)==iv_T2sub0,4])
+  
   )
 }
 print(tab)
-write_csv(tab,'/project/3024006.02/wd/ggseg_stats_COMPvsMD.csv')
-write_csv(tmp,'/project/3024006.02/wd/ggseg_data_COMPvsMD.csv')
+write_csv(tab,'P:/3024006.02/wd/ggseg_stats_COMPvsMD.csv')
+write_csv(tmp,'P:/3024006.02/wd/ggseg_data_COMPvsMD.csv')
+
+# Write for glmnet
+tmp %>%
+        select(pseudonym, starts_with('T0_bi'), starts_with('T2sub0_bi')) %>%
+        select(pseudonym, ends_with('dti')) %>%
+        rename(inferiorparietal_dti_Td = T2sub0_bi_inferiorparietal_dti,
+               superiorparietal_dti_Td = T2sub0_bi_superiorparietal_dti,
+               precuneus_dti_Td = T2sub0_bi_precuneus_dti,
+               supramarginal_dti_Td = T2sub0_bi_supramarginal_dti,
+               paracentral_dti_Td = T2sub0_bi_paracentral_dti,
+               postcentral_dti_Td = T2sub0_bi_postcentral_dti,
+               precentral_dti_Td = T2sub0_bi_precentral_dti,
+               superiorfrontal_dti_Td = T2sub0_bi_superiorfrontal_dti,
+               caudalmiddlefrontal_dti_Td = T2sub0_bi_caudalmiddlefrontal_dti,
+               allregions_dti_Td = T2sub0_bi_allregions_dti,
+               
+               inferiorparietal_dti_T0 = T0_bi_inferiorparietal_dti,
+               superiorparietal_dti_T0 = T0_bi_superiorparietal_dti,
+               precuneus_dti_T0 = T0_bi_precuneus_dti,
+               supramarginal_dti_T0 = T0_bi_supramarginal_dti,
+               paracentral_dti_T0 = T0_bi_paracentral_dti,
+               postcentral_dti_T0 = T0_bi_postcentral_dti,
+               precentral_dti_T0 = T0_bi_precentral_dti,
+               superiorfrontal_dti_T0 = T0_bi_superiorfrontal_dti,
+               caudalmiddlefrontal_dti_T0 = T0_bi_caudalmiddlefrontal_dti,
+               allregions_dti_T0 = T0_bi_allregions_dti) %>%
+        mutate(inferiorparietal_dti_T2 = inferiorparietal_dti_T0 + inferiorparietal_dti_Td,
+               superiorparietal_dti_T2 = superiorparietal_dti_T0 + superiorparietal_dti_Td,
+               precuneus_dti_T2 = precuneus_dti_T0 + precuneus_dti_Td,
+               supramarginal_dti_T2 = supramarginal_dti_T0 + supramarginal_dti_Td,
+               paracentral_dti_T2 = paracentral_dti_T0 + paracentral_dti_Td,
+               postcentral_dti_T2 = postcentral_dti_T0 + postcentral_dti_Td,
+               precentral_dti_T2 = precentral_dti_T0 + precentral_dti_Td,
+               superiorfrontal_dti_T2 = superiorfrontal_dti_T0 + superiorfrontal_dti_Td,
+               caudalmiddlefrontal_dti_T2 = caudalmiddlefrontal_dti_T0 + caudalmiddlefrontal_dti_Td,
+               allregions_dti_T2 = allregions_dti_T0 + allregions_dti_Td) %>%
+        relocate(pseudonym, ends_with('T0'), ends_with('T2'), ends_with('Td')) %>%
+        write_csv(., paste0(glmnet_dir,'glmnet_struc_cort.csv'))
 
 ```
 
-## Work that needs to be done
 
 
 
