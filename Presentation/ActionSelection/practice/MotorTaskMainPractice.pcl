@@ -1,0 +1,69 @@
+################################ Execute task ################################
+
+#------------------------------ Initiation Experiment ------------------------------#
+
+include "MotorTaskSubsPractice.pcl";	# Include all the subroutines.
+
+PrepareLogfile();													# Define name custom logfile
+
+CreateHeaderOutputFile( sOutputFilename );					# Write headers of colums
+
+
+loop int iInstructions = 1
+until iInstructions > 9
+begin
+	event_instructions.set_stimulus(a_Instructions[iInstructions]);
+	if ( iInstructions == 9 ) then
+		event_instructions.set_target_button( {1,2,3,4,5} );
+	end;
+	trial_instructions.present();
+	
+	if ( response_manager.last_response() == 6 && iInstructions < 9 ) then
+		iInstructions = iInstructions + 1;
+	elseif ( (response_manager.last_response() == 1 || response_manager.last_response() == 2 || response_manager.last_response() == 3 || response_manager.last_response() == 4) && iInstructions == 9 ) then
+		iInstructions = iInstructions + 1; 
+	elseif ( response_manager.last_response() == 5 && iInstructions > 1 ) then
+		iInstructions = iInstructions - 1;
+	end;
+end;
+
+iTotalTrialCount = 1;
+
+#------------------------------ Start Experiment ------------------------------#
+
+loop int iBlock = 1							# Experiment (1 run) includes 3 blocks of INT & EXT trials in an event-related design
+until iBlock > iNumBlocks
+begin
+	if ( iBlock == 1 ) then
+		t_InBetweenBlocks.set_caption("Let op, de taak begint.");
+		t_InBetweenBlocks.redraw();
+		trial_inbetweenblocks.present();
+	end;
+	
+	RunTrials( iBlock );			# Run all trials within one block, order blocks is counterbalanced based on subjectno.
+	
+	iBlock = iBlock + 1
+	
+end;
+
+loop int iInstructions = 10
+until iInstructions > 16
+begin
+	event_instructions.set_target_button( {5,6} );
+	event_instructions.set_stimulus(a_Instructions[iInstructions]);
+	trial_instructions.present();
+	
+	if ( response_manager.last_response() == 6 ) then
+		iInstructions = iInstructions + 1;
+	elseif ( response_manager.last_response() == 5 && iInstructions > 10 ) then
+		iInstructions = iInstructions - 1;
+	end;
+end;
+
+dPercentageCorrect = double( iNumCorrectResponses ) / double( iTotalTrialCount ) * 100;
+dMeanReactionTime = dTotalReactionTime / double ( ( iTotalTrialCount - 1 )  - ( iNumCatchTrialsPerBlock * iNumBlocks ) );
+
+term.print_line( dPercentageCorrect );
+term.print_line( iDistributionResponsesInt );
+term.print_line( iDistributionCorrectResponsesInt );
+term.print_line( dMeanReactionTime );

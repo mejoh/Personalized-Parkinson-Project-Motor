@@ -860,7 +860,7 @@ t %>% group_by(ParticipantType,TimepointNr) %>% count(dwi.exist) %>% print()
 
 ```{r on-vs-off-prog, echo=FALSE, warning=TRUE, message=TRUE}
 
-##### Correlate bradykinesia on and off delta
+##### Correlate bradykinesia in on- and off-states
 tmp <- dfClin %>%
         filter(ParticipantType=='PD_POM',
                TimepointNr != 1) %>%
@@ -876,10 +876,6 @@ tmp <- dfClin %>%
                Up3OfBradySum_Td = Up3OfBradySum_T2 - Up3OfBradySum_T0,
                Up3OnBradySum_Td = Up3OnBradySum_T2 - Up3OnBradySum_T0) %>%
         na.omit()
-
-# ggpairs(tmp, columns = 2:7,
-#         lower = list(continuous = 'smooth'))
-write_csv(tmp, paste0(glmnet_dir,'glmnet_clin.csv'))
 
 m <- lm(Up3OfBradySum_Td ~ Up3OnBradySum_Td + Up3OfBradySum_T0 + Up3OnBradySum_T0 + Age + Gender + YearsSinceDiag + NpsEducYears, data = tmp)
 tab_model(m,digits=5,show.se = T)
@@ -901,8 +897,8 @@ g <- ggemmeans(m, terms='Up3OnBradySum_Td') %>%
                  hjust=0) + 
         ylim(-20,30)
 print(g)
-save_plot('M:/Visualization/R_LongitudinalComparisonFmri/ClinicalProgression/ClinProg_OnOffCorr.png',
-                  g, dpi=300, device='png', base_width = 5)
+# save_plot('M:/Visualization/R_LongitudinalComparisonFmri/ClinicalProgression/ClinProg_OnOffCorr.png',
+#                   g, dpi=300, device='png', base_width = 5)
 
 # Check for outliers in bradykinesia progression
 sum_stats <- tmp %>%
@@ -947,6 +943,8 @@ tmp <- dfClin %>%
                YearSinceDiag=YearsSinceDiag-mean(YearsSinceDiag,na.rm=T),
                NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T)) %>%
         na.omit()
+
+tmp %>% write_csv('P:/3024006.02/Analyses/NatComm/Fig2/PanelA.csv')
 
 n <- tmp %>% select(TimepointNr,Medication) %>% table()
 print(n)
@@ -1007,11 +1005,49 @@ g <- g +
 
 print(g)
 
-save_plot('M:/Visualization/R_LongitudinalComparisonFmri/ClinicalProgression/ClinProg_lmer_Brady.png',
-          g, dpi=300, device='png', base_width = 5)
+# save_plot('M:/Visualization/R_LongitudinalComparisonFmri/ClinicalProgression/ClinProg_lmer_Brady.png',
+#           g, dpi=300, device='png', base_width = 5)
+
+##### Bradykinesia: Time x Medication effect, controlling for baseline MoCA and LEDD
+tmp.ba <- dfClin %>%
+        filter(TimepointNr == 0) %>%
+        select(pseudonym,Age,Gender,YearsSinceDiag,NpsEducYears,z_MoCA__total, LEDD) %>%
+        mutate(Age=Age-mean(Age,na.rm=T),
+               YearSinceDiag=YearsSinceDiag-mean(YearsSinceDiag,na.rm=T),
+               NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T),
+               z_MoCA__total=z_MoCA__total-mean(z_MoCA__total,na.rm=T),
+               LEDD=LEDD-mean(LEDD,na.rm=T))
+tmp <- dfClin %>%
+        filter(TimepointNr != 1) %>%
+        select(pseudonym,TimepointNr,Up3OfBradySum,Up3OnBradySum) %>%
+        pivot_longer(cols = c('Up3OfBradySum','Up3OnBradySum'),
+                     names_to = 'Medication',
+                     values_to = 'Up3BradySum') %>%
+        mutate(Medication=factor(Medication,
+                                 levels=c('Up3OfBradySum','Up3OnBradySum'),
+                                 labels=c('Off','On')),
+               TimepointNr=factor(TimepointNr)) %>%
+        left_join(., tmp.ba, by = 'pseudonym') %>%
+        na.omit()
+n <- tmp %>% select(TimepointNr,Medication) %>% table()
+print(n)
+m <- lmer(Up3BradySum ~ TimepointNr*Medication + Age + Gender + YearsSinceDiag + NpsEducYears + z_MoCA__total + LEDD + (1+TimepointNr|pseudonym), data = tmp)
+tab_model(m, digits=5,show.se = T)
+a <- Anova(m, type=3)
+print(a)
+kable(a, 'pipe', digits=Inf) %>% print()
+eff <- eta_squared(m)
+kable(eff,'pipe',digits=Inf) %>% print()
+em <- emmeans(m, ~Medication*TimepointNr)
+contrast(em, interaction = c('revpairwise','revpairwise')) %>% kable(., 'pipe', digits=Inf) %>% print()
+contrast(em, interaction = c('identity','revpairwise')) %>% kable(., 'pipe', digits=Inf) %>% print()
+contrast(em, interaction = c('revpairwise','identity')) %>% kable(., 'pipe', digits=Inf) %>% print()
+emmeans(m, revpairwise~TimepointNr)$contrast %>% kable(., 'pipe', digits=Inf) %>% print()
+emmeans(m, revpairwise~Medication)$contrast %>% kable(., 'pipe', digits=Inf) %>% print()
+
 
 ##### Effect of time on z-scored MoCA
-tmp <- dfClin %>%
+tmp.MOCA <- dfClin %>%
         filter(TimepointNr != 1) %>%
         select(pseudonym,TimepointNr,Up3OfBradySum,Up3OnBradySum,LEDD,z_MoCA__total,Age,Gender,YearsSinceDiag,NpsEducYears) %>%
         pivot_longer(cols = c('Up3OfBradySum','Up3OnBradySum'),
@@ -1026,7 +1062,7 @@ tmp <- dfClin %>%
                NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T)) %>%
         na.omit()
 
-m.MOCA <- tmp %>%
+m.MOCA <- tmp.MOCA %>%
         filter(Medication=='On') %>%
         lmer(z_MoCA__total ~ TimepointNr + Age + Gender + YearsSinceDiag + NpsEducYears + (1|pseudonym), data = .)
 tab_model(m.MOCA, digits = 5, show.se = T)
@@ -1037,8 +1073,35 @@ eta_squared(m.MOCA, alternative = 'two.sided') %>% kable(., 'pipe', digits = Inf
 em <- emmeans(m.MOCA, ~ TimepointNr, type='response')
 pairs(em) %>% kable(., 'pipe',digits=Inf)
 
+# ##### Effect of time on raw MoCA
+# tmp <- dfClin %>%
+#         filter(TimepointNr != 1) %>%
+#         select(pseudonym,TimepointNr,Up3OfBradySum,Up3OnBradySum,LEDD,MoCASum,Age,Gender,YearsSinceDiag,NpsEducYears) %>%
+#         pivot_longer(cols = c('Up3OfBradySum','Up3OnBradySum'),
+#                      names_to = 'Medication',
+#                      values_to = 'Up3BradySum') %>%
+#         mutate(Medication=factor(Medication,
+#                                  levels=c('Up3OfBradySum','Up3OnBradySum'),
+#                                  labels=c('Off','On')),
+#                TimepointNr=factor(TimepointNr),
+#                Age=Age-mean(Age,na.rm=T),
+#                YearSinceDiag=YearsSinceDiag-mean(YearsSinceDiag,na.rm=T),
+#                NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T)) %>%
+#         na.omit()
+# 
+# m.MOCA <- tmp %>%
+#         filter(Medication=='On') %>%
+#         lmer(MoCASum ~ TimepointNr + Age + Gender + YearsSinceDiag + NpsEducYears + (1|pseudonym), data = .)
+# tab_model(m.MOCA, digits = 5, show.se = T)
+# a <- Anova(m.MOCA, type=3)
+# print(a)
+# kable(a, 'pipe', digits=Inf) %>% print()
+# eta_squared(m.MOCA, alternative = 'two.sided') %>% kable(., 'pipe', digits = Inf) %>% print()
+# em <- emmeans(m.MOCA, ~ TimepointNr, type='response')
+# pairs(em) %>% kable(., 'pipe',digits=Inf)
+
 # Correlation between MoCA increase and clinical progression
-tmp.dMOCA <- tmp %>%
+tmp.dMOCA <- tmp.MOCA %>%
         filter(Medication=='On') %>%
         pivot_wider(id_cols = c('pseudonym','Age','Gender','YearsSinceDiag','NpsEducYears'),
                     names_from = TimepointNr,
@@ -1066,35 +1129,8 @@ tab_model(m.dMOCA, digits = 5, show.se = T)
 print(s)
 ggemmeans(m.dMOCA, terms='Up3BradySum_Td') %>% plot(add.data=T)
 
-##### Effect of time on raw MoCA
-tmp <- dfClin %>%
-        filter(TimepointNr != 1) %>%
-        select(pseudonym,TimepointNr,Up3OfBradySum,Up3OnBradySum,LEDD,MoCASum,Age,Gender,YearsSinceDiag,NpsEducYears) %>%
-        pivot_longer(cols = c('Up3OfBradySum','Up3OnBradySum'),
-                     names_to = 'Medication',
-                     values_to = 'Up3BradySum') %>%
-        mutate(Medication=factor(Medication,
-                                 levels=c('Up3OfBradySum','Up3OnBradySum'),
-                                 labels=c('Off','On')),
-               TimepointNr=factor(TimepointNr),
-               Age=Age-mean(Age,na.rm=T),
-               YearSinceDiag=YearsSinceDiag-mean(YearsSinceDiag,na.rm=T),
-               NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T)) %>%
-        na.omit()
-
-m.MOCA <- tmp %>%
-        filter(Medication=='On') %>%
-        lmer(MoCASum ~ TimepointNr + Age + Gender + YearsSinceDiag + NpsEducYears + (1|pseudonym), data = .)
-tab_model(m.MOCA, digits = 5, show.se = T)
-a <- Anova(m.MOCA, type=3)
-print(a)
-kable(a, 'pipe', digits=Inf) %>% print()
-eta_squared(m.MOCA, alternative = 'two.sided') %>% kable(., 'pipe', digits = Inf) %>% print()
-em <- emmeans(m.MOCA, ~ TimepointNr, type='response')
-pairs(em) %>% kable(., 'pipe',digits=Inf)
-
 ##### Effect of time on medication
-tmp <- dfClin %>%
+tmp.LEDD <- dfClin %>%
         filter(TimepointNr != 1) %>%
         select(pseudonym,TimepointNr,Up3OfBradySum,Up3OnBradySum,LEDD,Age,Gender,YearsSinceDiag,NpsEducYears) %>%
         pivot_longer(cols = c('Up3OfBradySum','Up3OnBradySum'),
@@ -1109,7 +1145,7 @@ tmp <- dfClin %>%
                NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T)) %>%
         na.omit()
 
-m.LEDD <- tmp %>%
+m.LEDD <- tmp.LEDD %>%
         filter(Medication=='On') %>%
         lmer(LEDD ~ TimepointNr + Age + Gender + YearsSinceDiag + NpsEducYears + (1|pseudonym), data = .)
 tab_model(m.LEDD, digits = 5, show.se = T)
@@ -1122,7 +1158,7 @@ em <- emmeans(m.LEDD, ~ TimepointNr, type='response')
 pairs(em) %>% kable(., 'pipe',digits=Inf)
 
 # Correlation between medication increase and clinical progression
-tmp.dLEDD <- tmp %>%
+tmp.dLEDD <- tmp.LEDD %>%
         filter(Medication=='On') %>%
         pivot_wider(id_cols = c('pseudonym','Age','Gender','YearsSinceDiag','NpsEducYears'),
                     names_from = TimepointNr,
@@ -1147,6 +1183,23 @@ s <- summary(m.dLEDD)
 tab_model(m.dLEDD, digits = 5, show.se = T)
 print(s)
 ggemmeans(m.dLEDD, terms='Up3BradySum_Td') %>% plot(add.data=T)
+
+##### Bradykinesia progression adjusted for both cognitive and medication progression
+tmp.dJoin <- tmp.dMOCA %>%
+    select(pseudonym, starts_with('z_MoCA')) %>%
+    left_join(., tmp.dLEDD, by = 'pseudonym')
+m.dJoin <- lm(Up3BradySum_Td ~ scale(Up3BradySum_T0,scale=F) + 
+                      scale(z_MoCA__total_Td,scale=F) + scale(z_MoCA__total_T0,scale=F) + 
+                      scale(LEDD_Td,scale=F) + scale(LEDD_T0,scale=F) + 
+                      scale(Age,scale=F) + Gender + scale(YearsSinceDiag,scale=F) + scale(NpsEducYears,scale=F), 
+              data = tmp.dJoin)
+Anova(m.dJoin,type=3) %>% print()
+eff <- eta_squared(m.dJoin)
+print(eff)
+s <- summary(m.dJoin)
+tab_model(m.dJoin, digits = 5, show.se = T)
+print(s)
+
 ```
 
 # *Response times
@@ -1174,8 +1227,11 @@ tmp <- dfFMRI %>%
                                       trial_type == 'NChoice3' ~ 'Multiple'),
                trial_type = factor(trial_type,levels=c('Single','Multiple'),
                                    labels=c('Single','Multiple')),
-               Age=scale(Age,scale=F),
-               NpsEducYears = scale(NpsEducYears,scale=F))
+               Age=Age-mean(Age,na.rm=T),
+               NpsEducYears = NpsEducYears-mean(NpsEducYears,na.rm=T))
+
+tmp %>% write_csv('P:/3024006.02/Analyses/NatComm/Fig2/PanelB.csv')
+
 tmp.collapsed <- tmp %>% 
     group_by(pseudonym, ParticipantType, TimepointNr, trial_type) %>%
     summarise(across(c(response_time,Age,YearsToFollowUp,NpsEducYears), ~ mean(.x, na.rm=TRUE))) %>%
@@ -1344,9 +1400,9 @@ dfFMRI.c <- dfFMRI %>%
                AS.2gt1.Delta = AS.2gt1.T2 - AS.2gt1.T0,
                AS.23gt1.Delta = AS.23gt1.T2 - AS.23gt1.T0,
                AS.Mean.Delta = AS.Mean.T2 - AS.Mean.T0,
-               Age=scale(Age,scale=F),
-               NpsEducYears = scale(NpsEducYears,scale=F),
-               YearsSinceDiag=scale(YearsSinceDiag,scale=F))#,
+               Age=Age-mean(Age,na.rm=T),
+               NpsEducYears=NpsEducYears-mean(NpsEducYears,na.rm=T),
+               YearsSinceDiag=YearsSinceDiag-mean(YearsSinceDiag,na.rm=T))#,
                # Up3BradySum.imp_RawChange = scale(Up3BradySum.imp_RawChange,scale=F,center=F),
                # Up3BradySum.imp_T0 = scale(Up3BradySum.imp_T0,scale=F),
                # Up3BradySum.imp_T2 = scale(Up3BradySum.imp_T2,scale=F),
@@ -1370,6 +1426,10 @@ isna <- apply(dfFMRI.c, 2, is.na) %>% colSums()
 cat(paste('\n ', 'Missing values\n', sep=''))
 missing_perc <- round(isna/nrow(dfFMRI.c), digits = 5)*100
 print(isna)
+
+dfFMRI.c %>% 
+        select(pseudonym,AS.Mean.Delta,Up3BradySum.imp_RawChange,Up3BradySum.imp_T0,z_MoCA__total.imp_RawChange,z_MoCA__total.imp_T0,LEDD.imp_RawChange,LEDD.imp_T0,AS.Mean.T0,Age,Gender,YearsSinceDiag,NpsEducYears,RespHandIsDominant) %>% 
+        write_csv('P:/3024006.02/Analyses/NatComm/Fig2/PanelD.csv')
 
 m01 <- lm(AS.Mean.Delta ~ Up3BradySum.imp_RawChange + Up3BradySum.imp_T0 + z_MoCA__total.imp_RawChange + z_MoCA__total.imp_T0 + LEDD.imp_RawChange + LEDD.imp_T0 + AS.Mean.T0 + Age + Gender + YearsSinceDiag + NpsEducYears + RespHandIsDominant, data = dfFMRI.c)
 tab_model(m01, digits=7, show.se=TRUE)
@@ -1401,6 +1461,9 @@ save_plot('M:/Visualization/R_LongitudinalComparisonFmri/ResponseTimes/RT_bradyp
                   g, dpi=300, device='png', base_width = 5)
 
 # Mean, baseline
+dfFMRI.c %>% 
+        select(pseudonym,AS.Mean.T0,Up3BradySum.imp_T0,z_MoCA__total.imp_T0,LEDD.imp_T0,Age,Gender,YearsSinceDiag,NpsEducYears,RespHandIsDominant) %>% 
+        write_csv('P:/3024006.02/Analyses/NatComm/Fig2/PanelC_01.csv')
 m03 <- lm(log(AS.Mean.T0) ~ Up3BradySum.imp_T0 + z_MoCA__total.imp_T0 + LEDD.imp_T0 + Age + Gender + YearsSinceDiag + NpsEducYears + RespHandIsDominant, data = dfFMRI.c)
 tab_model(m03, digits=7, show.se=TRUE)
 s <- summary(m03)
@@ -1420,6 +1483,9 @@ print(g)
 save_plot('M:/Visualization/R_LongitudinalComparisonFmri/ResponseTimes/RT_BA-mean.png',
                   g, dpi=300, device='png', base_width = 4)
 #Mean, follow-up
+dfFMRI.c %>% 
+        select(pseudonym,AS.Mean.T2,Up3BradySum.imp_T2,z_MoCA__total.imp_T2,LEDD.imp_T2,Age,Gender,YearsSinceDiag,NpsEducYears,RespHandIsDominant) %>% 
+        write_csv('P:/3024006.02/Analyses/NatComm/Fig2/PanelC_02.csv')
 m04 <- lm(log(AS.Mean.T2) ~ Up3BradySum.imp_T2 + z_MoCA__total.imp_T2 + LEDD.imp_T2 + Age + Gender + YearsSinceDiag + NpsEducYears + RespHandIsDominant, data = dfFMRI.c)
 s <- summary(m04)
 tab_model(m04, digits=7, show.se=TRUE)
@@ -2468,7 +2534,7 @@ ols_vif_tol(m) %>% print()
 Anova(m,type=3) %>% print()
 LmPlots(m)
 pred <- ggpredict(m, terms='Up3BradySum.imp_RawChange')
-g <- plot(pred, add.data = TRUE,color='darkred') + theme_bw() + ggtitle('Premotor cortex (FEF)') +
+g <- plot(pred, add.data = TRUE,color='darkred') + theme_bw() + ggtitle('Dorsal premotor cortex') +
         ylab('Change in activity (Multiple > Single, z)') + xlab('Change in bradykinesia (ON)') +
         annotate('text',y=-3,x=-20,
                  label=paste0('N=',length(predict(m)), ', ',
@@ -2489,6 +2555,10 @@ dat %>%
         rename(premotor_activity_T0 = cid2_ba, premotor_activity_T2 = cid2_fu, premotor_activity_Td = cid2_delta) %>%
         relocate(pseudonym, premotor_activity_T0, premotor_activity_T2, premotor_activity_Td) %>%
         write_csv(., paste0(glmnet_dir,'glmnet_func_premotor.csv'))
+
+dat %>%
+        select(pseudonym,cid2_delta,Up3BradySum.imp_RawChange,Up3BradySum.imp_T0,cid2_ba,Age,Gender,NpsEducYears,YearsSinceDiag,RespHandIsDominant) %>%
+        write_csv('P:/3024006.02/Analyses/NatComm/Fig4/PanelA.csv')
         
 ```
 
@@ -2707,5 +2777,9 @@ save_plot('M:/Visualization/R_LongitudinalComparisonFmri/AFNI/ClustROI_Selection
                   g1, dpi=300, device='png', base_width = 4)
 save_plot('M:/Visualization/R_LongitudinalComparisonFmri/AFNI/ClustROI_Selection_vs_Bradykinesia_T2.png',
                   g2, dpi=300, device='png', base_width = 4)
+
+df.sphere %>%
+        select(SelectionActivity,Up3BradySum.imp,z_MoCA__total.imp,LEDD.imp,Age,Sex,NpsEducYears,RespHandIsDominant) %>%
+        write_csv('P:/3024006.02/Analyses/NatComm/Fig3/PanelB.csv')
 
 ```

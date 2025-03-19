@@ -1,0 +1,241 @@
+################################ Task Subs ################################
+
+include "RewardTaskInfo_prac.pcl";		# Include all the variables.
+
+
+#------------------------------ Get Keyboard Input----------------------------------#
+sub PrepareLogfile begin
+	sSubjectSession = logfile.subject();				# should be in style POM1234XXX56Y_prac2
+	iSubject = int( sSubjectSession.substring(14,3) );
+	sOutputFilename = sSubjectSession + "_logfile.txt";
+
+end;
+
+#---------------------------- Create header of output file -------------------------------#
+sub CreateHeaderOutputFile(string sFilename ) begin
+
+	TrialData = "";																# generate a header string
+	# first line of logfile
+	TrialData.append("PEP_ID:" + "\t" + sSubjectSession.substring(1,13) + "\n");
+	# column headers (2nd row logfile)
+	TrialData.append("Trial_no." + "\t");									# add all the header label to the string
+	TrialData.append("Run" + "\t");
+	TrialData.append("Condition" + "\t");
+	TrialData.append("Fixation_Time" + "\t");
+	TrialData.append("Picture_Time" + "\t");
+	TrialData.append("Button_Time" + "\t");
+	TrialData.append("Reaction_Time" + "\t");
+	TrialData.append("Feedback_Time" + "\t");
+	TrialData.append("Magnitude" + "\t");
+	TrialData.append("Total reward" + "\t");
+	TrialData.append("Button_Pressed" + "\t");
+	TrialData.append("Button_Expected" + "\t");
+	TrialData.append("Correct_Response" + "\n");
+
+   OutputFile.open( sFilename, false ); 									# don't overwrite existing file
+   OutputFile.print( TrialData );											# save text string to file
+   OutputFile.close();
+
+end;
+
+#---------------------------------Write info to output file --------------------------------#
+
+sub WriteTrialToOutputFile(string sFilename ) begin
+
+	TrialData = "";																# generate string
+
+	TrialData.append(string(iTotalTrialCount) + "\t");					# add all the information to the string
+	TrialData.append(string(iRunCount) + "\t");
+	TrialData.append(asCondition[iTotalTrialCount] + "\t");
+	TrialData.append(string(aiFixationTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiPictureTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiButtonTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiReactionTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiFeedbackTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiMagnitude[iTotalTrialCount]) + "\t");
+	TrialData.append(string(iTotalReward) + "\t");
+	TrialData.append(string(aiButtonPressed[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiButtonExpected[iTotalTrialCount]) + "\t");
+	TrialData.append(asCorrectResponse[iTotalTrialCount] + "\n");
+
+   OutputFile.open_append ( sFilename ); 									# append text to just generated file with header info
+   OutputFile.print( TrialData );											# save text string to file
+   OutputFile.close();
+        
+end;
+
+#---------------------------- Wait until subject is ready ---------------------------------#
+sub WaitForAllButtonPress begin
+   loop iRespCountOld = response_manager.total_response_count()
+   until response_manager.total_response_count() > iRespCountOld		# waits until any button is pressed
+   begin 
+	end;  
+end;
+
+#----------------------------- Wait for response to visual cue -----------------------------#
+sub WaitForAllButtonPressTime( int iDurWait2 ) begin
+   loop 
+		iRespCountOld = response_manager.total_response_count();			# waits until button was pressed OR certain time has passed (iDurWait)
+		iTimeStamp = clock.time();
+	until ((response_manager.total_response_count() > iRespCountOld) || (clock.time() - iTimeStamp >= iDurWait2))
+   begin 
+	end;
+
+end;
+
+#------------------------- Counterbalance the Symbols of each pair -----------------------------#
+
+### Counterbalancing is not done during practice. This is to make it easier to check participants' performance during testing.
+
+#sub CounterbalanceSymbols( double dSubjectNumber, int iRunNumber  ) begin
+#	if ( floor( dSubjectNumber / 2 ) == ( dSubjectNumber / 2 ) ) then	# if the Subject No. is even
+		b_GainPos.set_filename( "Stim" + string(1) + "1A.bmp" );		# set the stimulus associated with the optimal/ suboptimal outcome
+		b_GainNeg.set_filename( "Stim" + string(1) + "1B.bmp" );
+		b_LossPos.set_filename( "Stim" + string(1) + "2A.bmp" );
+		b_LossNeg.set_filename( "Stim" + string(1) + "2B.bmp" );
+#	else																					# if uneven
+#		b_GainPos.set_filename( "Stim" + string(1) + "2B.bmp" );		# change which stimulus is associated with optimal and which one with suboptimal outcome
+#		b_GainNeg.set_filename( "Stim" + string(1) + "2A.bmp" );
+#		b_LossPos.set_filename( "Stim" + string(1) + "1B.bmp" );
+#		b_LossNeg.set_filename( "Stim" + string(1) + "1A.bmp" );
+#	end;
+		
+	b_GainPos.load();																	# load the bitmaps
+	b_GainNeg.load();
+	b_LossPos.load();
+	b_LossNeg.load();
+#end;
+
+#------------------------ Run experiment (1 run of 32 trials) -------------------------------#
+sub RunTrials begin
+	loop iTrialCount = 1
+	until iTrialCount > iTrialsPerRun
+	begin
+
+		if ( iGainCount == 28 ) then ############# reset these variables as it will be used as index for the feedback (reinforcement) array and that one has 16 elements for more equal distribution of feedback
+			iGainCount = 0;
+			aiReinforcementGain.shuffle();
+		elseif ( iLossCount == 28 ) then
+			iLossCount = 0;
+			aiReinforcementLoss.shuffle();
+		end;
+		
+		aiLeftOrRight.shuffle();										# determine randomly on which side (left/ right) the symbols are displayed in each trial
+		if ( aiGainOrLoss[iTrialCount] == 1 ) then						# if gain condition
+			p_Stimuli.set_part( 1, a_Gain[ aiLeftOrRight[1]] );	
+			p_Stimuli.set_part( 2, a_Gain[ aiLeftOrRight[2]] );
+			iGainCount = iGainCount + 1;											# later used to acces the corresponding index of the aiReinforcement array
+			asCondition[iTotalTrialCount] = "Gain";
+		else																			# if loss condition
+			p_Stimuli.set_part( 1, a_Loss[ aiLeftOrRight[1]] );
+			p_Stimuli.set_part( 2, a_Loss[ aiLeftOrRight[2]] );
+			iLossCount = iLossCount + 1;											# later used to acces the corresponding index of the aiReinforcement array
+			asCondition[iTotalTrialCount] = "Loss";
+		end;
+				
+		trial_fixation.set_duration(random(700,1300));			# present fixation cross
+		trial_fixation.present();
+		fixation = stimulus_manager.last_stimulus_data();
+		aiFixationTime[iTotalTrialCount] = fixation.time();
+		
+		trial_Stimuli.present();
+		p_Stimuli.present();
+		cue = stimulus_manager.last_stimulus_data();
+		aiPictureTime[iTotalTrialCount] = cue.time();
+		WaitForAllButtonPressTime(iMaxWaitForResponse);							# wait for response, but max 2.5s
+		
+		if (response_manager.total_response_count() > iRespCountOld) then	# if response was made
+			button_response = response_manager.last_response_data();
+			aiButtonTime[iTotalTrialCount] = button_response.time();
+			aiReactionTime[iTotalTrialCount] = ( aiButtonTime[iTotalTrialCount] - aiPictureTime[iTotalTrialCount] );
+			aiButtonPressed[iTotalTrialCount] = response_manager.last_response();
+			
+			if ( response_manager.last_response() == 1 ) then					# if left button was pressed, add left arrow picture part
+				p_Stimuli.insert_part( 5, a_Arrows[1], -125, -80 );
+			else																				# if right button was pressed, add right arrow picture part
+				p_Stimuli.insert_part( 5, a_Arrows[1], 125, -80 );
+			end;
+			p_Stimuli.present();
+			wait_interval( iMaxWaitForResponse - aiReactionTime[iTotalTrialCount] + 420 - 17 ); # 2.5s - RT + 0.42s
+			p_Stimuli.remove_part(5);
+			
+			if ( aiGainOrLoss[iTrialCount] == 1 ) then						# if it was the gain condition
+				if ( aiLeftOrRight[1] == 1 ) then 											# and if pos/ optimal choice was on the left
+					
+					if ( ( ( response_manager.last_response() == 1 ) && ( aiReinforcementGain[iGainCount] == 1 ) ) || ( ( response_manager.last_response() == 2 ) && ( aiReinforcementGain[iGainCount] == 2 ) ) ) then
+						# if left button was pressed & response reinforced (75% of cases) OR if right button and no reinforcement (25%)
+						b_Feedback.set_filename( "win_.bmp" );												# then monetary gain, show win feedback
+						aiMagnitude[iTotalTrialCount] = +10;
+					else																						# if wrong button pressed or response not reinforced (25% of cases)
+						b_Feedback.set_filename( "neutral_.bmp" );										# show neutral feedback
+						aiMagnitude[iTotalTrialCount] = 0;
+					end;
+					
+				else																					# and if pos/ optimal choice was on the right
+					
+					if ( ( ( response_manager.last_response() == 2 ) && ( aiReinforcementGain[iGainCount] == 1 ) ) || ( ( response_manager.last_response() == 1 ) && ( aiReinforcementGain[iGainCount] == 2 ) ) ) then
+						# if right button & reinforcement OR if left button and no reinforcement (25% of cases)
+						b_Feedback.set_filename( "win_.bmp" );
+						aiMagnitude[iTotalTrialCount] = +10;
+					else																						# if wrong button pressed or response not reinforced (25% of cases)
+						b_Feedback.set_filename( "neutral_.bmp" );
+						aiMagnitude[iTotalTrialCount] = 0;
+					end;
+					
+				end;
+			else																				# if it was the loss condition
+				if ( aiLeftOrRight[1] == 1 ) then 											# and if pos condition on the left
+					
+					if ( ( ( response_manager.last_response() == 1 ) && ( aiReinforcementLoss[iLossCount] == 1 ) ) || ( ( response_manager.last_response() == 2 ) && ( aiReinforcementLoss[iLossCount] == 2 ) ) ) then 
+						# if left button was pressed & response reinforced (75% of cases) OR if right button and no reinforcement (25%)
+						b_Feedback.set_filename( "neutral_.bmp" );										# then no loss, show neutral feedback
+						aiMagnitude[iTotalTrialCount] = 0;
+					else																						# if wrong button pressed or response not reinforced (25% of cases)
+						b_Feedback.set_filename( "loss_.bmp" );											# show loss feedback
+						aiMagnitude[iTotalTrialCount] = -10;
+					end;
+					
+				else																					# and if pos/ optimal choice was on the right
+					
+					if ( ( ( response_manager.last_response() == 2 ) && ( aiReinforcementLoss[iLossCount] == 1 ) ) || ( ( response_manager.last_response() == 1 ) && ( aiReinforcementLoss[iLossCount] == 2 ) ) ) then
+						# if right button & reinforcement OR if left button and no reinforcement (25%)
+						b_Feedback.set_filename( "neutral_.bmp" );
+						aiMagnitude[iTotalTrialCount] = 0;
+					else
+						b_Feedback.set_filename( "loss_.bmp" );
+						aiMagnitude[iTotalTrialCount] = -10;
+					end;
+					
+				end;
+			end;
+			
+			
+			b_Feedback.unload();
+			b_Feedback.load();														
+			trial_Feedback.present();
+			feedback = stimulus_manager.last_stimulus_data();						# if a response has been made show appropriate feedback
+			aiFeedbackTime[iTotalTrialCount] = feedback.time();					# show feedback for 1s
+			
+		else																					# if no response was made
+			trial_noresponse.present();
+			
+			aiButtonTime[iTotalTrialCount] = 0;
+			aiReactionTime[iTotalTrialCount] = 0;
+			aiButtonPressed[iTotalTrialCount] = 0;
+			aiMagnitude[iTotalTrialCount] = 0;
+		end;
+				
+		aiButtonExpected[iTotalTrialCount] = aiLeftOrRight[1];				# the optimal response (button); 1=left, 2=right
+		if ( aiButtonExpected[iTotalTrialCount] == aiButtonPressed[iTotalTrialCount] ) then		# check if response made is the most optimal
+				asCorrectResponse[iTotalTrialCount] = "Correct";
+		else
+				asCorrectResponse[iTotalTrialCount] = "Incorrect";
+		end;
+		
+		iTotalReward = iTotalReward + aiMagnitude[iTotalTrialCount];
+		WriteTrialToOutputFile(sOutputFilename);
+		iTrialCount = iTrialCount + 1;
+		iTotalTrialCount = iTotalTrialCount + 1;
+		
+	end;
+end;

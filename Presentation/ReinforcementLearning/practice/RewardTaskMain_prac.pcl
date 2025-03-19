@@ -1,0 +1,64 @@
+################################ Execute task ################################
+
+#------------------------------ Initiation Experiment ------------------------------#
+
+include "RewardTaskSubs_prac.pcl";	# Include all the subroutines.
+
+PrepareLogfile();													# Define name custom logfile
+
+CreateHeaderOutputFile( sOutputFilename );					# Write headers of colums
+
+loop int iInstructions = 1
+until iInstructions > 10
+begin
+	event_instructions.set_stimulus(a_Instructions[iInstructions]);
+	if ( iInstructions == 10 ) then
+		event_instructions.set_target_button( {3,4} );
+	end;
+	trial_instructions.present();
+	
+	if ( response_manager.last_response() == 4 && iInstructions < 10 ) then
+		iInstructions = iInstructions + 1;
+	elseif ( (response_manager.last_response() == 1 || response_manager.last_response() == 2) && iInstructions == 10 ) then
+		iInstructions = iInstructions + 1; 
+	elseif ( response_manager.last_response() == 3 && iInstructions > 1 ) then
+		iInstructions = iInstructions - 1;
+	end;
+end;
+
+iTotalTrialCount = 1;
+
+#-------------------------------- Run Experiment ---------------------------------#
+loop iRunCount = 1
+until iRunCount > iNumRuns
+begin
+	
+	aiGainOrLoss.shuffle();
+	aiReinforcementGain.shuffle();
+	aiReinforcementLoss.shuffle();
+	iGainCount = 0;
+	iLossCount = 0;
+	
+	t_InBetweenBlocks.set_caption("Let op, de taak begint.");
+	t_InBetweenBlocks.redraw();
+	trial_inbetweenblocks.present();
+	
+	RunTrials();
+	
+	iRunCount = iRunCount + 1;
+	
+end;
+
+loop int iInstructions = 11
+until iInstructions > 16
+begin
+	event_instructions.set_target_button( {3,4} );
+	event_instructions.set_stimulus(a_Instructions[iInstructions]);
+	trial_instructions.present();
+	
+	if ( response_manager.last_response() == 4 ) then
+		iInstructions = iInstructions + 1;
+	elseif ( response_manager.last_response() == 3 && iInstructions > 11 ) then
+		iInstructions = iInstructions - 1;
+	end;
+end;

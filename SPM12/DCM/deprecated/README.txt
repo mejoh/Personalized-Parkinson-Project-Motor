@@ -1,0 +1,2 @@
+Main file is fn_DCM_batch. This is a batch to run DCM analyses (by Freek Nieuwhof), based on earlier scripts written by Michiel Dirkx. 
+The batch calls other functions that are stored in in this folder (all written by Michiel Dirkx).

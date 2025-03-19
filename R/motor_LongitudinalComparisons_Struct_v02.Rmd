@@ -743,6 +743,11 @@ df.long <- df_fw %>%
   pivot_longer(cols = all_of(outcome),
                names_to = 'Variable',
                values_to = 'Val')
+
+df.long %>%
+        select(pseudonym,ParticipantType,TimepointNr,Age,Gender,NpsEducYears,Variable,Val) %>%
+        write_csv('P:/3024006.02/Analyses/NatComm/Fig5/PanelA.csv')
+
 n <- df.long %>%
         filter(Variable=='pSN_avg') %>%
         count(ParticipantType,TimepointNr)
@@ -1420,6 +1425,10 @@ g <- g +
                   size = sigsize)
 print(g)
 save_plot(g, filename = 'M:/Visualization/R_LongitudinalComparisonFmri/CorticalMD/cMD_caudalmiddlefrontal_HCvsPD.png', dpi=300, device='png', base_width = 4)
+
+df_md %>%
+        select(pseudonym,bi_caudalmiddlefrontal_dti,ParticipantType,TimepointNr,Age,Gender,NpsEducYears) %>%
+        write_csv('P:/3024006.02/Analyses/NatComm/Fig5/PanelB_01.csv')
 
 ```
 

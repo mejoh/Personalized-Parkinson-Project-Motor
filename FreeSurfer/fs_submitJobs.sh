@@ -8,9 +8,9 @@
 ### Note that subjects that already have output will not be processed by FS
 
 # OPTS
-cross=0
+cross=1
 base=0
-long=1
+long=0
 
 # Variables that are passed to jobs
 version=7.3.2

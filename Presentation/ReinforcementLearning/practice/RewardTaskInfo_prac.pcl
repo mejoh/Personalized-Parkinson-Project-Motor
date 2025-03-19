@@ -1,0 +1,46 @@
+############################# Variable initiation #############################
+
+#-------------------------- Variable intiation   ---------------------------------#
+int iTrialsPerRun = 56;
+int iNumRuns = 1;
+int iTotalNumTrials = (iNumRuns * iTrialsPerRun);
+int iGainCount;
+int iLossCount;
+int iRespCountOld;
+int iDurWait;
+int iTimeStamp;
+int iRunCount;
+int iTrialCount;
+int iTotalTrialCount;
+string sSubjectSession;
+int iSubject;
+int iMaxWaitForResponse = 2500;
+int iTotalReward = 0;
+stimulus_data fixation;
+stimulus_data cue;
+stimulus_data feedback;
+response_data button_response;
+
+#------------------------------------ Files --------------------------------------#
+string sOutputFilename;
+array <string> asStimuliRun1[4] = { "Stim11A.bmp", "Stim11B.bmp", "Stim12A.bmp", "Stim12B.bmp" };
+
+# --------------------- Output file variable initiation ---------------------------#
+output_file OutputFile = new output_file;
+string TrialData;
+array <string> asCondition[iTotalNumTrials];
+array <int> aiFixationTime[iTotalNumTrials];
+array <int> aiPictureTime[iTotalNumTrials];
+array <int> aiButtonTime[iTotalNumTrials];
+array <int> aiReactionTime[iTotalNumTrials];
+array <int> aiFeedbackTime[iTotalNumTrials];
+array <int> aiMagnitude[iTotalNumTrials];
+array <int> aiButtonPressed[iTotalNumTrials];
+array <int> aiButtonExpected[iTotalNumTrials];
+array <string> asCorrectResponse[iTotalNumTrials];
+
+#----------- For randomizing order motor tasks & setting stimulus   ----------------#
+array <int> aiGainOrLoss[iTrialsPerRun] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 };	# 28 gain/loss trials per run
+array <int> aiLeftOrRight[2] = { 1, 2 };	# for randomly determining the position of symbols (left or right)
+array <int> aiReinforcementGain[ (iTrialsPerRun / 2) ] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2 };	# response reinforced if 1, no reinforcement if 2 (25% of cases)
+array <int> aiReinforcementLoss[ (iTrialsPerRun / 2) ] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2 };	# response reinforced if 1, no reinforcement if 2 (25% of cases)

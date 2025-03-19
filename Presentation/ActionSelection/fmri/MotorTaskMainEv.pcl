@@ -1,0 +1,42 @@
+################################ Execute task ################################
+
+#------------------------------ Initiation Experiment ------------------------------#
+
+include "MotorTaskSubsEv.pcl";	# Include all the subroutines.
+
+PrepareLogfiles();													# Define names logfiles
+
+trial_instructions.present();
+
+iLastShimPulse = pulse_manager.main_pulse_count();
+loop until pulse_manager.main_pulse_count() >= iLastShimPulse + 1 + iWaitPulses begin
+	p_Wait.present()
+end;
+iStartingPulseTime = pulse_manager.main_pulse_time(iLastShimPulse + 6);
+
+CreateHeaderOutputFile( sOutputFilename );					# Write headers of colums
+
+iTotalTrialCount = 1;
+
+#------------------------------ Start Experiment ------------------------------#
+
+loop int iBlock = 1							# Experiment (1 run) includes 3 blocks of INT & EXT trials in an event-related design
+until iBlock > iNumBlocks
+begin
+	
+	t_InBetweenBlocks.set_caption("Let op, de taak begint.");
+	t_InBetweenBlocks.redraw();
+	trial_inbetweenblocks.present();
+	
+	RunTrials( aiBlockOrder[iCounterbalance][iBlock] );			# Run all trials within one block, order blocks is counterbalanced based on subjectno.
+		
+	if ( iBlock < iNumBlocks ) then
+		t_InBetweenBlocks.set_caption("Kijk naar het kruisje.");
+		t_InBetweenBlocks.redraw();
+		trial_inbetweenblocks.present();
+		trial_baseline.present();				# show fixation cross for 30s (= REST baseline)
+	end;	
+	
+	iBlock = iBlock + 1
+	
+end;

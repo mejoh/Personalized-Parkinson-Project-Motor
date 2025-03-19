@@ -1,0 +1,167 @@
+############################# Variable initiation #############################
+
+#-------------------------- Variable intiation   ---------------------------------#
+int iTrialsPerBlock = 44;				
+int iNumCatchTrialsPerBlock = 4;		# About 10% of trials in each block are catch trials (actually a little less)
+int iNumBlocks = 3;
+int iTotalNumTrials = (iNumBlocks * iTrialsPerBlock);
+int iRespCountOld;
+int iDurWait;
+int iTimeStamp;
+int iTrialCount;
+int iTotalTrialCount;
+string sSubjectSession;
+#int iSubject;
+int iLastShimPulse;
+int iWaitPulses = 5;
+int iStartingPulseTime;
+stimulus_data fixation;
+stimulus_data cue;
+response_data button_response;
+
+#------------------------------------ Files --------------------------------------#
+string sOutputFilename;
+
+# --------------------- Output file variable initiation ---------------------------#
+output_file OutputFile = new output_file;
+string TrialData;
+array <string> asTask[iTotalNumTrials];
+array <double> aiFixationTime[iTotalNumTrials];
+array <double> aiCueTime[iTotalNumTrials];
+array <double> aiResponseTime[iTotalNumTrials];
+array <double> aiReactionTime[iTotalNumTrials];
+array <int> aiButtonPressed[iTotalNumTrials];
+array <int> aiButtonExpected[iTotalNumTrials];
+array <string> asCorrectResponse[iTotalNumTrials];
+array <int> ai3ChoiceExpButtons[4] = { 123, 124, 134, 234 };	# The 3 possible button choices are stored as a 3-digit integer in the array aiButtonExpected
+array <int> ai3ChoiceCorrButtons[4][3] = { {1,2,3}, {1,2,4}, {1,3,4}, {2,3,4} };	# Elements are matched with responses later to identify correct/ false responses
+array <int> ai2ChoiceExpButtons[6] = { 12, 13, 14, 23, 24, 34 };	# The 2 possible button choices are stored as a 2-digit integer in the array aiButtonExpected
+array <int> ai2ChoiceCorrButtons[6][2] = { {1,2}, {1,3}, {1,4}, {2,3}, {2,4}, {3,4} }; # Elements are matched with responses later to identify correct/ false responses
+
+#------------------------------ Pseudorandomization trials & initiation of for randomization required variables ----------------------------------#
+int iCounterbalance = random(1,6);
+array <int> aiBlockOrder[6][3] = { {1,2,3}, {2,3,1}, {3,1,2}, {3,2,1}, {2,1,3}, {1,3,2} }; # counterbalance blockorder based on subjectnumber
+
+array <int> aiMiniBlocks1Ext[9] = { 0,0,1,1,2,3,4,4,5 };		# these arrays contain the length of sequences of the same trials category/conditon (EXT or INT)
+array <int> aiMiniBlocks1Int[9] = { 6,7,7,8,8,9,10,0,0 };	# 0 stands for catch trials
+aiMiniBlocks1Ext.shuffle(); aiMiniBlocks1Int.shuffle();		# Numbers 1-5 represent blocks of EXT trials of the same length
+array <int> aiMiniBlocks2Ext[9] = { 0,0,1,2,3,4,5,5,-1 };	# Numbers 6-10 represent blocks of INT trials of lenght number-5 (i.e., if 7, then lenght 2)
+array <int> aiMiniBlocks2Int[9] = { 6,6,7,8,9,9,10,0,0 };	# -1 is just a filler, making arrays of equal length (and is not included in the shuffle!)
+aiMiniBlocks2Ext.shuffle(1,8); aiMiniBlocks2Int.shuffle();
+array <int> aiMiniBlocks3Ext[9] = { 0,0,1,2,2,3,3,4,5 };
+array <int> aiMiniBlocks3Int[9] = { 6,7,8,9,10,10,0,0,-1 };
+aiMiniBlocks3Ext.shuffle(); aiMiniBlocks3Int.shuffle(1,8);
+
+array <int> aiMiniBlocks1[0];			# During each of the 3 blocks, the small miniblocks (length 1-5 trials) of the 2 conditions should be alternated
+array <int> aiMiniBlocks2[0];			# WITHIN MINIBLOCK: SAME OVERALL CATEGORY (INT/EXT), 
+array <int> aiMiniBlocks3[0];			# Catch trials could actually by chance follow each other
+int iOrderMiniBlocks1 = random(1,2);
+loop int iIndex = 1						# This loop add miniblocks of random length in a way that miniblocks of INT and EXT are alternating
+until iIndex > 9
+begin
+	if ( iOrderMiniBlocks1 == 1) then						# randomly determined with which condition (EXT or INT) the block will start
+		aiMiniBlocks1.add( aiMiniBlocks1Ext[iIndex] );
+		aiMiniBlocks1.add( aiMiniBlocks1Int[iIndex] );
+	else
+		aiMiniBlocks1.add( aiMiniBlocks1Int[iIndex] );
+		aiMiniBlocks1.add( aiMiniBlocks1Ext[iIndex] );
+	end;
+		aiMiniBlocks2.add( aiMiniBlocks2Int[iIndex] );	# one block always starts with INT condition the other with EXT
+		aiMiniBlocks2.add( aiMiniBlocks2Ext[iIndex] );
+		aiMiniBlocks3.add( aiMiniBlocks3Ext[iIndex] );
+		aiMiniBlocks3.add( aiMiniBlocks3Int[iIndex] );
+		
+	iIndex = iIndex + 1
+end;
+################################
+# In total 60 EXT trials, 15 for each finger/ button, 30 2-choice and 30 3-choice (INT) trials
+array <int> aiEXTtrials[60] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4 };
+array <int> aiINTtrials[60] = { 5,5,5,5,5,6,6,6,6,6,7,7,7,7,7,8,8,8,8,8,9,9,9,9,9,10,10,10,10,10,11,11,11,11,11,11,11,12,12,12,12,12,12,12,12,13,13,13,13,13,13,13,13,14,14,14,14,14,14,14 }; 
+################################
+
+array <int> aiBlock[0]; # The contents of the 3 arrays above will be copied to this array as part of block order randomization
+array <int> aiBlock1[0];
+array <int> aiBlock2[0];
+array <int> aiBlock3[0];
+
+aiEXTtrials.shuffle();
+aiINTtrials.shuffle();
+
+int iExtCount = 0;
+int iIntCount = 0;
+int iElement;
+
+loop int iIndex = 1
+until iIndex > aiMiniBlocks1.count()
+begin
+	if ( aiMiniBlocks1[iIndex] > 0 && aiMiniBlocks1[iIndex] < 6 ) then
+		loop iElement = 1
+		until iElement > aiMiniBlocks1[iIndex]
+		begin
+			iExtCount = iExtCount + 1;
+			aiBlock1.add( aiEXTtrials[iExtCount] );
+			iElement = iElement + 1;
+		end;
+	elseif ( aiMiniBlocks1[iIndex] > 5 ) then
+		loop iElement = 1
+		until iElement > ( aiMiniBlocks1[iIndex] - 5 )
+		begin
+			iIntCount = iIntCount + 1;
+			aiBlock1.add( aiINTtrials[iIntCount] );
+			iElement = iElement + 1;
+		end;
+	elseif ( aiMiniBlocks1[iIndex] == 0 ) then
+		aiBlock1.add( random( 16, 29 ) );
+	end;			# no else, nothing is done if -1
+	iIndex= iIndex + 1;
+end;
+
+loop int iIndex = 1
+until iIndex > aiMiniBlocks2.count()
+begin
+	if ( aiMiniBlocks2[iIndex] > 0 && aiMiniBlocks2[iIndex] < 6 ) then
+		loop iElement = 1
+		until iElement > aiMiniBlocks2[iIndex]
+		begin
+			iExtCount = iExtCount + 1;
+			aiBlock2.add( aiEXTtrials[iExtCount] );
+			iElement = iElement + 1;
+		end;
+	elseif ( aiMiniBlocks2[iIndex] > 5 ) then
+		loop iElement = 1
+		until iElement > ( aiMiniBlocks2[iIndex] - 5 )
+		begin
+			iIntCount = iIntCount + 1;
+			aiBlock2.add( aiINTtrials[iIntCount] );
+			iElement = iElement + 1;
+		end;
+	elseif ( aiMiniBlocks2[iIndex] == 0 ) then
+		aiBlock2.add( random( 16, 29 ) );
+	end;			
+	iIndex= iIndex + 1;
+end;
+
+loop int iIndex = 1
+until iIndex > aiMiniBlocks3.count()
+begin
+	if ( aiMiniBlocks3[iIndex] > 0 && aiMiniBlocks3[iIndex] < 6 ) then
+		loop iElement = 1
+		until iElement > aiMiniBlocks3[iIndex]
+		begin
+			iExtCount = iExtCount + 1;
+			aiBlock3.add( aiEXTtrials[iExtCount] );
+			iElement = iElement + 1;
+		end;
+	elseif ( aiMiniBlocks3[iIndex] > 5 ) then
+		loop iElement = 1
+		until iElement > ( aiMiniBlocks3[iIndex] - 5 )
+		begin
+			iIntCount = iIntCount + 1;
+			aiBlock3.add( aiINTtrials[iIntCount] );
+			iElement = iElement + 1;
+		end;
+	elseif ( aiMiniBlocks3[iIndex] == 0 ) then
+		aiBlock3.add( random( 16, 29 ) );
+	end;			
+	iIndex= iIndex + 1;
+end;

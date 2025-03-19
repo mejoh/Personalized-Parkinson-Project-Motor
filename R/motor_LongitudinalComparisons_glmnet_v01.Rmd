@@ -36,6 +36,7 @@ df <- read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_clin.csv') %>%
     mutate(Gender = factor(Gender)) %>%
     full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_func_premotor.csv'), by = 'pseudonym') %>%
     full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_func_putamen.csv'), by = 'pseudonym') %>%
+    full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_func_dcmpar.csv'), by = 'pseudonym') %>%    
     full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_struc_pSN.csv'), by = 'pseudonym') %>%
     full_join(., read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_struc_cort.csv'), by = 'pseudonym') %>%
     select(!ends_with('T2')) %>%
@@ -47,22 +48,22 @@ df <- read_csv('P:/3024006.02/Data/GLMNET_NatComm/glmnet_clin.csv') %>%
 
 ```{r PREP-DATA, echo=F, warning=F, message=F}
 
-cn <- colnames(df)
-Td_colnames <- cn[str_detect(cn,'_Td')]
-T0_colnames <- cn[str_detect(cn,'_T0')]
-for(i in 1:length(Td_colnames)){
-        td <- Td_colnames[i]
-        t0 <- T0_colnames[i]
-        tmp <- df %>%
-                select(all_of(td),all_of(t0))
-        res <- resid(lm(formula = paste0(td, '~', t0), data = tmp))
-        res <- tibble(td_r = res)
-        colnames(res) <- str_replace(td, '_Td', '_TdRes')
-        df <- bind_cols(df, res)
-}
-df <- df %>%
-        select(!ends_with('_Td')) %>%
-        select(!ends_with('_T0'))
+# cn <- colnames(df)
+# Td_colnames <- cn[str_detect(cn,'_Td')]
+# T0_colnames <- cn[str_detect(cn,'_T0')]
+# for(i in 1:length(Td_colnames)){
+#         td <- Td_colnames[i]
+#         t0 <- T0_colnames[i]
+#         tmp <- df %>%
+#                 select(all_of(td),all_of(t0))
+#         res <- resid(lm(formula = paste0(td, '~', t0), data = tmp))
+#         res <- tibble(td_r = res)
+#         colnames(res) <- str_replace(td, '_Td', '_TdRes')
+#         df <- bind_cols(df, res)
+# }
+# df <- df %>%
+#         select(!ends_with('_Td')) %>%
+#         select(!ends_with('_T0'))
 
 ```
 
@@ -84,19 +85,19 @@ tm_mod <-
 
 # Recipe
 tm_rec <- 
-    recipe(Up3OnBradySum_TdRes ~ ., data = df) %>%
+    recipe(Up3OnBradySum_Td ~ ., data = df) %>%
     step_rm(pseudonym) %>%
     step_dummy(all_nominal_predictors()) %>%
     step_zv(all_predictors()) %>%
     step_YeoJohnson(all_numeric_predictors()) %>%
     step_normalize(all_predictors())
 # Check what recipe does the data
-tmp_rec_prep <-
+tm_rec_prep <-
         tm_rec %>%
         prep()
 tm_rec_bake <- 
         tm_rec_prep %>%
-        bake()
+        bake(new_data = NULL)
 print(tm_rec_bake)
 
 # Workflow
@@ -162,7 +163,7 @@ tm_final_fit_wf <-
     extract_workflow()
     # Evaluate performance
 tmp_final_fit_pred %>%
-    ggplot(aes(x = Up3OnBradySum_TdRes, y = .pred))+
+    ggplot(aes(x = Up3OnBradySum_Td, y = .pred))+
         geom_abline(color = "gray50", lty = 2) + 
         geom_point(alpha = 0.5) + 
         coord_obs_pred() + 

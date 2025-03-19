@@ -1,0 +1,62 @@
+############################# Variable initiation #############################
+
+#-------------------------- Variable intiation   ---------------------------------#
+int iTrialsPerRun = 56;
+int iNumRuns = 2;
+int iTotalNumTrials = (iNumRuns * iTrialsPerRun);
+int iGainCount;
+int iLossCount;
+int iRespCountOld;
+int iDurWait;
+int iTimeStamp;
+int iRunCount;
+int iTrialCount;
+int iTotalTrialCount;
+string sSubjectSession;
+int iSubject;
+int iMaxWaitForResponse = 2500;
+int iLastShimPulse;
+int iWaitPulses = 6;
+int iStartingPulseTime;
+int iTotalReward = 0;
+stimulus_data fixation;
+stimulus_data cue;
+stimulus_data feedback;
+response_data button_response;
+
+#------------------------------------ Files --------------------------------------#
+string sOutputFilename;
+array <string> asStimuliRun1[4] = { "", "", "", "" };
+array <string> asStimuliRun2[4] = { "", "", "", "" };
+
+# --------------------- Output file variable initiation ---------------------------#
+output_file OutputFile = new output_file;
+string TrialData;
+array <string> asCondition[iTotalNumTrials];
+array <int> aiFixationTime[iTotalNumTrials];
+array <int> aiPictureTime[iTotalNumTrials];
+array <int> aiButtonTime[iTotalNumTrials];
+array <int> aiReactionTime[iTotalNumTrials];
+array <int> aiFeedbackTime[iTotalNumTrials];
+array <int> aiMagnitude[iTotalNumTrials];
+array <int> aiButtonPressed[iTotalNumTrials];
+array <int> aiButtonExpected[iTotalNumTrials];
+array <string> asCorrectResponse[iTotalNumTrials];
+
+#--------------------------- Optimized sequence of ITIs and conditions -----------------------------------------------#
+array <int> aiGainOrLoss[112] = {1,1,1,1,1,1,2,2,2,1,1,2,2,1,1,1,2,2,1,2,2,1,2,1,2,2,1,2,2,1,2,1,2,2,1,2,1,1,1,1,2,2,1,1,1,2,2,2,2,2,1,1,2,1,2,2,
+1,2,2,2,2,1,2,2,1,2,1,1,2,1,1,1,2,1,2,2,1,1,1,2,1,2,2,1,1,1,1,1,2,1,2,1,2,1,1,2,2,2,2,2,2,1,1,1,2,2,2,2,1,1,2,1};
+array <int> aiITIs[112] = {1000,1400,840,1400,840,1120,840,560,560,1960,1400,560,560,840,560,560,1960,840,840,1400,560,840,840,
+1120,1120,1400,1400,1120,560,1400,1400,1680,1400,1680,840,1120,1960,560,840,1960,1120,560,560,1120,1400,560,1680,
+560,840,840,840,560,560,560,840,1120,1680,
+1120,560,560,840,1400,560,560,560,1120,1120,560,2800,840,1400,560,840,1120,840,1400,560,1120,1120,560,840,1120,560,560,560,840,2520,
+560,1400,560,1120,560,1400,1120,1960,1120,560,560,840,1120,840,1120,560,1120,840,1120,1400,560,1960,1960,1120,1680};
+
+#--------------------------- For randomizing stimulus pairs ----------------------------------#
+array <int> aiSymbolPairs[7] = {2, 3, 4, 5, 6, 7, 8};		# pair 1 is dedicated to practice and will not be used here
+
+#----------- For randomizing order motor tasks & setting stimulus   ----------------#
+#array <int> aiGainOrLoss[iTrialsPerRun] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 };	# 28 gain/loss trials per run
+array <int> aiLeftOrRight[2] = { 1, 2 };	# for randomly determining the position of symbols (left or right)
+array <int> aiReinforcementGain[ (iTrialsPerRun / 2) ] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2 };	# response reinforced if 1, no reinforcement if 2 (25% of cases)
+array <int> aiReinforcementLoss[ (iTrialsPerRun / 2) ] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2 };	# response reinforced if 1, no reinforcement if 2 (25% of cases)

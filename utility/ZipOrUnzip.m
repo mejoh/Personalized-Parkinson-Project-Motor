@@ -14,11 +14,11 @@ for n = 1:numel(Sub)
 %         dFunc = fullfile(dAna, Sub{n}, Visit{v});
         dFunc = fullfile(dAna, Sub{n}, Visit{v}, '1st_level');
         img = cellstr(spm_select('FPList', dFunc, pat));
-%         img = img(16:numel(img));       % Remove 1-15 from list since these might be useful
+%         img = img(4:numel(img));       % Remove 1-3 from list since these might be useful
         for i = 1:numel(img)
-            if exist(img{i}, 'file') && endsWith(img{i}, 'nii')
+            if exist(img{i}, 'file') && endsWith(img{i}, 'nii.gz')
                 disp(['Zipping: ' img{i}])
-                gzip(img{i}, fileparts(img{i}))
+                gunzip(img{i}, fileparts(img{i}))
                 delete(img{i})
 %             else
 %                 fprintf('Skipping %s: No image or already zipped \n', Sub{n})

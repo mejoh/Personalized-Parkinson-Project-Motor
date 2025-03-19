@@ -56,6 +56,11 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
                           varname <- unlist(str_extract_all(fSubsetFiles[i],"(?<=POMVisit[0-9]/).+(?=.Visit)"))
                           colnames(json) <- varname
                   }
+          }else if(str_detect(fSubsetFiles[i],'DD_Johansson2023')){
+                  json <- read.table(fSubsetFiles[i])
+                  cn <- basename(fSubsetFiles[i]) %>% str_replace(., '\\..*','')
+                  colnames(json) <- cn
+                  json <- as_tibble(json)
           }else{
                   json <- jsonlite::read_json(fSubsetFiles[i])
           }
@@ -72,6 +77,8 @@ convert_json_to_csv <- function(bidsdir, subject, visit, outputname){
       names(json$crf) <- str_replace_all(names(json$crf), 'Up3Of', 'Up3On')
     }
     if(str_detect(fSubsetFiles[i],'DD_InflammationMarkers')){
+            crf <- json
+    }else if(str_detect(fSubsetFiles[i],'DD_Johansson2023')){
             crf <- json
     }else{
             crf <- unlist(json$crf) %>% as_tibble_row # 'Unpacks' lists and turns each list value into its own column     

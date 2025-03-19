@@ -1,15 +1,14 @@
 #!/bin/bash
 #list_subjects=`find /project/3024006.02/Analyses/FreeSurfer_v7.3.2/LongitudinalTemplate/outputs/ -maxdepth 1 -type d -printf "%f\n" | awk 'length==30'`; for s in ${list_subjects[@]}; do qsub -o /project/3024006.02/Analyses/FreeSurfer_v7.3.2/LongitudinalTemplate/logs -e /project/3024006.02/Analyses/FreeSurfer_v7.3.2/LongitudinalTemplate/logs -N tmpprep_${s} -v subject=${s} -l 'walltime=02:00:00,mem=10gb' ~/scripts/Personalized-Parkinson-Project-Motor/FreeSurfer/fs_generatetemplate_prep.sh; done
 
-# base: 27
-# orig timepoints: 30
-# long: 63
-
 FNIRT=0
 ANTs=0
 
 # subject=HC_sub-POMU0A6DB3C02691EDC8_t1.long.HC_sub-POMU0A6DB3C02691EDC8
 
+# This script takes T1w images processed by FreeSurfer and normalizes them to MNI-space.
+# Enables you to build templates from base and longitudinal FreeSurfer output, rather
+# than session-specific output. 
 # 1. Convert from .mgz to .nii.gz
 # 2. Reorient to FSL standard
 # 3. N4 bias field correction

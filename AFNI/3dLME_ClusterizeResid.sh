@@ -1,20 +1,15 @@
 #!/bin/bash
 
-# DISEASE
-#DIR=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/WholeBrain/3dLME_disease; PREFIX=(con_combined_Group2_x_TimepointNr2_x_Type3); for prefix in ${PREFIX[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N ClustSim_${prefix} -v d=${DIR},p=${prefix} -l 'nodes=1:ppn=4,walltime=03:00:00,mem=20gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_ClusterizeResid.sh; done
+#DIR=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/WholeBrain/3dLME_disease; PREFIX=(con_combined_Group2_x_TimepointNr2_x_Type3); for prefix in ${PREFIX[@]}; do sbatch --job-name 3dLME_ClusterizeResid_${prefix} --time=03:00:00 --mem=20gb --nodes=1 --ntasks-per-node=1 --cpus-per-task=4 --export=d=${DIR},p=${prefix} --output=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs/o_3dLME_ClusterizeResid_${prefix}.txt --error=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs/e_3dLME_ClusterizeResid_${prefix}.txt /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_ClusterizeResid.sh; done
 
-# SUBTYPE
-#COMP=MMPvsDM; DIR=/project/3024006.02/Analyses/DurAvg_ReAROMA_PMOD_TimeDer_Trem/Group/Longitudinal/AFNI/ON_ANALYSES/ROI/Parietal/3dLME_${COMP}; PREFIX=(con_0010_${COMP}_x_TimepointNr2 con_0012_${COMP}_x_TimepointNr2 con_0013_${COMP}_x_TimepointNr2 con_combined_${COMP}_x_TimepointNr2_x_Type3); for prefix in ${PREFIX[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N ClustSim_${prefix} -v d=${DIR},p=${prefix} -l 'nodes=1:ppn=4,walltime=02:30:00,mem=20gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_ClusterizeResid.sh; done
-
-# SEVERITY
-#DIR=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/ROI/Masked_full/3dLME_severity; PREFIX=(con_combined_Severity2_x_Type3 con_0007_Severity2 con_0010_Severity2); for prefix in ${PREFIX[@]}; do qsub -o /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -e /project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/logs -N ClustSim_${prefix} -v d=${DIR},p=${prefix} -l 'nodes=1:ppn=4,walltime=03:00:00,mem=20gb' /home/sysneu/marjoh/scripts/Personalized-Parkinson-Project-Motor/AFNI/3dLME_ClusterizeResid.sh; done
-
-# d=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/ROI/Masked_full/3dLME_disease
-# p=con_combined_Group2_x_TimepointNr2_x_Type3
+#d=/project/3024006.02/Analyses/motor_task/Group/Longitudinal/AFNI/WholeBrain/3dLME_disease/
+#p=con_combined_Group2_x_TimepointNr2_x_Type3
 
 ##### Set process variables
-module load afni
-export OMP_NUM_THREADS=8
+module load afni/2022
+module load anaconda3
+source activate py310
+export OMP_NUM_THREADS=4
 cd $d
 prefix=$p
 mask=mask.nii

@@ -1,0 +1,53 @@
+################################ Execute task ################################
+
+#------------------------------ Initiation Experiment ------------------------------#
+
+include "RewardTaskSubs_fmri.pcl";	# Include all the subroutines.
+
+PrepareLogfile();													# Define name custom logfile
+
+trial_instructions.present();
+
+iLastShimPulse = pulse_manager.main_pulse_count();
+loop until pulse_manager.main_pulse_count() >= iLastShimPulse + 1 + iWaitPulses begin
+	p_Wait.present()
+end;
+iStartingPulseTime = pulse_manager.main_pulse_time(iLastShimPulse + 6);
+
+CreateHeaderOutputFile( sOutputFilename );
+
+iTotalTrialCount = 1;
+
+#-------------------------------- Run Experiment ---------------------------------#
+
+aiSymbolPairs.shuffle();	# Randomize which symbol pairs are used
+
+loop iRunCount = 1
+until iRunCount > iNumRuns
+begin
+
+	CounterbalanceSymbols( iSubject, iRunCount );	# Counterbalance symbols based on subject number & load images
+	#aiGainOrLoss.shuffle(); DON'T shuffle. Want the same order of conditions for all participants
+	aiReinforcementGain.shuffle();
+	aiReinforcementLoss.shuffle();
+	iGainCount = 0;
+	iLossCount = 0;
+	
+	t_InBetweenBlocks.set_caption("Let op, de taak begint.");
+	t_InBetweenBlocks.redraw();
+	trial_inbetweenblocks.present();
+	if ( iRunCount == 2 )then
+	trial_inbetweenblocksend.present();	
+	end;
+	
+	RunTrials();
+	
+	if ( iRunCount < iNumRuns ) then
+		t_InBetweenBlocks.set_caption("We zijn halverwege. Let op, u krijgt nieuwe symbolen te zien.");
+		t_InBetweenBlocks.redraw();
+		trial_inbetweenblocks.present();
+	end;
+	
+	iRunCount = iRunCount + 1;
+	
+end;

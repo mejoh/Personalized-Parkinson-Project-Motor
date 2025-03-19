@@ -1,0 +1,182 @@
+################################ Task Subs ################################
+
+include "MotorTaskInfoEv.pcl";		# Include all the variables.
+
+
+#------------------------------ Get Keyboard Input----------------------------------#
+sub PrepareLogfiles begin
+	sSubjectSession = logfile.subject();				# should be in following style POMTD59JKL234_*
+	#iSubject = int( sSubjectSession.substring(1,13) ); # the 3 digit subject number is used to counterbalance order of blocks
+	sOutputFilename = sSubjectSession + "_logfile.txt";
+
+end;
+
+#-------------------------- Create header of output file -----------------------------#
+sub CreateHeaderOutputFile(string sFilename ) begin
+
+	TrialData = "";																# generate a header string
+	# first line of logfile
+	TrialData.append("PEP_ID.:" + "\t" + sSubjectSession.substring(1,13) + "\t");
+	TrialData.append("Starting Pulse:" + "\t" + string(iLastShimPulse+6) + "\t" + "Starting Time:" + "\t" + string(iStartingPulseTime) + "\n");
+	# column headers (2nd row logfile)
+	TrialData.append("Trial_no." + "\t");									# add all the header labels to the string
+	TrialData.append("Task" + "\t");
+	TrialData.append("Fixation_Time" + "\t");
+	TrialData.append("Cue_Time" + "\t");
+	TrialData.append("Response_Time" + "\t");
+	TrialData.append("Reaction_Time" + "\t");
+	TrialData.append("Button_Pressed" + "\t");
+	TrialData.append("Button_Expected" + "\t");
+	TrialData.append("Correct_Response" + "\n");
+
+   OutputFile.open( sFilename, false ); 									# don't overwrite existing file
+   OutputFile.print( TrialData );											# save text string to file
+   OutputFile.close();
+
+end;
+
+#------------------------------Write info to output file -----------------------------#
+
+sub WriteTrialToOutputFile(string sFilename ) begin
+
+	TrialData = "";																# generate string
+
+	TrialData.append(string(iTotalTrialCount) + "\t");					# add all the information to the string
+	TrialData.append(asTask[iTotalTrialCount] + "\t");
+	TrialData.append(string(aiFixationTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiCueTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiResponseTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiReactionTime[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiButtonPressed[iTotalTrialCount]) + "\t");
+	TrialData.append(string(aiButtonExpected[iTotalTrialCount]) + "\t");
+	TrialData.append(asCorrectResponse[iTotalTrialCount] + "\n");
+
+   OutputFile.open_append ( sFilename ); 									# append text to just generated file with header info
+   OutputFile.print( TrialData );											# save text string to file
+   OutputFile.close();
+        
+end;
+
+#------------------------- Wait until subject is ready -----------------------------#
+sub WaitForAllButtonPress begin
+   loop iRespCountOld = response_manager.total_response_count()
+   until response_manager.total_response_count() > iRespCountOld		# waits until any button is pressed
+   begin 
+	end;  
+end;
+
+#-------------------------- Wait for response to visual cue ---------------------------#
+sub WaitForAllButtonPressTime( int iDurWait2 ) begin
+   loop 
+		iRespCountOld = response_manager.total_response_count();			# waits until button was pressed OR certain time has passed (iDurWait)
+		iTimeStamp = clock.time();
+	until ((response_manager.total_response_count() > iRespCountOld) || (clock.time() - iTimeStamp >= iDurWait2))
+   begin 
+	end;
+
+end;
+
+#------------------------ Run a block 44 trials, 4 Catch, 20 Int, 20 Ext -------------------------------#
+sub RunTrials ( int iNumBlock ) begin
+		
+	if ( iNumBlock == 1) then
+		aiBlock.assign( aiBlock1 );
+	elseif ( iNumBlock == 2) then
+		aiBlock.assign( aiBlock2 );
+	else
+		aiBlock.assign( aiBlock3 );
+	end;
+	
+	loop iTrialCount = 1
+	until iTrialCount > iTrialsPerBlock
+	begin
+			
+		if ( aiBlock[iTrialCount] < 5 ) then 												# if 1-choice (EXT)
+			asTask[iTotalTrialCount] = "Ext";
+			aiButtonExpected[iTotalTrialCount] = aiBlock[iTrialCount];
+			event_cue.set_target_button( aiBlock[iTrialCount] );
+		elseif ( aiBlock[iTrialCount] > 15 ) then											# if Catch trial
+			asTask[iTotalTrialCount] = "Catch";
+			aiButtonExpected[iTotalTrialCount] = 0;
+			event_cue.set_target_button( 0 );			# make it a response active non-target!
+			#event_cue.set_response_active( true );	# not necessary
+		elseif ( aiBlock[iTrialCount] > 10 && aiBlock[iTrialCount] < 15 ) then	# if 3-choice INT 
+			asTask[iTotalTrialCount] = "Int3";
+			event_cue.set_target_button( ai3ChoiceCorrButtons[(aiBlock[iTrialCount]-10)] );
+			aiButtonExpected[iTotalTrialCount] = ai3ChoiceExpButtons[(aiBlock[iTrialCount] - 10)];
+		else #( aiBlock[iTrialCount] > 4 && aiBlock[iTrialCount] < 11 ) then		# if 2-choice INT
+			asTask[iTotalTrialCount] = "Int2";
+			aiButtonExpected[iTotalTrialCount] = ai2ChoiceExpButtons[(aiBlock[iTrialCount] - 4)];
+			event_cue.set_target_button( ai2ChoiceCorrButtons[(aiBlock[iTrialCount]-4)] );
+		end;
+			
+		b_Cue.set_filename( "stim" + string( aiBlock[iTrialCount] ) + ".jpg" );
+		b_Cue.unload();
+		b_Cue.load();
+		
+		
+		trial_fixation.set_duration(random(2000,4000));						# ISI = 2-4s
+		trial_fixation.present();													# fixation cross	
+		fixation = stimulus_manager.last_stimulus_data();
+		aiFixationTime[iTotalTrialCount] = fixation.time_double();
+		iRespCountOld = response_manager.total_response_count();			# identify if response has been made later
+		
+		trial_cue.present();															# show task cue, until button press but 2s max
+		cue = stimulus_manager.last_stimulus_data();
+		aiCueTime[iTotalTrialCount] = cue.time_double();
+		
+		if (response_manager.total_response_count() > iRespCountOld) then			# if a response was made, save button info & timing
+			button_response = response_manager.last_response_data();
+			aiResponseTime[iTotalTrialCount] = button_response.time_double();
+			aiReactionTime[iTotalTrialCount] = ( aiResponseTime[iTotalTrialCount] - aiCueTime[iTotalTrialCount] );
+			aiButtonPressed[iTotalTrialCount] = response_manager.last_response();
+		else																							# if no response was made, save only zeros
+			aiResponseTime[iTotalTrialCount] = 0;
+			aiReactionTime[iTotalTrialCount] = 0;
+			aiButtonPressed[iTotalTrialCount] = 0;
+		end;
+		
+		
+		if ( aiBlock[iTrialCount] < 5 ) then												# test correct button press for EXT
+			if ( aiButtonExpected[iTotalTrialCount] == aiButtonPressed[iTotalTrialCount] ) then
+				asCorrectResponse[iTotalTrialCount] = "Hit";
+			elseif ( aiButtonExpected[iTotalTrialCount] == 0 ) then
+				asCorrectResponse[iTotalTrialCount] = "Miss";
+			else
+				asCorrectResponse[iTotalTrialCount] = "Incorrect";
+			end;
+		elseif ( aiBlock[iTrialCount] > 15 ) then											# test if no button was pressed for catch trial 
+			if ( aiButtonExpected[iTotalTrialCount] == aiButtonPressed[iTotalTrialCount] ) then
+				asCorrectResponse[iTotalTrialCount] = "Hit";
+			else
+				asCorrectResponse[iTotalTrialCount] = "False Alarm";
+			end;
+		elseif ( aiBlock[iTrialCount] > 10 && aiBlock[iTrialCount] < 15 ) then	# test for INT, 3-choice condition if correct button pressed
+			if ( aiButtonPressed[iTotalTrialCount] == ai3ChoiceCorrButtons[(aiBlock[iTrialCount]-10)][1] || aiButtonPressed[iTotalTrialCount] == ai3ChoiceCorrButtons[(aiBlock[iTrialCount]-10)][2] || aiButtonPressed[iTotalTrialCount] == ai3ChoiceCorrButtons[(aiBlock[iTrialCount]-10)][3] ) then
+				asCorrectResponse[iTotalTrialCount] = "Hit";
+			elseif ( aiButtonPressed[iTotalTrialCount] == 0 ) then
+				asCorrectResponse[iTotalTrialCount] = "Miss";
+			else
+				asCorrectResponse[iTotalTrialCount] = "Incorrect";
+			end;
+		elseif( aiBlock[iTrialCount] > 4 && aiBlock[iTrialCount] < 11 ) then		# test for INT, 3-choice condition if correct button pressed
+			if ( aiButtonPressed[iTotalTrialCount] == ai2ChoiceCorrButtons[(aiBlock[iTrialCount]-4)][1] || aiButtonPressed[iTotalTrialCount] == ai2ChoiceCorrButtons[(aiBlock[iTrialCount]-4)][2] ) then
+				asCorrectResponse[iTotalTrialCount] = "Hit";
+			elseif ( aiButtonPressed[iTotalTrialCount] == 0) then
+				asCorrectResponse[iTotalTrialCount] = "Miss";
+			else
+				asCorrectResponse[iTotalTrialCount] = "Incorrect";
+			end;
+		else																							# test for INT, 4-choice condition if any button was pressed
+			if ( aiButtonPressed[iTotalTrialCount] > 0 ) then
+				asCorrectResponse[iTotalTrialCount] = "Hit";
+			else
+				asCorrectResponse[iTotalTrialCount] = "Miss";
+			end;
+		end;
+		
+		WriteTrialToOutputFile(sOutputFilename);
+		iTrialCount = iTrialCount + 1;
+		iTotalTrialCount = iTotalTrialCount + 1;
+	end;
+end;

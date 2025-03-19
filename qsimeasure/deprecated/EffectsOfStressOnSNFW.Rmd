@@ -1,0 +1,888 @@
+---
+title: "Effects of stress on substantia nigra degeneration in Parkinson's disease"
+author: "M.E. Johansson"
+date: "2024-07-12"
+output: 
+  html_document:
+    toc: yes
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Project description
+
+Parkinson's disease leads to degeneration of the substantia nigra, particularly the posterior segment (pSN), which results in lower dopamine levels, basal ganglia dysfunction, and motor symptoms. There is some evidence suggesting that stress may exacerbate pSN degeneration. Here, we test this hypothesis by assessing whether longitudinal pSN degeneration is influenced by stress reactivity levels.
+
+# Libraries
+
+```{r LIBRARIES, echo=F, warning=F, message=F}
+library(tidyverse)
+library(tidymodels)
+library(multilevelmod)
+library(broom.mixed)
+library(vip)
+library(car)
+library(ggeffects)
+library(emmeans)
+library(readxl)
+library(effectsize)
+library(lubridate)
+library(rmcorr)
+library(GGally)
+
+options(contrasts=c("contr.sum", "contr.poly"))
+sigsize=5
+lsize=0.6
+```
+
+# Prepare data
+
+## Load: clinical
+
+Load demographic information.
+
+```{r LOAD-CLIN, echo=F, warning=F, message=F}
+# Clinical data
+read_clinical_metrics <- function(filename, clinical_metrics){
+  df <- read_csv(filename,
+                 col_select = all_of(clinical_metrics), show_col_types = F) %>%
+    filter(ParticipantType != 'PD_PIT') %>%
+    mutate(ParticipantType = if_else(ParticipantType == 'PD_POM','Patient','Healthy'),
+           TimepointNr = if_else(ParticipantType == 'Healthy' & TimepointNr == 1, 2, TimepointNr)) %>%
+    filter(TimepointNr != 1)
+  
+  diagnosis <- df %>% select(pseudonym, TimepointNr, DiagParkCertain, DiagParkPersist, DiagParkReplace)
+  baseline_exclusion <- diagnosis %>%
+      filter(TimepointNr==0, (DiagParkCertain == 'NeitherDisease' | DiagParkCertain == 'DoubtAboutParkinsonism' | DiagParkCertain == 'Parkinsonism')) %>% 
+      select(pseudonym, DiagParkCertain)
+  visit2_exclusion <- diagnosis %>%
+      filter(TimepointNr==2, (DiagParkPersist == 2)) %>% 
+      select(pseudonym, DiagParkPersist, DiagParkReplace)
+  diag_exclusions <- full_join(baseline_exclusion, visit2_exclusion, by='pseudonym') %>% 
+      unique()
+  df <- df %>%
+      mutate(Misdiagnosis = if_else(pseudonym %in% diag_exclusions$pseudonym,1,0))
+  
+  df     
+}
+clinical_metrics <- c('pseudonym','ParticipantType','TimepointNr','Age','Gender','YearsSinceDiag','NpsEducYears',
+                      'AsymmetryIndexRiLe.WeightedBradyRig2','DiagParkCertain', 'DiagParkPersist', 'DiagParkReplace')
+df_clin <- read_clinical_metrics('P:/3022026.01/pep/ClinVars_10-08-2023/derivatives/merged_manipulated_2024-07-17.csv', 
+                                 clinical_metrics) %>%
+    mutate(MostAffSide=NA,
+           MostAffSide = case_when(
+               AsymmetryIndexRiLe.WeightedBradyRig2<0 ~ 'L',
+               AsymmetryIndexRiLe.WeightedBradyRig2>0 ~ 'R',
+               AsymmetryIndexRiLe.WeightedBradyRig2==0 ~ 'Sym',
+               .default = NA
+               )
+           ) %>%
+  relocate(MostAffSide, .after = 'Gender') %>%
+    select(-c(DiagParkCertain, DiagParkPersist, DiagParkReplace))
+
+head(df_clin)
+```
+
+## Load: stress reactivity
+
+Load stress reactivity classes.
+
+```{r LOAD-STRESS, echo=F, warning=F, message=F}
+read_stress_class <- function(filename){
+  df <- read_csv(filename, show_col_types = F) %>%
+    rename(pseudonym = Subj_ID) %>%
+    mutate(SR_cohort = 1)
+}
+df_stress_class <- read_stress_class("P:/3024006.02/Data/PPP_stressreactivity.csv")
+
+head(df_stress_class)
+```
+
+## Load: CRP values
+
+```{r LOAD-CRP, echo=F, warning=F, message=F}
+read_stress_crpnfl <- function(filename){
+  df.crpnfl <- read_csv(filename, show_col_types = F) %>%
+      select(!starts_with('Date')) %>%
+      rename(pseudonym = Subj_ID) %>%
+      pivot_longer(cols = CRP.Visit1:NFL.Visit3,
+                   names_to = c("Var","TimepointNr"),
+                   names_pattern = "(.*).Visit(.*)") %>%
+      mutate(TimepointNr = as.numeric(TimepointNr) - 1) %>%
+      pivot_wider(id_cols = c("pseudonym","TimepointNr"),
+                  names_from = "Var",
+                  values_from = "value")
+  
+  df.date <- read_csv(filename, show_col_types = F) %>%
+      select(Subj_ID, starts_with('Date')) %>%
+      rename(pseudonym = Subj_ID) %>%
+      pivot_longer(cols = Date.Visit1:Date.Visit3,
+                   names_to = c("Var","TimepointNr"),
+                   names_pattern = "(.*).Visit(.*)",
+                   values_to = "Date") %>%
+      mutate(TimepointNr = as.numeric(TimepointNr) - 1,
+             Date = str_replace(Date,'/','-'),
+             Date = mdy(Date)) %>%
+    select(-Var)
+  
+  df <- full_join(df.crpnfl,df.date)
+  
+  df
+}
+df_stress_crpnfl <- read_stress_crpnfl("P:/3024006.02/Data/Data_CRPNFL_wide.csv") %>%
+  select(-Date) %>%
+  filter(TimepointNr != 1)
+
+head(df_stress_crpnfl)
+```
+
+## Load: free water
+
+Load substantia nigra free water.
+
+```{r LOAD-FW, echo=F, warning=F, message=F}
+# DTI data
+read_dti_metrics <- function(filename){
+    df <- read_delim(filename, delim = ',', trim_ws = T, show_col_types = F)
+    df <- df %>%
+        mutate(pseudonym = str_extract(IMG,"(?<=qsiprep/).+(?=/ses)"),
+               Timepoint = str_extract(IMG,"(?<=ses-).+(?=/metrics)"),
+               TimepointNr = if_else(str_detect(Timepoint,'Visit1'),0,2),
+               ParticipantType = if_else(str_detect(Timepoint,'POM'),
+                                         'Patient','Healthy'),
+               TimepointNr = TimepointNr) %>%
+        select(-c(IMG,Timepoint)) %>%
+        relocate(pseudonym,ParticipantType,TimepointNr) %>%
+        arrange(ParticipantType,pseudonym,TimepointNr)
+    
+    df
+}
+df_dti <- read_dti_metrics('P:/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_avg.csv') %>%
+  left_join(., read_dti_metrics('P:/3024006.02/Analyses/MJF_FreeWater/data/n2_pasternak_fw/FW_stats_sd.csv'), by = c('pseudonym','ParticipantType','TimepointNr'))
+
+head(df_dti)
+```
+
+## Load: cortical mean diffusivity
+
+Load cortical mean diffusivity.
+
+```{r LOAD-MD, echo=F, warning=F, message=F}
+# FreeSurfer data
+read_fs_metrics <- function(filename){
+  df <- read_csv(filename, show_col_types = F) %>%
+    rename(pseudonym=SubjID) %>%
+    mutate(TimepointNr = str_sub(pseudonym, start=26,end=27),
+           TimepointNr = if_else(TimepointNr=='t1',0,2),
+           pseudonym = str_sub(pseudonym, start=1, end=24)) %>%
+    relocate(pseudonym, TimepointNr)
+  
+  df
+}
+fs_exclusions <- c('sub-POMU56F70F8137CF0C55', 'sub-POMU6059DC1B31E11124')
+volume_rois <- c('thal','caud','put','pal','accumb','amyg')
+surface_rois <- c( "caudalanteriorcingulate","caudalmiddlefrontal",
+                   "cuneus","entorhinal","fusiform","inferiorparietal",
+                   "inferiortemporal","isthmuscingulate","lateraloccipital",
+                   "lateralorbitofrontal","lingual","medialorbitofrontal",
+                   "middletemporal","parahippocampal","paracentral",
+                   "parsopercularis","parsorbitalis","parstriangularis",
+                   "pericalcarine","postcentral","posteriorcingulate",
+                   "precentral","precuneus","rostralanteriorcingulate",
+                   "rostralmiddlefrontal","superiorfrontal","superiorparietal",
+                   "superiortemporal","supramarginal","frontalpole",
+                   "temporalpole","transversetemporal","insula")
+df_fs_vol <- read_fs_metrics('P:/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/LandRvolumes.csv') %>%
+  select(pseudonym,TimepointNr,TSCGMV,TCGMV,TGMV,ICV,contains(volume_rois))
+df_fs_surf <- read_fs_metrics('P:/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_SurfAvg.csv') %>%
+  select(pseudonym,TimepointNr,contains(surface_rois))
+df_fs_thick <- read_fs_metrics('P:/3022026.01/pep/bids/derivatives/freesurfer_v7.3.2/outputs/metrics/measures/CorticalMeasuresENIGMA_ThickAvg.csv') %>%
+  select(pseudonym,TimepointNr,contains(surface_rois))
+metric <- c('fsl_MD','TensorFWCorrected_dcmp_MD','TensorDTINoNeg_dcmp_MD','dipy-MDc','dipy-MD','FW')
+metric <- metric[1]
+df_fs_md <- read_csv(paste0('P:/3022026.01/pep/bids/derivatives/qsiprep/measures/1_NoPVC_projfrac02-08-01_correctb0orientation/SurfaceMeasures_',metric,'_T1w_Mean.csv'),
+                     show_col_types = F) %>%
+  rename(pseudonym = SubjID) %>%
+  mutate(TimepointNr = if_else(str_detect(Timepoint,'Visit1'),0,2)) %>%
+  relocate(pseudonym, TimepointNr) %>%
+  select(-Timepoint) %>% select(pseudonym,TimepointNr,contains(surface_rois)) %>%
+  na.omit()
+df_fs <- df_fs_vol %>% 
+  left_join(df_fs_surf, by = c('pseudonym','TimepointNr')) %>%
+  left_join(df_fs_thick, by = c('pseudonym','TimepointNr')) %>% 
+  left_join(df_fs_md, by = c('pseudonym', 'TimepointNr')) %>%
+  filter(! pseudonym %in% fs_exclusions)
+for(roi in volume_rois){
+  bi_roi <- tibble(
+    roi=(
+      (df_fs %>% pull(paste0('L',roi)) + df_fs %>% pull(paste0('R',roi))) / 2
+    )
+  )
+  colnames(bi_roi) <- paste0('bi_',roi)
+  df_fs <- df_fs %>% bind_cols(bi_roi)
+}
+for(roi in surface_rois){
+  for(m in c('surfavg','thickavg','dti')){
+    bi_roi <- tibble(
+      roi=(
+        (df_fs %>% pull(paste('L',roi,m,sep='_')) + df_fs %>% pull(paste('R',roi,m,sep='_'))) / 2
+      )
+    )
+    colnames(bi_roi) <- paste('bi',roi,m,sep='_')
+    df_fs <- df_fs %>% bind_cols(bi_roi)
+  }
+}
+
+head(df_fs)
+```
+
+## Combine data
+
+Merge all data into a single set.
+
+```{r COMBINE-DATA, echo=F, warning=F, message=F}
+df <- df_clin %>%
+  full_join(., df_stress_class, by = 'pseudonym'
+            ) %>%
+  full_join(., df_stress_crpnfl, by = c("pseudonym","TimepointNr")
+            ) %>%
+  full_join(., df_dti, by = c('pseudonym','ParticipantType','TimepointNr')
+            ) %>%
+  full_join(., df_fs, by = c('pseudonym','TimepointNr')
+            )
+
+head(df)
+```
+
+## Feature engineering
+
+ - Factorize
+ - Define complete cases
+ - Add visit-specific and delta columns
+
+```{r ENGINEER, echo=F, warning=F, message=F}
+# Factorize
+df <- df %>%
+  mutate(TimepointNr = factor(TimepointNr, levels = c(0,2), labels = c(0,2)),
+         Gender = factor(Gender, levels = c('Female','Male'), labels = c(0,1)),
+         SR_class = factor(SR_class, levels = c(1,2), labels = c(0,1)),
+         SR_cohort = if_else(is.na(SR_cohort),0,SR_cohort),
+         SR_class2 = case_when(
+           ParticipantType == 'Healthy' ~ 0,
+           ParticipantType == 'Patient' & SR_class == 0 ~ 1,
+           ParticipantType == 'Patient' & SR_class == 1 ~ 2
+         ),
+         SR_class2 = factor(SR_class2, levels = c(0,1,2), labels = c(0,1,2))) %>%
+  relocate(SR_class2, .after = SR_class)
+
+# Which subjects have complete data?
+subs <- unique(df$pseudonym)
+tmp <- c()
+for(i in subs){
+  ntp <- df %>%
+    filter(pseudonym==i) %>%
+    select(TimepointNr) %>%
+    nrow()
+  tmp <- tmp %>%
+    bind_rows(tibble(pseudonym=i,ntp=ntp))
+}
+tmp <- tmp %>%
+  mutate(complete_case = if_else(ntp > 1, 1, 0)) %>%
+  select(-ntp)
+df <- df %>%
+  left_join(., tmp, by = 'pseudonym') %>%
+  relocate(complete_case, .after = SR_cohort)
+
+# Add time-specific values as separate columns
+add_timepoints_as_columns <- function(dat, id_cols, timevar, var){
+  
+  # Separate timepoints and calculate delta
+  dat2 <- dat %>%
+    select(all_of(id_cols),
+           all_of(timevar),
+           all_of(var)) %>%
+    pivot_wider(id_cols = id_cols,
+                names_from = 'TimepointNr',
+                names_prefix = 'T',
+                values_from = all_of(var)) %>%
+    mutate(T2sub0 = T2-T0) %>%
+    rename()
+  
+  # Add variable name
+  dat2 <- rename_with(
+    dat2,
+    ~ paste0(.x, '_', var, recycle0 = TRUE),
+    starts_with("T")
+  )
+  
+  # Join with old data
+  dat <- 
+    left_join(dat, dat2, by = c(id_cols))
+  
+  # Print
+  dat
+
+}
+id_cols <- colnames(df)[1:2]
+timevar <- 'TimepointNr'
+vars <- colnames(df)[14:length(colnames(df))]
+for(i in 1:length(vars)){
+  df <- add_timepoints_as_columns(df, id_cols, timevar, vars[i])
+}
+```
+
+## Exclusions
+
+ - Exclude misdiagnosis
+ - Retain patients with an SR class and healthy controls.
+ - Exclude participants who did not pass QC procedures.
+
+```{r EXCLUDE, echo=F, warning=F, message=F}
+# Exclude misdoagnised patients
+df <- df %>%
+    filter(Misdiagnosis != 1)
+
+# Retain cohort of interest
+df <- df %>%
+  filter(SR_cohort == 1 | ParticipantType == 'Healthy')
+
+# Define partcipants who failed QC
+read_dti_exclusions <- function(filename) {
+  df <- read_excel(filename) %>%
+    filter(retain == 'N') %>%
+    select(pseudonym,session) %>%
+    distinct() %>%
+    mutate(TimepointNr = if_else(str_detect(session,'Visit1'),0,2),
+           TimepointNr = factor(TimepointNr),
+           Exclusion = 1) %>%
+    select(-session)
+}
+
+exclusions <- read_dti_exclusions('P:/3024006.02/Analyses/MJF_FreeWater/QC/FW/Exclusions_and_Outliers_FW.xlsx')
+df <- df %>%
+  left_join(exclusions, by = c('pseudonym','TimepointNr')) %>%
+  mutate(Exclusion = if_else(is.na(Exclusion),0,Exclusion)) %>%
+  rename(Exclusion_FW = Exclusion)
+
+exclusions <- read_dti_exclusions('P:/3024006.02/Analyses/MJF_FreeWater/QC/MD/Exclusions_and_Outliers_MD.xlsx')
+df <- df %>%
+  left_join(exclusions, by = c('pseudonym','TimepointNr')) %>%
+  mutate(Exclusion = if_else(is.na(Exclusion),0,Exclusion)) %>%
+  rename(Exclusion_MD = Exclusion)
+
+df_fw <- df %>%
+  filter(Exclusion_FW != 1)
+df_md <- df %>%
+  filter(Exclusion_MD != 1)
+```
+
+# pSN FW analysis
+
+## Descriptives
+
+### pSN by group
+
+pSN FW is generally higher in patients than controls, but there doesn't seem to be any difference between stress reactivity groups. There are also no apparent differences in longitudinal change between any of the groups.
+
+```{r SA-DESCRIBE, echo=F, warning=F, message=F}
+# Describe
+df_fw %>%
+  count(SR_class2,TimepointNr)
+
+# Plot
+g <- df_fw %>%
+  ggplot(aes(x=SR_class2, y = pSN_avg, color=TimepointNr)) +
+  geom_jitter(alpha=0.2, position = position_jitterdodge(jitter.width = 0.2)) +
+  geom_boxplot(outlier.shape = NA, width=0.5, position = position_dodge(width=0.8)) + 
+  stat_summary(fun.data = 'mean_cl_boot', geom = 'point', color='darkred', size=1.5, 
+               mapping = aes(group=TimepointNr), position = position_dodge(width=0.8)) +
+  theme_bw() + 
+  scale_x_discrete(labels=c('Healthy','Low','High')) +
+  scale_color_viridis_d(option='mako', begin = .1, end = .6,
+                        direction = -1) + 
+  ggtitle('Posterior substantia nigra') +
+  ylab('Free water (fraction)') + xlab('') + 
+  guides(color = guide_legend(title='Year')) +
+  ylim(0, 0.7)+
+  annotate(geom='text',label='N=50',x=0.8,y=0.1) +
+  annotate(geom='text',label='N=47',x=1.2,y=0.1) +
+  annotate(geom='text',label='N=217',x=1.8,y=0.1) +
+  annotate(geom='text',label='N=209',x=2.2,y=0.1) + 
+  annotate(geom='text',label='N=119',x=2.8,y=0.1) +
+  annotate(geom='text',label='N=109',x=3.2,y=0.1)
+y <- 0.65
+d = 0.015
+segmap <- data.frame(
+        x =    c(1.00, 1.00),
+        xend = c(2.00, 3.00),
+        y =    c(y,    y-d*2),
+        yend = c(y,    y-d*2)
+)
+sigmap <- data.frame(
+        x =     c(1.50, 2.00),
+        y =     c(y,    y-d*2),
+        label = c('***', '***')
+)
+g <- g + 
+        geom_segment(data=segmap,
+                     mapping = aes(x=x,xend=xend,y=y,yend=yend),
+                     inherit.aes = FALSE,
+                     linewidth = lsize) +
+        geom_text(data=sigmap, 
+                  mapping = aes(x=x,y=y,label=label),
+                  inherit.aes = FALSE,
+                  size = sigsize)
+print(g)
+```
+
+### Histograms
+
+```{r SA-HIST, echo=F, warning=F, message=F}
+
+tmp <- df %>%
+    filter(TimepointNr==0,
+         T2sub0_CRP > -10,
+         T2sub0_NFL < 50) %>%
+    select(pseudonym,ParticipantType,TimepointNr,T0_pSN_avg,T2_pSN_avg,T2sub0_pSN_avg,T0_CRP,T2_CRP,T2sub0_CRP,T0_NFL,T2_NFL,T2sub0_NFL)
+ggpairs(tmp, 
+        columns = 4:12, 
+        aes(alpha=0.5),
+        lower = list(continuous = 'smooth')) %>%
+    print()
+
+```
+
+## Mixed-effects modelling
+
+Using mixed-effects modelling, we test the hypothesis that stress reactivity predisposes patients to faster pSN degeneration, as represented by a GROUP x TIME interaction.
+
+```{r SA-MODEL, echo=F, warning=F, message=F}
+# Model
+sr_mod <-
+  linear_reg() %>%
+  set_engine('lmer') %>%
+  set_mode('regression')
+
+# Recipe
+sr_rec <- 
+  recipe(pSN_avg ~ SR_class2 + TimepointNr + Age + Gender + NpsEducYears + pseudonym, data = df_fw) %>%
+  add_role(pseudonym, new_role = 'exp_unit') %>%
+  step_interact(terms = ~ SR_class2:TimepointNr) %>%
+  step_center(all_numeric_predictors()) %>%
+  step_log(pSN_avg, base = 10) %>%
+  step_zv(all_predictors(), -has_role('exp_unit'))
+
+# Workflow
+sr_wf <-
+  workflow() %>%
+  add_model(sr_mod, formula = pSN_avg ~ SR_class2 * TimepointNr + Age + Gender + NpsEducYears + (1|pseudonym)) %>%
+  add_recipe(sr_rec)
+
+# Fit
+sr_fit <- 
+  sr_wf %>%
+  fit(data = df_fw)
+
+# Assess
+sr_ext_fit <- extract_fit_engine(sr_fit)
+Anova(sr_ext_fit, type = 3) %>% 
+  print()
+eta_squared(sr_ext_fit) %>%
+  print()
+emmeans(sr_ext_fit, ~ TimepointNr|SR_class2, type = 'response') %>% 
+  contrast(em, interaction = (c('revpairwise','revpairwise')), adjust = 'mvt', type = 'response', by = NULL) %>% 
+  print()
+emmeans(sr_ext_fit, ~ TimepointNr|SR_class2, type = 'response') %>% 
+  contrast(em, interaction = (c('revpairwise','revpairwise')), adjust = 'mvt', type = 'response') %>% 
+  print()
+emmeans(sr_ext_fit, ~SR_class2, type = 'response') %>% contrast(interaction = c('revpairwise')) %>% 
+  print()
+emmeans(sr_ext_fit, ~TimepointNr, type = 'response') %>% contrast(interaction = c('revpairwise')) %>% 
+  print()
+ggemmeans(sr_ext_fit, c('SR_class2','TimepointNr')) %>% 
+  plot()
+```
+
+Conclusion: As suggested by the plot above, patients have more pSN FW. However, there are no differences between the stress reactivity groups with respect to overall pSN FW, or longitudinal change in it.
+
+## Three-sample t-test
+
+Using standard linear modelling, we test the same hypothesis as above, but on the deltas of pSN FW in participants with complete data. Adjustment for baseline increases sensitivity by accounting for individual differences in longitudinal change and regression-to-the-mean effects. This would be achievable with the mixed effects approach if we had more data to fit random slopes for time, but we don't.
+
+```{r SA-MODEL-DELTA, echo=F, warning=F, message=F}
+# Subset data
+tmp <- df_fw %>%
+  filter(TimepointNr==0,
+         complete_case==1) %>%
+  select(pseudonym,SR_class2,Age,Gender,NpsEducYears,T2sub0_pSN_avg,T0_pSN_avg) %>%
+  na.omit()
+tmp <- bind_cols(tmp,
+                 T2sub0_pSN_avg_rz = lm(T2sub0_pSN_avg~T0_pSN_avg,data=tmp)$residuals)
+
+# Model
+sr_d_mod <-
+  linear_reg() %>%
+  set_engine('lm') %>%
+  set_mode('regression')
+
+# Recipe
+sr_d_rec <-
+  recipe(T2sub0_pSN_avg_rz ~ SR_class2 + Age + Gender + NpsEducYears, data = tmp) %>%
+    step_dummy(Gender) %>%
+    step_center(all_numeric_predictors()) %>%
+    step_zv(all_predictors())
+
+# Workflow
+sr_d_wf <-
+  workflow() %>%
+  add_model(sr_d_mod) %>%
+  add_recipe(sr_d_rec)
+
+# Fit
+sr_d_fit <- 
+  sr_d_wf %>%
+  fit(data = tmp)
+
+# Assess
+sr_d_ext_fit <-
+  sr_d_fit %>%
+  extract_fit_engine()
+Anova(sr_d_ext_fit, type = 3) %>%
+  print()
+emmeans(sr_d_ext_fit, ~SR_class2, type = 'response') %>% contrast(interaction = c('revpairwise')) %>% 
+  print()
+emmeans(sr_d_ext_fit, ~SR_class2, type = 'response') %>% contrast(interaction = c('identity')) %>% 
+  print()
+ggemmeans(sr_d_ext_fit, 'SR_class2') %>% 
+  plot()
+```
+
+Conclusion: The results are fully consistent with the mixed-effects approach. Stress reactivity groups do not differ in longitudinal change. However, the added sensitivity of this approach reveals that patients, regardless of group, show increased pSN FW over time relative to controls. 
+
+## Correlations
+
+Using standard linear modelling, we test whether change in posterior SN FW is influenced by change in CRP and NFL.
+
+### FW ~ CRP
+
+#### Delta
+
+```{r CORRELATE-FW-CRP, echo=F, warning=F, message=F}
+
+# Subset data and filter outliers
+tmp <- df %>%
+  filter(TimepointNr==0,
+         ParticipantType=='Patient',
+         T2sub0_CRP > -10,
+         complete_case==1) %>%
+  select(pseudonym,Age,Gender,NpsEducYears,YearsSinceDiag,T2sub0_pSN_avg,T0_pSN_avg,T2_pSN_avg,T2sub0_CRP,T0_CRP,T2_CRP) %>%
+  na.omit()
+tmp <- bind_cols(tmp,
+                 T2sub0_pSN_avg_rz = lm(T2sub0_pSN_avg~T0_pSN_avg,data=tmp)$residuals,
+                 T2sub0_CRP_rz = lm(T2sub0_CRP~T0_CRP,data=tmp)$residuals)
+
+# Model
+sr_d_mod <- 
+  linear_reg() %>%
+  set_engine('lm') %>%
+  set_mode('regression')
+
+# Recipe
+sr_d_rec <- 
+  recipe(T2sub0_pSN_avg_rz ~ T2sub0_CRP_rz + Age + Gender + NpsEducYears + YearsSinceDiag, data = tmp) %>%
+  step_dummy(Gender) %>%
+  step_center(all_numeric_predictors()) %>%
+  step_zv(all_predictors())
+
+# Workflow
+sr_d_wf <- 
+  workflow() %>%
+  add_model(sr_d_mod) %>%
+  add_recipe(sr_d_rec)
+
+# Fit
+sr_d_fit <-
+  sr_d_wf %>%
+  fit(data = tmp)
+
+# Assess
+sr_d_fit_extract <-
+  sr_d_fit %>%
+  extract_fit_engine()
+Anova(sr_d_fit_extract, type = 3) %>%
+  print()
+summary(sr_d_fit_extract) %>%
+  print()
+pred <- ggpredict(sr_d_fit_extract, terms = "T2sub0_CRP_rz")
+g <- plot(pred, add.data = TRUE,color='darkred') + theme_bw() + ggtitle('') +
+        ylab('Change in pSN FW') + xlab('Change in CRP') +
+        geom_hline(yintercept = 0, color = 'darkgrey', lty = 2) + geom_vline(xintercept = 0, color = 'darkgrey', lty = 2)
+print(g)
+
+# Alternative: Spearman
+cor.test(tmp$T2sub0_pSN_avg_rz,tmp$T2sub0_CRP_rz,method='spearman') %>%
+    print()
+
+```
+
+#### RMC
+
+```{r CORRELATE-FW-CRP-RMC, echo=F, warning=F, message=F}
+# Subset data and filter outliers
+tmp <- df %>%
+    filter(ParticipantType=='Patient',
+           T2sub0_CRP > -10,
+           complete_case==1) %>%
+    select(pseudonym,pSN_avg,CRP) %>%
+    na.omit()
+
+# Fit
+rmc <- rmcorr('pseudonym','pSN_avg','CRP',dataset = tmp)
+
+# Assess
+print(rmc)
+plot(rmc)
+```
+
+Conclusion: There is no association with change in CRP.
+
+### FW ~ NFL
+
+#### Delta
+
+```{r CORRELATE-FW-NFL, echo=F, warning=F, message=F}
+
+# Subset data and filter outliers
+tmp <- df %>%
+  filter(TimepointNr==0,
+         ParticipantType=='Patient',
+         T2sub0_NFL < 50,
+         complete_case==1) %>%
+  select(pseudonym,Age,Gender,NpsEducYears,YearsSinceDiag,T2sub0_pSN_avg,T0_pSN_avg,T2_pSN_avg,T2sub0_NFL,T0_NFL,T2_NFL) %>%
+  na.omit()
+tmp <- bind_cols(tmp,
+                 T2sub0_pSN_avg_rz = lm(T2sub0_pSN_avg~T0_pSN_avg,data=tmp)$residuals,
+                 T2sub0_NFL_rz = lm(T2sub0_NFL~T0_NFL,data=tmp)$residuals)
+
+# Model
+sr_d_mod <- 
+  linear_reg() %>%
+  set_engine('lm') %>%
+  set_mode('regression')
+
+# Recipe
+sr_d_rec <- 
+  recipe(T2sub0_pSN_avg_rz ~ T2sub0_NFL_rz + Age + Gender + NpsEducYears + YearsSinceDiag, data = tmp) %>%
+  step_dummy(Gender) %>%
+  step_center(all_numeric_predictors()) %>%
+  step_zv(all_predictors())
+
+# Workflow
+sr_d_wf <- 
+  workflow() %>%
+  add_model(sr_d_mod) %>%
+  add_recipe(sr_d_rec)
+
+# Fit
+sr_d_fit <-
+  sr_d_wf %>%
+  fit(data = tmp)
+
+# Assess
+sr_d_fit_extract <-
+  sr_d_fit %>%
+  extract_fit_engine()
+Anova(sr_d_fit_extract, type = 3) %>%
+  print()
+summary(sr_d_fit_extract) %>%
+  print()
+pred <- ggpredict(sr_d_fit_extract, terms = "T2sub0_NFL_rz")
+g <- plot(pred, add.data = TRUE,color='darkred') + theme_bw() + ggtitle('') +
+        ylab('Change in pSN FW') + xlab('Change in NFL') +
+        geom_hline(yintercept = 0, color = 'darkgrey', lty = 2) + geom_vline(xintercept = 0, color = 'darkgrey', lty = 2)
+print(g)
+
+# Alternative: Spearman
+cor.test(tmp$T2sub0_pSN_avg_rz,tmp$T2sub0_NFL_rz,method='spearman') %>%
+    print()
+
+```
+
+#### RMC
+
+```{r CORRELATE-FW-NFL-RMC, echo=F, warning=F, message=F}
+# Subset data and filter outliers
+tmp <- df %>%
+    filter(ParticipantType=='Patient',
+           T2sub0_NFL < 50,
+           complete_case==1) %>%
+    select(pseudonym,pSN_avg,NFL) %>%
+    na.omit()
+
+# Fit
+rmc <- rmcorr('pseudonym','pSN_avg','NFL',dataset = tmp)
+
+# Assess
+print(rmc)
+plot(rmc)
+```
+
+Conclusion: There is no association with change in NFL.
+
+# Bonus: Cortical MD analysis
+
+## Descriptives
+
+```{r DESCRIBE-MD, echo=F, warning=F, message=F, eval=F}
+# Describe
+df_md %>%
+  count(SR_class2, TimepointNr) %>%
+  print()
+
+# Plot
+vars_group <- c('SR_class2','TimepointNr')
+labels <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
+            'paracentral','postcentral','precentral','superiorfrontal','caudalmiddlefrontal')
+measure <- c('dti')
+hemi <- c('bi')
+vars_dv <- paste(hemi,labels,measure,sep='_')
+
+df.plot <- df_md %>% 
+  select(pseudonym,SR_class2,TimepointNr,
+         all_of(vars_dv)) %>%
+  pivot_longer(cols = all_of(vars_dv),
+               names_to = 'ROI',
+               values_to = 'Value') %>%
+  mutate(ROI=factor(ROI,
+                    levels=vars_dv,
+                    labels=vars_dv),
+         SR_class2 = factor(SR_class2),
+         TimepointNr = factor(TimepointNr)) %>%
+  na.omit()
+
+g <- ggplot(df.plot, aes(y=Value, x=SR_class2, fill=TimepointNr)) + 
+  geom_boxplot() + 
+  facet_grid(~ROI) +
+  theme_bw() +
+  ylab('Cortical MD') + xlab('SR class') +
+  scale_fill_viridis_d(option='mako', begin = .7, end = .5,
+                        direction = 1, labels=c('BA','2Y'),
+                       guide = guide_legend(title='Time'))
+print(g)
+```
+
+## Modelling
+
+```{r MODEL-MD, echo=F, warning=F, message=F, eval=F}
+# Model
+sr_mod <- 
+  linear_reg() %>%
+  set_engine('lmer') %>%
+  set_mode('regression')
+
+sr_d_mod <-
+  linear_reg() %>%
+  set_engine('lm') %>%
+  set_mode('regression')
+
+# By-region modelling
+labels <- c('inferiorparietal','superiorparietal','precuneus','supramarginal',
+            'paracentral','postcentral','precentral',
+            'superiorfrontal','caudalmiddlefrontal')
+measure <- c('dti')
+hemi <- c('bi')
+cols <- paste(hemi,labels,measure,sep='_')
+
+tab <- c()
+for(lab in cols){
+  
+  ## LMER
+  # Recipe
+  f <- as.formula(paste0(lab, ' ~ SR_class2 + TimepointNr + Age + Gender + pseudonym'))
+  sr_rec <- 
+    recipe(f, data = df_md) %>%
+    add_role(pseudonym, new_role = 'exp_unit') %>%
+    step_interact(terms = ~ SR_class2:TimepointNr) %>%
+    step_center(Age) %>%
+    step_log(all_of(lab), base = 10) %>%
+    step_zv(all_predictors(), -has_role('exp_unit'))
+  
+  # Workflow
+  sr_wf <-
+    workflow() %>%
+    add_model(sr_mod, formula = as.formula(paste0(lab, ' ~ SR_class2 * TimepointNr + Age + Gender + (1|pseudonym)'))) %>%
+    add_recipe(sr_rec)
+  
+  # Fit
+  sr_fit <- 
+    sr_wf %>%
+    fit(data = df_md)
+  
+  # Assess
+  sr_ext_fit <- extract_fit_engine(sr_fit)
+  a <- Anova(sr_ext_fit, type = 3)
+  etas <- eta_squared(sr_ext_fit)
+  em01 <- emmeans(sr_ext_fit, ~ TimepointNr|SR_class2, type = 'response') %>% 
+    contrast(em, interaction = (c('revpairwise','revpairwise')), adjust = 'mvt', type = 'response', by = NULL)
+  em02 <- emmeans(sr_ext_fit, ~ TimepointNr|SR_class2, type = 'response') %>% 
+    contrast(em, interaction = (c('revpairwise','revpairwise')), adjust = 'mvt', type = 'response')
+  em03 <- emmeans(sr_ext_fit, ~SR_class2, type = 'response') %>% contrast(interaction = c('revpairwise'))
+  em04 <- emmeans(sr_ext_fit, ~TimepointNr, type = 'response') %>% contrast(interaction = c('revpairwise'))
+  
+  ## DELTA
+  # Subset data
+  lab_d <- paste0('T2sub0_', lab)
+  lab_t0 <- paste0('T0_', lab)
+  tmp <- df_md %>%
+    filter(TimepointNr==0) %>%
+    select(pseudonym,SR_class2,Age,Gender,all_of(c(lab_d, lab_t0))) %>%
+    na.omit()
+  
+  # Recipe
+  f <- as.formula(paste0(lab_d, ' ~ SR_class2 + Age + Gender + ', lab_t0))
+  sr_d_rec <-
+    recipe(f, data = tmp) %>%
+    step_center(Age,all_of(c(lab_d,lab_t0))) %>%
+    step_zv(all_predictors())
+  
+  # Workflow
+  sr_d_wf <-
+    workflow() %>%
+    add_model(sr_d_mod) %>%
+    add_recipe(sr_d_rec)
+  
+  # Fit
+  sr_d_fit <- 
+    sr_d_wf %>%
+    fit(data = tmp)
+  
+  # Assess
+  sr_d_ext_fit <-
+    sr_d_fit %>%
+    extract_fit_engine()
+  a_d <- Anova(sr_d_ext_fit, type = 3)
+  etas_d <- eta_squared(a_d)
+  em01_d <- emmeans(sr_d_ext_fit, ~SR_class2, type = 'response') %>% contrast(interaction = c('revpairwise'))
+  em02_d <- emmeans(sr_d_ext_fit, ~SR_class2, type = 'response') %>% contrast(interaction = c('identity'))
+  
+  ## Summarize
+  tab <- bind_rows(tab,
+                   tibble(label=lab,
+                          p_Group_x_Time=a[rownames(a)=='SR_class2:TimepointNr',3],
+                          p_Time=a[rownames(a)=='TimepointNr',3],
+                          p_Group=a[rownames(a)=='SR_class2',3],
+                          eta_squared=etas$Eta2_partial[etas$Parameter=='SR_class2:TimepointNr'],
+                          p_Delta_Group=a_d[rownames(a_d)=='SR_class2',4],
+                          eta_squared_d=etas_d$Eta2_partial[etas_d$Parameter=='SR_class2'])
+  )
+}
+print(tab)
+```
+
+
